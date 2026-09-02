@@ -19,6 +19,17 @@ Backend (`Backend/`):
 
 Test command exists in `Backend/package.json` but is only a placeholder (`echo "Error: no test specified"`).
 
+## Development Server Rules
+
+* Never wait for `npm run dev` to exit. Development servers are long-running processes and are expected to remain active.
+* Treat `Server running on http://localhost:3000` as successful backend startup and immediately continue with the next verification step.
+* Treat the corresponding Vite `Local:` / server-ready output as successful frontend startup.
+* Do not interpret a running development server as a hung command merely because the process remains alive.
+* Use `curl.exe` or another non-interactive-safe HTTP client for runtime verification on Windows.
+* After verification is complete, terminate any development servers started by the agent.
+* Confirm that no unnecessary Fintrack Node processes or listeners remain after cleanup.
+* Never wait indefinitely for a development server process to terminate.
+
 ## Gotchas
 - Vite dev server proxies `/api` to `http://localhost:3000` via `server.proxy` in `vite.config.js`. Frontend on 5173 calls backend on 3000 through the proxy (no CORS needed).
 - Backend uses Express **5** (`^5.2.1`) — API differs from v4 (e.g. async error handling, `path-to-regexp` v8 route syntax).
