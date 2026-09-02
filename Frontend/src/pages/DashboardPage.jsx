@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import PageHeader from '../components/layout/PageHeader'
 import EmptyState from '../components/common/EmptyState'
 import SummaryCard from '../components/dashboard/SummaryCard'
@@ -60,7 +61,7 @@ function DashboardPage() {
               <span>Unable to load dashboard. {loadError}</span>
               <button
                 type="button"
-                className="btn btn-sm btn-outline"
+                className="btn btn-sm"
                 onClick={() => {
                   setStatus('loading')
                   setRefreshKey((key) => key + 1)
@@ -95,9 +96,9 @@ function DashboardPage() {
               title="Welcome to FinTrack"
               message="Record your first income or expense to start seeing your dashboard."
               action={
-                <a href="/transactions" className="btn btn-primary">
+                <Link to="/transactions" className="btn btn-primary">
                   Add Transaction
-                </a>
+                </Link>
               }
             />
           </div>

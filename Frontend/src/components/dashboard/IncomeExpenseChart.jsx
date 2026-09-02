@@ -24,23 +24,25 @@ function IncomeExpenseChart({ series }) {
       <div className="card-body">
         <h2 className="card-title">Income vs Expense</h2>
         {hasData ? (
-          <ResponsiveContainer width="100%" height={280}>
-            <BarChart data={data} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="label" tickLine={false} axisLine={false} fontSize={12} />
-              <YAxis
-                tickFormatter={formatCurrencyCompact}
-                tickLine={false}
-                axisLine={false}
-                width={64}
-                fontSize={12}
-              />
-              <Tooltip formatter={(value) => formatCurrency(value)} />
-              <Legend />
-              <Bar dataKey="income" name="Income" fill="#22c55e" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="expense" name="Expense" fill="#ef4444" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          <div role="img" aria-label="Bar chart of income versus expenses over the last six months">
+            <ResponsiveContainer width="100%" height={280}>
+              <BarChart data={data} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="label" tickLine={false} axisLine={false} fontSize={12} />
+                <YAxis
+                  tickFormatter={formatCurrencyCompact}
+                  tickLine={false}
+                  axisLine={false}
+                  width={64}
+                  fontSize={12}
+                />
+                <Tooltip formatter={(value) => formatCurrency(value)} />
+                <Legend />
+                <Bar dataKey="income" name="Income" fill="#22c55e" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="expense" name="Expense" fill="#ef4444" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         ) : (
           <EmptyState
             title="No data available for this period"

@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import EmptyState from '../common/EmptyState'
 import { formatCurrency, formatDate } from '../../utils/format'
 
@@ -11,9 +12,9 @@ function RecentTransactions({ transactions }) {
             title="No transactions yet"
             message="Your most recent transactions will appear here."
             action={
-              <a href="/transactions" className="btn btn-primary btn-sm">
+              <Link to="/transactions" className="btn btn-primary btn-sm">
                 Add a transaction
-              </a>
+              </Link>
             }
           />
         </div>
