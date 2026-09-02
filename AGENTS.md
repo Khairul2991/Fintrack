@@ -19,16 +19,60 @@ Backend (`Backend/`):
 
 Test command exists in `Backend/package.json` but is only a placeholder (`echo "Error: no test specified"`).
 
-## Development Server Rules
+## Development Server and Runtime Verification Rules
+- Development servers are long-running processes and MUST NOT be treated as commands that are expected to exit.
+- NEVER wait for npm run dev to terminate.
+- NEVER wait indefinitely for a development server command to return control.
+- After starting a development server, immediately monitor its output or perform an HTTP health check.
+- Treat successful server-ready output as successful startup.
 
-* Never wait for `npm run dev` to exit. Development servers are long-running processes and are expected to remain active.
-* Treat `Server running on http://localhost:3000` as successful backend startup and immediately continue with the next verification step.
-* Treat the corresponding Vite `Local:` / server-ready output as successful frontend startup.
-* Do not interpret a running development server as a hung command merely because the process remains alive.
-* Use `curl.exe` or another non-interactive-safe HTTP client for runtime verification on Windows.
-* After verification is complete, terminate any development servers started by the agent.
-* Confirm that no unnecessary Fintrack Node processes or listeners remain after cleanup.
-* Never wait indefinitely for a development server process to terminate.
+# Backend
+- For the backend, treat:
+  Server running on http://localhost:3000
+  as successful startup.
+- If node --watch server.js remains running or displays:
+  Waiting for file changes before restarting...
+  this is NORMAL and MUST NOT be interpreted as a hang.
+- Once the backend reports that it is running, immediately continue API verification without waiting for the process to exit.
+
+# Frontend / Vite
+- For the frontend, treat Vite output such as:
+  Local: http://localhost:5173/
+  as successful startup.
+- A successful HTTP response from the frontend is also sufficient confirmation that Vite is running.
+- For example:
+  curl.exe -s -o NUL -w "HTTP: %{http_code}\n" http://localhost:5173/
+- If the HTTP response is 200, immediately continue verification.
+- NEVER wait for the Vite npm run dev process to exit.
+- NEVER start a second Vite instance when port 5173 is already serving the application.
+
+# Windows Runtime Verification
+- Use curl.exe for HTTP verification on Windows.
+- DO NOT use PowerShell 5.1 Invoke-WebRequest for runtime verification because it may fail in non-interactive execution          environments.
+- Prefer HTTP health checks and log inspection over waiting for development-server processes to terminate.
+
+
+# Verification Workflow
+
+When a development server is required:
+
+1. Start the server.
+2. Wait briefly for startup.
+3. Check the server output OR perform an HTTP request.
+4. Once the server is confirmed running, immediately continue the verification workflow.
+5. NEVER wait for the server process to exit.
+6. After verification is complete, explicitly terminate the development server.
+7. Verify that ports 3000 and 5173 do not have unnecessary Fintrack listeners or processes remaining.
+
+A development server remaining alive is NOT evidence of a hung command.
+
+The agent MUST distinguish between:
+
+- a server that is successfully running and intentionally waiting for requests/file changes, and
+- a server that failed to start because of an actual error.
+
+Only the second case requires startup troubleshooting.
+
 
 ## Gotchas
 - Vite dev server proxies `/api` to `http://localhost:3000` via `server.proxy` in `vite.config.js`. Frontend on 5173 calls backend on 3000 through the proxy (no CORS needed).
