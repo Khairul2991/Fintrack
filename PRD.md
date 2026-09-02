@@ -1380,9 +1380,9 @@ Minimal lakukan pengujian terhadap:
 Recommended:
 
 ```text
-fintrack/
+Fintrack/
 │
-├── frontend/
+├── Frontend/
 │   ├── src/
 │   │   ├── components/
 │   │   ├── pages/
@@ -1395,7 +1395,7 @@ fintrack/
 │   │   └── main.jsx
 │   └── package.json
 │
-├── backend/
+├── Backend/
 │   ├── src/
 │   │   ├── controllers/
 │   │   ├── routes/

@@ -1,0 +1,55 @@
+generator client {
+  provider               = "prisma-client"
+  output                 = "../src/generated/prisma"
+  runtime                = "nodejs"
+  moduleFormat           = "esm"
+  generatedFileExtension = "mts"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+}
+
+model Category {
+  id           Int           @id @default(autoincrement())
+  name         String        @unique
+  icon         String
+  color        String
+  createdAt    DateTime      @default(now())
+  transactions Transaction[]
+  budgets      Budget[]
+}
+
+model Transaction {
+  id          Int             @id @default(autoincrement())
+  description String
+  amount      Decimal
+  type        TransactionType
+  categoryId  Int
+  date        DateTime
+  note        String?
+  createdAt   DateTime        @default(now())
+  category    Category        @relation(fields: [categoryId], references: [id])
+
+  @@index([categoryId])
+  @@index([date])
+  @@index([type])
+}
+
+model Budget {
+  id         Int      @id @default(autoincrement())
+  categoryId Int
+  month      Int
+  year       Int
+  amount     Decimal
+  createdAt  DateTime @default(now())
+  category   Category @relation(fields: [categoryId], references: [id])
+
+  @@unique([categoryId, month, year])
+  @@index([categoryId])
+}
