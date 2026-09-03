@@ -183,6 +183,16 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* --- Financial heading values in cards ------------------------ */
+/* Long amounts must never overflow their card. The number breaks only when
+   it cannot fit on one line, keeping full precision visible while staying
+   inside the card's bounding box. Pair with min-w-0 on grid children. */
+.financial-value {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 /* --- Subtle fade for cards entering the canvas ---------------- */
 @keyframes ft-fade-in {
   from {

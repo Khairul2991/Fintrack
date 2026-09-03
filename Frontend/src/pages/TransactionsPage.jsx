@@ -9,6 +9,9 @@ import TransactionForm from '../components/transactions/TransactionForm'
 import { useToast } from '../context/ToastContext'
 import { useLanguage } from '../context/LanguageContext'
 import { listCategories } from '../services/categoryApi'
+import { listAccounts } from '../services/accountApi'
+import { exportTransactions } from '../services/exportApi'
+import { downloadCsv, downloadExcel } from '../utils/exportUtils'
 import {
   createTransaction,
   deleteTransaction,
@@ -16,8 +19,8 @@ import {
   updateTransaction,
 } from '../services/transactionApi'
 
-const EMPTY_APPLIED = { type: '', categoryId: '', startDate: '', endDate: '' }
-const EMPTY_DRAFT = { type: '', categoryId: '', startDate: '', endDate: '' }
+const EMPTY_APPLIED = { type: '', categoryId: '', accountId: '', startDate: '', endDate: '' }
+const EMPTY_DRAFT = { type: '', categoryId: '', accountId: '', startDate: '', endDate: '' }
 
 const SORTS = {
   newest: { sortBy: 'date', sortOrder: 'desc' },
@@ -38,11 +41,13 @@ function readSize() {
 
 function TransactionsPage() {
   const toast = useToast()
-  const { t, translateError } = useLanguage()
+  const { t, translateError, lang } = useLanguage()
 
   const [categories, setCategories] = useState([])
   const [categoriesError, setCategoriesError] = useState('')
   const [categoriesAttempt, setCategoriesAttempt] = useState(0)
+
+  const [accounts, setAccounts] = useState([])
 
   const [applied, setApplied] = useState(EMPTY_APPLIED)
   const [draft, setDraft] = useState(EMPTY_DRAFT)
@@ -62,6 +67,7 @@ function TransactionsPage() {
   const [editing, setEditing] = useState(null)
   const [deleting, setDeleting] = useState(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
+  const [exporting, setExporting] = useState('')
 
   useEffect(() => {
     let active = true
@@ -80,12 +86,27 @@ function TransactionsPage() {
     }
   }, [categoriesAttempt, translateError])
 
+  useEffect(() => {
+    let active = true
+    listAccounts()
+      .then((response) => {
+        if (active) setAccounts(response.data)
+      })
+      .catch(() => {
+        if (active) setAccounts([])
+      })
+    return () => {
+      active = false
+    }
+  }, [])
+
   const buildQuery = useCallback(() => {
     const sortSpec = SORTS[sort] || SORTS.newest
     return {
       search: search || undefined,
       type: applied.type || undefined,
       categoryId: applied.categoryId || undefined,
+      accountId: applied.accountId || undefined,
       startDate: applied.startDate || undefined,
       endDate: applied.endDate || undefined,
       sortBy: sortSpec.sortBy,
@@ -151,6 +172,7 @@ function TransactionsPage() {
   function handleApply() {
     if (applied.type === draft.type &&
         applied.categoryId === draft.categoryId &&
+        applied.accountId === draft.accountId &&
         applied.startDate === draft.startDate &&
         applied.endDate === draft.endDate) {
       setPanelOpen(false)
@@ -243,6 +265,40 @@ function TransactionsPage() {
     }
   }
 
+  async function handleExport(format) {
+    if (exporting) return
+    setExporting(format)
+    try {
+      const sortSpec = SORTS[sort] || SORTS.newest
+      const rows = await exportTransactions({
+        search: search || undefined,
+        type: applied.type || undefined,
+        categoryId: applied.categoryId || undefined,
+        accountId: applied.accountId || undefined,
+        startDate: applied.startDate || undefined,
+        endDate: applied.endDate || undefined,
+        sortBy: sortSpec.sortBy,
+        sortOrder: sortSpec.sortOrder,
+      })
+      const data = rows.data
+      if (data.length === 0) {
+        toast.error(t('exp.empty'))
+        return
+      }
+      if (format === 'csv') {
+        downloadCsv(data, lang)
+        toast.success(t('exp.exportedCsv'))
+      } else {
+        await downloadExcel(data, lang)
+        toast.success(t('exp.exportedExcel'))
+      }
+    } catch (error) {
+      toast.error(translateError(error.message) || t('exp.downloadError'))
+    } finally {
+      setExporting('')
+    }
+  }
+
   const filterCount = Object.values(applied).filter((value) => value !== '').length
   const searchActive = search !== ''
   const filterActive = filterCount > 0
@@ -252,13 +308,36 @@ function TransactionsPage() {
   return (
     <div className="flex flex-col gap-4">
       <PageHeader title={t('tx.title')} subtitle={t('tx.subtitle')}>
-        <button type="button" className="btn btn-primary" onClick={openCreate}>
-          {t('tx.add')}
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            className="btn btn-outline"
+            onClick={() => handleExport('csv')}
+            disabled={Boolean(exporting) || meta.total === 0}
+            aria-label={t('exp.csvAria')}
+          >
+            {exporting === 'csv' ? <span className="loading loading-spinner loading-sm" /> : null}
+            {t('exp.exportCsv')}
+          </button>
+          <button
+            type="button"
+            className="btn btn-outline"
+            onClick={() => handleExport('excel')}
+            disabled={Boolean(exporting) || meta.total === 0}
+            aria-label={t('exp.excelAria')}
+          >
+            {exporting === 'excel' ? <span className="loading loading-spinner loading-sm" /> : null}
+            {t('exp.exportExcel')}
+          </button>
+          <button type="button" className="btn btn-primary" onClick={openCreate}>
+            {t('tx.add')}
+          </button>
+        </div>
       </PageHeader>
 
       <TransactionFilters
         categories={categories}
+        accounts={accounts}
         searchInput={searchInput}
         draft={draft}
         filterCount={filterCount}
@@ -416,6 +495,7 @@ function TransactionsPage() {
         <TransactionForm
           transaction={editing}
           categories={categories}
+          accounts={accounts}
           onCancel={closeForm}
           onSave={handleSave}
         />

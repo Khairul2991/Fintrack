@@ -44,6 +44,39 @@ const icons = {
       <path d="M7 15l4-5 3 3 5-7" />
     </svg>
   ),
+  accounts: (
+    <svg {...iconProps}>
+      <path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+      <path d="M3 10h18" />
+      <path d="M7 15h4" />
+    </svg>
+  ),
+  recurringTx: (
+    <svg {...iconProps}>
+      <path d="M4 7V4m0 3h14a4 4 0 0 1 0 8H8" />
+      <path d="M4 4h3m-3 3 3-3" />
+      <path d="M20 17v3m0-3H6a4 4 0 0 1 0-8h10" />
+      <path d="M20 20h-3m3-3-3 3" />
+    </svg>
+  ),
+  recurringBudget: (
+    <svg {...iconProps}>
+      <path d="M12 3l2.5 5.1 5.6.8-4 3.9.9 5.6L12 15.9 6.9 18.4l.9-5.6-4-3.9 5.6-.8z" />
+    </svg>
+  ),
+  goals: (
+    <svg {...iconProps}>
+      <circle cx="12" cy="12" r="9" />
+      <circle cx="12" cy="12" r="5" />
+      <circle cx="12" cy="12" r="1" />
+    </svg>
+  ),
+  notifications: (
+    <svg {...iconProps}>
+      <path d="M18 8a6 6 0 1 0-12 0c0 7-3 8-3 8h18s-3-1-3-8" />
+      <path d="M13.7 21a2 2 0 0 1-3.4 0" />
+    </svg>
+  ),
   settings: (
     <svg {...iconProps}>
       <circle cx="12" cy="12" r="3" />
@@ -54,9 +87,14 @@ const icons = {
 
 export const NAV_ITEMS = [
   { labelKey: 'nav.dashboard', to: '/', icon: icons.dashboard },
+  { labelKey: 'nav.accounts', to: '/accounts', icon: icons.accounts },
   { labelKey: 'nav.transactions', to: '/transactions', icon: icons.transactions },
+  { labelKey: 'nav.recurringTx', to: '/recurring-transactions', icon: icons.recurringTx },
   { labelKey: 'nav.categories', to: '/categories', icon: icons.categories },
   { labelKey: 'nav.budgets', to: '/budgets', icon: icons.budgets },
+  { labelKey: 'nav.recurringBudget', to: '/recurring-budgets', icon: icons.recurringBudget },
+  { labelKey: 'nav.goals', to: '/goals', icon: icons.goals },
   { labelKey: 'nav.reports', to: '/reports', icon: icons.reports },
+  { labelKey: 'nav.notifications', to: '/notifications', icon: icons.notifications },
   { labelKey: 'nav.settings', to: '/settings', icon: icons.settings },
 ]

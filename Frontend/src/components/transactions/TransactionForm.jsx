@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import MoneyInput from '../common/MoneyInput'
 import { useLanguage } from '../../context/LanguageContext'
+import { isAmountOverLimit } from '../../utils/numberFormat'
 
 const DESCRIPTION_MAX = 200
 const NOTE_MAX = 500
@@ -16,6 +17,7 @@ function initialForm(transaction, categories) {
       amount: '',
       type: 'EXPENSE',
       categoryId: categories.length > 0 ? String(categories[0].id) : '',
+      accountId: '',
       date: todayInput(),
       note: '',
     }
@@ -25,12 +27,13 @@ function initialForm(transaction, categories) {
     amount: transaction.amount,
     type: transaction.type,
     categoryId: String(transaction.categoryId),
+    accountId: transaction.accountId != null ? String(transaction.accountId) : '',
     date: transaction.date.slice(0, 10),
     note: transaction.note ?? '',
   }
 }
 
-function TransactionForm({ transaction, categories, onCancel, onSave }) {
+function TransactionForm({ transaction, categories, accounts = [], onCancel, onSave }) {
   const { t, localizeCategory } = useLanguage()
   const [form, setForm] = useState(() => initialForm(transaction, categories))
   const [errors, setErrors] = useState({})
@@ -41,6 +44,7 @@ function TransactionForm({ transaction, categories, onCancel, onSave }) {
   const amountRef = useRef(null)
   const typeRef = useRef(null)
   const categoryIdRef = useRef(null)
+  const accountIdRef = useRef(null)
   const dateRef = useRef(null)
 
   useEffect(() => {
@@ -64,6 +68,8 @@ function TransactionForm({ transaction, categories, onCancel, onSave }) {
     const amount = Number(form.amount)
     if (form.amount === '' || !Number.isFinite(amount) || amount <= 0) {
       next.amount = t('txf.errAmount')
+    } else if (isAmountOverLimit(form.amount)) {
+      next.amount = t('common.amountTooLarge')
     }
     if (form.type !== 'INCOME' && form.type !== 'EXPENSE') {
       next.type = t('txf.errType')
@@ -101,6 +107,7 @@ function TransactionForm({ transaction, categories, onCancel, onSave }) {
         amount: form.amount,
         type: form.type,
         categoryId: Number(form.categoryId),
+        accountId: form.accountId ? Number(form.accountId) : null,
         date: form.date,
         note: form.note.trim() ? form.note.trim() : null,
       })
@@ -215,6 +222,28 @@ function TransactionForm({ transaction, categories, onCancel, onSave }) {
               {errors.categoryId ? (
                 <p className="mt-1 text-xs text-error">{errors.categoryId}</p>
               ) : null}
+            </div>
+            <div>
+              <label className="label" htmlFor="tx-account">
+                <span className="label-text">
+                  {t('txf.account')}{' '}
+                  <span className="ml-1 text-base-content/40">{t('common.optional')}</span>
+                </span>
+              </label>
+              <select
+                id="tx-account"
+                ref={accountIdRef}
+                className="select select-bordered w-full"
+                value={form.accountId}
+                onChange={(event) => setField('accountId', event.target.value)}
+              >
+                <option value="">{t('txf.selectAccount')}</option>
+                {accounts.map((account) => (
+                  <option key={account.id} value={account.id}>
+                    {account.name}
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="label" htmlFor="tx-date">

@@ -73,12 +73,12 @@ function MonthlyComparison({ months }) {
             <div className="stats stats-vertical sm:stats-horizontal mt-2 w-full border border-base-200 bg-base-200/40">
               <div className="stat">
                 <div className="stat-title">{formatMonth(previous.month)}</div>
-                <div className="stat-value text-lg tabular-nums">{formatCurrency(previousExpense)}</div>
+                <div className="financial-value stat-value text-lg tabular-nums">{formatCurrency(previousExpense)}</div>
                 <div className="stat-desc">{t('common.expense')}</div>
               </div>
               <div className="stat">
                 <div className="stat-title">{formatMonth(last.month)}</div>
-                <div className="stat-value text-lg tabular-nums">{formatCurrency(currentExpense)}</div>
+                <div className="financial-value stat-value text-lg tabular-nums">{formatCurrency(currentExpense)}</div>
                 <div className="stat-desc">{t('common.expense')}</div>
               </div>
             </div>

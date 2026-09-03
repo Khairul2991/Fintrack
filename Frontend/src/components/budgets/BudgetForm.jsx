@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import MoneyInput from '../common/MoneyInput'
 import { useLanguage } from '../../context/LanguageContext'
+import { isAmountOverLimit } from '../../utils/numberFormat'
 
 const MIN_YEAR = 2000
 const MAX_YEAR = 2100
@@ -60,6 +61,8 @@ function BudgetForm({ budget, categories, onCancel, onSave }) {
     const amount = Number(form.amount)
     if (!Number.isFinite(amount) || amount <= 0) {
       next.amount = t('budf.errAmount')
+    } else if (isAmountOverLimit(form.amount)) {
+      next.amount = t('common.amountTooLarge')
     }
     setErrors(next)
     return next

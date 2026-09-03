@@ -50,6 +50,7 @@ function TransactionTable({ transactions, onEdit, onDelete }) {
           <tr className="text-base-content/60">
             <th className="text-xs font-medium uppercase tracking-wide">{t('tx.colDate')}</th>
             <th className="text-xs font-medium uppercase tracking-wide">{t('tx.colCategory')}</th>
+            <th className="text-xs font-medium uppercase tracking-wide">{t('tx.colAccount')}</th>
             <th className="text-xs font-medium uppercase tracking-wide">{t('tx.colDescription')}</th>
             <th className="text-xs font-medium uppercase tracking-wide">{t('tx.colType')}</th>
             <th className="text-right text-xs font-medium uppercase tracking-wide">
@@ -78,6 +79,9 @@ function TransactionTable({ transactions, onEdit, onDelete }) {
                   {localizeCategory(transaction.category)}
                 </span>
               </td>
+              <td className="whitespace-nowrap text-sm text-base-content/70">
+                {transaction.account ? transaction.account.name : '—'}
+              </td>
               <td>
                 <div className="font-medium text-sm">{transaction.description}</div>
                 {transaction.note ? (
@@ -96,7 +100,7 @@ function TransactionTable({ transactions, onEdit, onDelete }) {
                 </span>
               </td>
               <td
-                className={`whitespace-nowrap text-right font-semibold tabular-nums ${
+                className={`financial-value text-right font-semibold tabular-nums ${
                   transaction.type === 'INCOME' ? 'text-success' : 'text-error'
                 }`}
               >

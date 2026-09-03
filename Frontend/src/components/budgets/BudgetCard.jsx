@@ -22,7 +22,7 @@ function BudgetCard({ budget, onEdit, onDelete }) {
   const categoryLabel = localizeCategory(budget.category)
 
   return (
-    <div className="card surface card-border">
+    <div className="card surface card-border min-w-0">
       <div className="card-body gap-3 p-5">
         <div className="flex items-start justify-between gap-2">
           <div className="flex min-w-0 items-center gap-3">
@@ -48,13 +48,13 @@ function BudgetCard({ budget, onEdit, onDelete }) {
         <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-1 text-sm">
           <span className="text-base-content/70">
             {t('bud.spent')}{' '}
-            <span className="font-semibold tabular-nums text-base-content">
+            <span className="financial-value font-semibold tabular-nums text-base-content">
               {formatCurrency(budget.spent)}
             </span>
           </span>
           <span className="text-base-content/70">
             {t('bud.remaining')}{' '}
-            <span className={`font-semibold tabular-nums ${over ? 'text-error' : 'text-base-content'}`}>
+            <span className={`financial-value font-semibold tabular-nums ${over ? 'text-error' : 'text-base-content'}`}>
               {formatCurrency(remaining)}
             </span>
           </span>

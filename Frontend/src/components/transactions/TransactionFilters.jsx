@@ -33,9 +33,10 @@ function CloseIcon() {
   )
 }
 
-const EMPTY_DRAFT = { type: '', categoryId: '', startDate: '', endDate: '' }
+const EMPTY_DRAFT = { type: '', categoryId: '', accountId: '', startDate: '', endDate: '' }
 
 function TransactionFilters({
+  accounts = [],
   categories,
   searchInput,
   draft,
@@ -122,7 +123,7 @@ function TransactionFilters({
             aria-label={t('tx.filterPanelAria')}
             className="border-t border-base-200 pt-3"
           >
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
               <div>
                 <label className="label">
                   <span className="text-sm text-base-content/60">{t('tx.filterType')}</span>
@@ -152,6 +153,24 @@ function TransactionFilters({
                   {categories.map((category) => (
                     <option key={category.id} value={category.id}>
                       {category.icon} {localizeCategory(category)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="label">
+                  <span className="text-sm text-base-content/60">{t('tx.filterAccount')}</span>
+                </label>
+                <select
+                  className="select select-bordered w-full"
+                  value={draft.accountId}
+                  onChange={(event) => onDraftChange({ accountId: event.target.value })}
+                  aria-label={t('tx.filterAccountAria')}
+                >
+                  <option value="">{t('tx.allAccounts')}</option>
+                  {accounts.map((account) => (
+                    <option key={account.id} value={account.id}>
+                      {account.name}
                     </option>
                   ))}
                 </select>

@@ -30,7 +30,7 @@ function HighestCategory({ highest }) {
           </div>
           <div className="min-w-0">
             <p className="truncate text-lg font-semibold">{localizeCategory(highest)}</p>
-            <p className="text-sm text-base-content/60">
+            <p className="financial-value text-sm text-base-content/60">
               {t('rep.inExpenses', { value: formatCurrency(highest.total) })}
             </p>
           </div>

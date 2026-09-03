@@ -3,6 +3,7 @@ const { getPrisma } = require('../lib/prisma')
 const { requireText, integer, amountString } = require('../utils/validate')
 const { parseDateOnly } = require('../utils/date')
 const { ensureCategoryExists } = require('./categoryService')
+const { ensureAccountExists } = require('./accountService')
 
 const DESCRIPTION_MAX = 200
 const NOTE_MAX = 500
@@ -19,6 +20,10 @@ function parseTransactionInput(body) {
     throw new AppError('Type must be INCOME or EXPENSE.', 400)
   }
   const categoryId = integer(body.categoryId, 'categoryId')
+  let accountId = null
+  if (body.accountId !== undefined && body.accountId !== null && body.accountId !== '') {
+    accountId = integer(body.accountId, 'accountId')
+  }
   const rawDate = requireText(body.date, 'Date')
   const date = parseDateOnly(rawDate)
   if (!date) {
@@ -32,7 +37,7 @@ function parseTransactionInput(body) {
     }
     if (note === '') note = null
   }
-  return { description, amount, type, categoryId, date, note }
+  return { description, amount, type, categoryId, accountId, date, note }
 }
 
 async function listTransactions(query) {
@@ -55,6 +60,10 @@ async function listTransactions(query) {
 
   if (query.categoryId) {
     where.categoryId = integer(query.categoryId, 'categoryId')
+  }
+
+  if (query.accountId) {
+    where.accountId = integer(query.accountId, 'accountId')
   }
 
   if (query.startDate) {
@@ -95,6 +104,7 @@ async function listTransactions(query) {
     take: limit,
     include: {
       category: { select: { id: true, name: true, icon: true, color: true } },
+      account: { select: { id: true, name: true, type: true } },
     },
   })
 
@@ -107,6 +117,7 @@ async function getTransaction(id) {
     where: { id },
     include: {
       category: { select: { id: true, name: true, icon: true, color: true } },
+      account: { select: { id: true, name: true, type: true } },
     },
   })
   if (!transaction) {
@@ -119,6 +130,9 @@ async function createTransaction(body) {
   const prisma = await getPrisma()
   const input = parseTransactionInput(body)
   await ensureCategoryExists(prisma, input.categoryId, 400)
+  if (input.accountId) {
+    await ensureAccountExists(prisma, input.accountId, 400)
+  }
   return prisma.transaction.create({ data: input })
 }
 
@@ -127,6 +141,9 @@ async function updateTransaction(id, body) {
   await getTransaction(id)
   const input = parseTransactionInput(body)
   await ensureCategoryExists(prisma, input.categoryId, 400)
+  if (input.accountId) {
+    await ensureAccountExists(prisma, input.accountId, 400)
+  }
   return prisma.transaction.update({ where: { id }, data: input })
 }
 

@@ -56,6 +56,10 @@ export function del(path) {
   return request(path, { method: 'DELETE' })
 }
 
+export function patch(path, payload) {
+  return request(path, { method: 'PATCH', body: payload })
+}
+
 function buildQuery(params) {
   const search = new URLSearchParams()
   for (const [key, value] of Object.entries(params || {})) {

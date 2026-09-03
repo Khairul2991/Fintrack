@@ -62,7 +62,7 @@ function CategoryReportChart({ categories }) {
                     />
                     <span className="truncate">{row.name}</span>
                   </span>
-                  <span className="whitespace-nowrap font-semibold tabular-nums">
+                  <span className="financial-value font-semibold tabular-nums">
                     {formatCurrency(row.value)}
                   </span>
                 </li>

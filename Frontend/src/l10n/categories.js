@@ -21,3 +21,8 @@ export function localizeCategory(category, lang) {
   if (entry && entry[lang]) return entry[lang]
   return category.name
 }
+
+export function localizeCategoryName(name, lang) {
+  if (!name) return ''
+  return localizeCategory({ name }, lang)
+}

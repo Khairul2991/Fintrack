@@ -2,10 +2,14 @@ const { getPrisma, getDecimal } = require('../lib/prisma')
 const { currentMonthYear } = require('../utils/date')
 const { getMonthlySeries, getExpenseByCategory } = require('./reportService')
 const { getBudgetSpent } = require('./budgetService')
+const { runCatchUp } = require('./recurringTransactionService')
+const { listAccounts } = require('./accountService')
 
 async function getSummary() {
   const prisma = await getPrisma()
   const Decimal = await getDecimal()
+
+  await runCatchUp()
 
   const [incomeAgg, expenseAgg] = await Promise.all([
     prisma.transaction.aggregate({
@@ -29,14 +33,16 @@ async function getSummary() {
     },
   })
 
-  const [monthlySeries, expenseByCategory, insights] = await Promise.all([
+  const [monthlySeries, expenseByCategory, insights, accounts] = await Promise.all([
     getMonthlySeries(prisma, 6),
     getExpenseByCategory(prisma, { take: 5 }),
     buildInsights(prisma),
+    listAccounts(),
   ])
 
   return {
     summary: { balance, income, expense },
+    accounts,
     recentTransactions,
     monthlySeries,
     expenseByCategory,

@@ -7,6 +7,7 @@ import RecentTransactions from '../components/dashboard/RecentTransactions'
 import IncomeExpenseChart from '../components/dashboard/IncomeExpenseChart'
 import CategoryChart from '../components/dashboard/CategoryChart'
 import SpendingInsights from '../components/dashboard/SpendingInsights'
+import AccountBalances from '../components/dashboard/AccountBalances'
 import { getDashboardSummary } from '../services/dashboardApi'
 import { formatCurrency } from '../utils/format'
 import { IncomeIcon, ExpenseIcon } from '../components/common/Icons'
@@ -103,6 +104,8 @@ function DashboardPage() {
           icon={<ExpenseIcon />}
         />
       </div>
+
+      <AccountBalances accounts={data.accounts} />
 
       {!hasTransactions ? (
         <div className="grid grid-cols-1 lg:grid-cols-2">

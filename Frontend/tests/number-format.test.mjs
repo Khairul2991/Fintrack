@@ -5,6 +5,8 @@ import {
   formatNumberDisplay,
   groupThousands,
   caretAfterMapping,
+  MAX_FINANCIAL_AMOUNT,
+  isAmountOverLimit,
 } from '../src/utils/numberFormat.js'
 
 describe('numberFormat - groupThousands', () => {
@@ -64,5 +66,38 @@ describe('numberFormat - caretAfterMapping', () => {
 
   it('keeps the caret at the start for a leading position', () => {
     assert.equal(caretAfterMapping('1000', 0, '1.000'), 0)
+  })
+})
+
+describe('numberFormat - isAmountOverLimit', () => {
+  const MAX = String(MAX_FINANCIAL_AMOUNT)
+
+  it('accepts normal amounts within the limit', () => {
+    assert.equal(isAmountOverLimit('1000'), false)
+    assert.equal(isAmountOverLimit('1000000'), false)
+  })
+
+  it('accepts exactly the maximum amount', () => {
+    assert.equal(isAmountOverLimit(MAX), false)
+  })
+
+  it('rejects amounts above the maximum', () => {
+    assert.equal(isAmountOverLimit(String(Number(MAX) + 1)), true)
+    assert.equal(isAmountOverLimit(`${MAX}0`), true)
+    assert.equal(isAmountOverLimit('99999999999999999999999999999999999999'), true)
+  })
+
+  it('rejects overlong pasted numbers safely without NaN or Infinity', () => {
+    const huge = '9'.repeat(400)
+    assert.equal(isAmountOverLimit(huge), true)
+    assert.ok(Number.isNaN(isAmountOverLimit(huge)) === false)
+    assert.ok(Number.isFinite(Number('9'.repeat(400))) === false)
+  })
+
+  it('handles empty and non-numeric input', () => {
+    assert.equal(isAmountOverLimit(''), false)
+    assert.equal(isAmountOverLimit(null), false)
+    assert.equal(isAmountOverLimit(undefined), false)
+    assert.equal(isAmountOverLimit('abc'), false)
   })
 })

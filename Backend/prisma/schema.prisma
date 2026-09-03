@@ -15,14 +15,48 @@ enum TransactionType {
   EXPENSE
 }
 
+enum AccountType {
+  CASH
+  BANK
+  SAVINGS
+  EWALLET
+  OTHER
+}
+
+enum Frequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+  YEARLY
+}
+
+enum BudgetFrequency {
+  MONTHLY
+  YEARLY
+}
+
+enum GoalStatus {
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum NotificationType {
+  RECURRING_DUE
+  BUDGET_LIMIT
+  GOAL_DEADLINE
+}
+
 model Category {
-  id           Int           @id @default(autoincrement())
-  name         String        @unique
-  icon         String
-  color        String
-  createdAt    DateTime      @default(now())
-  transactions Transaction[]
-  budgets      Budget[]
+  id                    Int                    @id @default(autoincrement())
+  name                  String                 @unique
+  icon                  String
+  color                 String
+  createdAt             DateTime               @default(now())
+  transactions          Transaction[]
+  budgets               Budget[]
+  recurringTransactions RecurringTransaction[]
+  recurringBudgets      RecurringBudget[]
+  goals                 Goal[]
 }
 
 model Transaction {
@@ -31,12 +65,15 @@ model Transaction {
   amount      Decimal
   type        TransactionType
   categoryId  Int
+  accountId   Int?
   date        DateTime
   note        String?
   createdAt   DateTime        @default(now())
   category    Category        @relation(fields: [categoryId], references: [id])
+  account     Account?        @relation(fields: [accountId], references: [id])
 
   @@index([categoryId])
+  @@index([accountId])
   @@index([date])
   @@index([type])
 }
@@ -52,4 +89,80 @@ model Budget {
 
   @@unique([categoryId, month, year])
   @@index([categoryId])
+}
+
+model Account {
+  id                    Int                    @id @default(autoincrement())
+  name                  String                 @unique
+  type                  AccountType
+  initialBalance        Decimal                @default(0)
+  createdAt             DateTime               @default(now())
+  transactions          Transaction[]
+  recurringTransactions RecurringTransaction[]
+  goals                 Goal[]
+}
+
+model RecurringTransaction {
+  id             Int             @id @default(autoincrement())
+  description    String
+  amount         Decimal
+  type           TransactionType
+  categoryId     Int
+  accountId      Int?
+  frequency      Frequency
+  startDate      DateTime
+  endDate        DateTime?
+  note           String?
+  active         Boolean         @default(true)
+  lastRunAt      DateTime?
+  nextOccurrence DateTime
+  createdAt      DateTime        @default(now())
+  category       Category        @relation(fields: [categoryId], references: [id])
+  account        Account?        @relation(fields: [accountId], references: [id])
+
+  @@index([categoryId])
+  @@index([accountId])
+}
+
+model RecurringBudget {
+  id         Int             @id @default(autoincrement())
+  categoryId Int
+  amount     Decimal
+  frequency  BudgetFrequency
+  startMonth Int
+  startYear  Int
+  nextMonth  Int
+  nextYear   Int
+  active     Boolean         @default(true)
+  createdAt  DateTime        @default(now())
+  category   Category        @relation(fields: [categoryId], references: [id])
+
+  @@index([categoryId])
+}
+
+model Goal {
+  id            Int        @id @default(autoincrement())
+  name          String
+  description   String?
+  targetAmount  Decimal
+  currentAmount Decimal    @default(0)
+  targetDate    DateTime?
+  categoryId    Int?
+  accountId     Int?
+  status        GoalStatus @default(IN_PROGRESS)
+  createdAt     DateTime   @default(now())
+  category      Category?  @relation(fields: [categoryId], references: [id])
+  account       Account?   @relation(fields: [accountId], references: [id])
+
+  @@index([categoryId])
+  @@index([accountId])
+}
+
+model Notification {
+  id        Int              @id @default(autoincrement())
+  type      NotificationType
+  title     String
+  message   String
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
 }

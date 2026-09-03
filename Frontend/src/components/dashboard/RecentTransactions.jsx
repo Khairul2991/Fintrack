@@ -46,7 +46,7 @@ function RecentTransactions({ transactions }) {
                 </p>
               </div>
               <span
-                className={`whitespace-nowrap text-sm font-semibold tabular-nums ${
+                className={`financial-value text-right text-sm font-semibold tabular-nums ${
                   transaction.type === 'INCOME' ? 'text-success' : 'text-error'
                 }`}
               >

@@ -1,3 +1,9 @@
+// Maximum accepted financial amount (whole IDR). Kept at or below
+// Number.MAX_SAFE_INTEGER so every aggregation stays exact, and generous
+// enough for personal finance figures. Backend stores amounts as Decimal and
+// enforces no upper bound, so the frontend guards this limit consistently.
+export const MAX_FINANCIAL_AMOUNT = 999999999999999
+
 export function groupThousands(intPart) {
   let rest = intPart
   let out = ''
@@ -57,4 +63,19 @@ export function caretAfterMapping(oldDisplay, caret, newDisplay) {
     }
   }
   return newDisplay.length
+}
+
+// Precision-safe "does this raw amount exceed the maximum?" check. Compares
+// digit strings instead of Number() so arbitrarily long pasted values can
+// never lose precision, overflow to Infinity, or cause NaN.
+export function isAmountOverLimit(raw) {
+  if (raw == null || raw === '') return false
+  const value = toRawNumber(raw)
+  if (!value) return false
+  const digits = value.replace(/\D/g, '')
+  if (!digits.length) return false
+  const maxDigits = String(MAX_FINANCIAL_AMOUNT).replace(/\D/g, '')
+  if (digits.length > maxDigits.length) return true
+  if (digits.length < maxDigits.length) return false
+  return digits > maxDigits
 }
