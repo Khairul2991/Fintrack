@@ -16,29 +16,36 @@ export function formatCurrency(value) {
   return amount % 1 === 0 ? wholeCurrencyFormatter.format(amount) : currencyFormatter.format(amount)
 }
 
-const dateFormatter = new Intl.DateTimeFormat('en-GB', {
-  day: 'numeric',
-  month: 'long',
-  year: 'numeric',
-  timeZone: 'UTC',
-})
-
-export function formatDate(iso) {
-  const date = new Date(`${iso.slice(0, 10)}T00:00:00.000Z`)
-  if (Number.isNaN(date.getTime())) return '—'
-  return dateFormatter.format(date)
+function localeFor(lang) {
+  return lang === 'id' ? 'id-ID' : 'en-GB'
 }
 
-const monthFormatter = new Intl.DateTimeFormat('en-GB', {
-  month: 'short',
-  year: 'numeric',
-  timeZone: 'UTC',
-})
+function currentLang() {
+  if (typeof document !== 'undefined' && document.documentElement.lang) {
+    return document.documentElement.lang
+  }
+  return 'en'
+}
 
-export function formatMonth(ym) {
+export function formatDate(iso, lang = currentLang()) {
+  const date = new Date(`${iso.slice(0, 10)}T00:00:00.000Z`)
+  if (Number.isNaN(date.getTime())) return '—'
+  return new Intl.DateTimeFormat(localeFor(lang), {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(date)
+}
+
+export function formatMonth(ym, lang = currentLang()) {
   const date = new Date(`${ym}-01T00:00:00.000Z`)
   if (Number.isNaN(date.getTime())) return ym
-  return monthFormatter.format(date)
+  return new Intl.DateTimeFormat(localeFor(lang), {
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(date)
 }
 
 const compactCurrencyFormatter = new Intl.NumberFormat('id-ID', {

@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Brand, SidebarNav } from './Sidebar'
+import { useLanguage } from '../context/LanguageContext'
 
 function MobileNavigation() {
+  const { t } = useLanguage()
   const [open, setOpen] = useState(false)
 
   useEffect(() => {
@@ -20,7 +22,7 @@ function MobileNavigation() {
         <button
           type="button"
           className="btn btn-ghost btn-square"
-          aria-label="Open navigation menu"
+          aria-label={t('app.openMenuAria')}
           aria-expanded={open}
           onClick={() => setOpen(true)}
         >
@@ -53,7 +55,7 @@ function MobileNavigation() {
         className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-base-100 shadow-xl transition-transform duration-200 lg:hidden ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
-        aria-label="Mobile navigation"
+        aria-label={t('app.mobileNavAria')}
         aria-hidden={!open}
       >
         <div className="flex items-center justify-between pr-2">
@@ -61,7 +63,7 @@ function MobileNavigation() {
           <button
             type="button"
             className="btn btn-ghost btn-square"
-            aria-label="Close navigation menu"
+            aria-label={t('app.closeMenuAria')}
             onClick={() => setOpen(false)}
           >
             <svg

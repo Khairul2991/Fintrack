@@ -9,8 +9,10 @@ import CategoryChart from '../components/dashboard/CategoryChart'
 import SpendingInsights from '../components/dashboard/SpendingInsights'
 import { getDashboardSummary } from '../services/dashboardApi'
 import { formatCurrency } from '../utils/format'
+import { useLanguage } from '../context/LanguageContext'
 
 function DashboardPage() {
+  const { t } = useLanguage()
   const [data, setData] = useState(null)
   const [status, setStatus] = useState('loading')
   const [loadError, setLoadError] = useState('')
@@ -33,10 +35,12 @@ function DashboardPage() {
     load()
   }, [load, refreshKey])
 
+  const header = <PageHeader title={t('dash.title')} subtitle={t('dash.subtitle')} />
+
   if (status === 'loading') {
     return (
       <div className="flex flex-col gap-4">
-        <PageHeader title="Dashboard" subtitle="Overview of your finances at a glance." />
+        {header}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           {Array.from({ length: 3 }, (_, index) => (
             <div key={index} className="skeleton h-28 rounded-box" />
@@ -54,11 +58,11 @@ function DashboardPage() {
   if (status === 'error') {
     return (
       <div className="flex flex-col gap-4">
-        <PageHeader title="Dashboard" subtitle="Overview of your finances at a glance." />
+        {header}
         <div className="card bg-base-100 shadow">
           <div role="alert" className="card-body">
             <div className="flex items-center justify-between gap-2">
-              <span>Unable to load dashboard. {loadError}</span>
+              <span>{t('dash.loadError')} {loadError}</span>
               <button
                 type="button"
                 className="btn btn-sm"
@@ -67,7 +71,7 @@ function DashboardPage() {
                   setRefreshKey((key) => key + 1)
                 }}
               >
-                Retry
+                {t('common.retry')}
               </button>
             </div>
           </div>
@@ -81,26 +85,28 @@ function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <PageHeader title="Dashboard" subtitle="Overview of your finances at a glance." />
+      {header}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <SummaryCard label="Total Balance" value={formatCurrency(data.summary.balance)} />
-        <SummaryCard label="Total Income" value={formatCurrency(data.summary.income)} tone="success" />
-        <SummaryCard label="Total Expense" value={formatCurrency(data.summary.expense)} tone="error" />
+        <SummaryCard label={t('dash.balance')} value={formatCurrency(data.summary.balance)} />
+        <SummaryCard label={t('dash.income')} value={formatCurrency(data.summary.income)} tone="success" />
+        <SummaryCard label={t('dash.expense')} value={formatCurrency(data.summary.expense)} tone="error" />
       </div>
 
       {!hasTransactions ? (
         <div className="grid grid-cols-1 lg:grid-cols-2">
           <div className="lg:col-span-2">
-            <EmptyState
-              title="Welcome to FinTrack"
-              message="Record your first income or expense to start seeing your dashboard."
-              action={
-                <Link to="/transactions" className="btn btn-primary">
-                  Add Transaction
-                </Link>
-              }
-            />
+            <div className="card bg-base-100 shadow">
+              <EmptyState
+                title={t('dash.welcome')}
+                message={t('dash.welcomeMsg')}
+                action={
+                  <Link to="/transactions" className="btn btn-primary">
+                    {t('dash.addTransaction')}
+                  </Link>
+                }
+              />
+            </div>
           </div>
         </div>
       ) : (

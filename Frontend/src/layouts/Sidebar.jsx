@@ -1,7 +1,9 @@
 import { NavLink } from 'react-router-dom'
 import { NAV_ITEMS } from '../constants/navigation'
+import { useLanguage } from '../context/LanguageContext'
 
 function SidebarNav({ onNavigate }) {
+  const { t } = useLanguage()
   return (
     <ul className="menu w-full gap-1 p-2">
       {NAV_ITEMS.map((item) => (
@@ -15,7 +17,7 @@ function SidebarNav({ onNavigate }) {
             }
           >
             {item.icon}
-            {item.label}
+            {t(item.labelKey)}
           </NavLink>
         </li>
       ))}
@@ -35,14 +37,15 @@ function Brand() {
 }
 
 function Sidebar() {
+  const { t } = useLanguage()
   return (
     <aside className="fixed inset-y-0 left-0 z-20 hidden w-64 flex-col border-r border-base-300 bg-base-100 lg:flex">
       <Brand />
-      <nav className="flex-1 overflow-y-auto px-2" aria-label="Main navigation">
+      <nav className="flex-1 overflow-y-auto px-2" aria-label={t('app.mainNavAria')}>
         <SidebarNav />
       </nav>
       <p className="px-6 py-4 text-xs leading-relaxed text-base-content/50">
-        Personal finance manager
+        {t('app.tagline')}
       </p>
     </aside>
   )

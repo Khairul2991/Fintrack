@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import MoneyInput from '../common/MoneyInput'
+import { useLanguage } from '../../context/LanguageContext'
 
 function todayInput() {
   return new Date().toISOString().slice(0, 10)
@@ -26,6 +28,7 @@ function initialForm(transaction, categories) {
 }
 
 function TransactionForm({ transaction, categories, onCancel, onSave }) {
+  const { t } = useLanguage()
   const [form, setForm] = useState(() => initialForm(transaction, categories))
   const [errors, setErrors] = useState({})
   const [submitError, setSubmitError] = useState('')
@@ -47,20 +50,20 @@ function TransactionForm({ transaction, categories, onCancel, onSave }) {
   function validate() {
     const next = {}
     if (!form.description.trim()) {
-      next.description = 'Description is required.'
+      next.description = t('txf.errDescription')
     }
     const amount = Number(form.amount)
     if (form.amount === '' || !Number.isFinite(amount) || amount <= 0) {
-      next.amount = 'Amount must be greater than 0.'
+      next.amount = t('txf.errAmount')
     }
     if (form.type !== 'INCOME' && form.type !== 'EXPENSE') {
-      next.type = 'Select income or expense.'
+      next.type = t('txf.errType')
     }
     if (!form.categoryId) {
-      next.categoryId = 'Please select a category.'
+      next.categoryId = t('txf.errCategory')
     }
     if (!form.date) {
-      next.date = 'Date is required.'
+      next.date = t('txf.errDate')
     }
     setErrors(next)
     return Object.keys(next).length === 0
@@ -74,14 +77,14 @@ function TransactionForm({ transaction, categories, onCancel, onSave }) {
     try {
       await onSave({
         description: form.description.trim(),
-        amount: form.amount.trim(),
+        amount: form.amount,
         type: form.type,
         categoryId: Number(form.categoryId),
         date: form.date,
         note: form.note.trim() ? form.note.trim() : null,
       })
     } catch (error) {
-      setSubmitError(error.message || 'Something went wrong. Please try again.')
+      setSubmitError(error.message || t('common.genericError'))
       setSubmitting(false)
     }
   }
@@ -89,7 +92,7 @@ function TransactionForm({ transaction, categories, onCancel, onSave }) {
   return (
     <dialog className="modal modal-open">
       <div className="modal-box max-w-xl">
-        <h3 className="text-lg font-bold">{transaction ? 'Edit Transaction' : 'New Transaction'}</h3>
+        <h3 className="text-lg font-bold">{transaction ? t('txf.edit') : t('txf.new')}</h3>
         <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-3">
           {submitError ? (
             <div role="alert" className="alert alert-error text-sm">
@@ -99,7 +102,7 @@ function TransactionForm({ transaction, categories, onCancel, onSave }) {
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="label" htmlFor="tx-description">
-                <span className="label-text">Description</span>
+                <span className="label-text">{t('txf.description')}</span>
               </label>
               <input
                 id="tx-description"
@@ -108,7 +111,7 @@ function TransactionForm({ transaction, categories, onCancel, onSave }) {
                 value={form.description}
                 onChange={(event) => setField('description', event.target.value)}
                 maxLength={200}
-                placeholder="e.g. Groceries"
+                placeholder={t('txf.descPlaceholder')}
               />
               {errors.description ? (
                 <p className="mt-1 text-xs text-error">{errors.description}</p>
@@ -116,24 +119,20 @@ function TransactionForm({ transaction, categories, onCancel, onSave }) {
             </div>
             <div>
               <label className="label" htmlFor="tx-amount">
-                <span className="label-text">Amount (IDR)</span>
+                <span className="label-text">{t('txf.amount')}</span>
               </label>
-              <input
+              <MoneyInput
                 id="tx-amount"
-                type="number"
-                inputMode="decimal"
-                min="0.01"
-                step="0.01"
-                className={`input input-bordered w-full ${errors.amount ? 'input-error' : ''}`}
                 value={form.amount}
-                onChange={(event) => setField('amount', event.target.value)}
-                placeholder="e.g. 50000"
+                onChange={(value) => setField('amount', value)}
+                placeholder={t('txf.amountPlaceholder')}
+                error={Boolean(errors.amount)}
               />
               {errors.amount ? <p className="mt-1 text-xs text-error">{errors.amount}</p> : null}
             </div>
             <div>
               <span className="label">
-                <span className="label-text">Type</span>
+                <span className="label-text">{t('txf.type')}</span>
               </span>
               <div className="flex gap-2">
                 <label
@@ -146,7 +145,7 @@ function TransactionForm({ transaction, categories, onCancel, onSave }) {
                     checked={form.type === 'EXPENSE'}
                     onChange={() => setField('type', 'EXPENSE')}
                   />
-                  Expense
+                  {t('common.expense')}
                 </label>
                 <label
                   className={`btn btn-outline flex-1 ${
@@ -160,14 +159,14 @@ function TransactionForm({ transaction, categories, onCancel, onSave }) {
                     checked={form.type === 'INCOME'}
                     onChange={() => setField('type', 'INCOME')}
                   />
-                  Income
+                  {t('common.income')}
                 </label>
               </div>
               {errors.type ? <p className="mt-1 text-xs text-error">{errors.type}</p> : null}
             </div>
             <div>
               <label className="label" htmlFor="tx-category">
-                <span className="label-text">Category</span>
+                <span className="label-text">{t('txf.category')}</span>
               </label>
               <select
                 id="tx-category"
@@ -175,7 +174,7 @@ function TransactionForm({ transaction, categories, onCancel, onSave }) {
                 value={form.categoryId}
                 onChange={(event) => setField('categoryId', event.target.value)}
               >
-                <option value="">Select a category...</option>
+                <option value="">{t('txf.selectCategory')}</option>
                 {categories.map((category) => (
                   <option key={category.id} value={category.id}>
                     {category.icon} {category.name}
@@ -188,7 +187,7 @@ function TransactionForm({ transaction, categories, onCancel, onSave }) {
             </div>
             <div>
               <label className="label" htmlFor="tx-date">
-                <span className="label-text">Date</span>
+                <span className="label-text">{t('txf.date')}</span>
               </label>
               <input
                 id="tx-date"
@@ -202,7 +201,8 @@ function TransactionForm({ transaction, categories, onCancel, onSave }) {
             <div>
               <label className="label" htmlFor="tx-note">
                 <span className="label-text">
-                  Note <span className="ml-1 text-base-content/40">(optional)</span>
+                  {t('txf.note')}{' '}
+                  <span className="ml-1 text-base-content/40">{t('common.optional')}</span>
                 </span>
               </label>
               <textarea
@@ -212,17 +212,17 @@ function TransactionForm({ transaction, categories, onCancel, onSave }) {
                 value={form.note}
                 onChange={(event) => setField('note', event.target.value)}
                 maxLength={500}
-                placeholder="Optional details"
+                placeholder={t('txf.notePlaceholder')}
               />
             </div>
           </div>
           <div className="modal-action">
             <button type="button" className="btn" onClick={onCancel} disabled={submitting}>
-              Cancel
+              {t('common.cancel')}
             </button>
             <button type="submit" className="btn btn-primary" disabled={submitting}>
               {submitting ? <span className="loading loading-spinner loading-sm" /> : null}
-              {transaction ? 'Save changes' : 'Add transaction'}
+              {transaction ? t('txf.submitEdit') : t('txf.submitAdd')}
             </button>
           </div>
         </form>
@@ -230,7 +230,7 @@ function TransactionForm({ transaction, categories, onCancel, onSave }) {
       <button
         type="button"
         className="modal-backdrop"
-        aria-label="Close dialog"
+        aria-label={t('common.closeDialog')}
         onClick={() => {
           if (!submitting) onCancel()
         }}

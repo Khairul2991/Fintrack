@@ -4,8 +4,10 @@ import { BrowserRouter } from 'react-router-dom'
 import './index.css'
 import App from './App.jsx'
 import { applyTheme, readTheme } from './hooks/useTheme'
+import { applyLanguage, readLanguage } from './hooks/useLanguage'
 
 applyTheme(readTheme())
+applyLanguage(readLanguage())
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

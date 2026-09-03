@@ -53,10 +53,10 @@ const icons = {
 }
 
 export const NAV_ITEMS = [
-  { label: 'Dashboard', to: '/', icon: icons.dashboard },
-  { label: 'Transactions', to: '/transactions', icon: icons.transactions },
-  { label: 'Categories', to: '/categories', icon: icons.categories },
-  { label: 'Budgets', to: '/budgets', icon: icons.budgets },
-  { label: 'Reports', to: '/reports', icon: icons.reports },
-  { label: 'Settings', to: '/settings', icon: icons.settings },
+  { labelKey: 'nav.dashboard', to: '/', icon: icons.dashboard },
+  { labelKey: 'nav.transactions', to: '/transactions', icon: icons.transactions },
+  { labelKey: 'nav.categories', to: '/categories', icon: icons.categories },
+  { labelKey: 'nav.budgets', to: '/budgets', icon: icons.budgets },
+  { labelKey: 'nav.reports', to: '/reports', icon: icons.reports },
+  { labelKey: 'nav.settings', to: '/settings', icon: icons.settings },
 ]

@@ -1,6 +1,7 @@
 import { EditIcon, TrashIcon } from '../common/Icons'
 import BudgetProgress from './BudgetProgress'
 import { formatCurrency } from '../../utils/format'
+import { useLanguage } from '../../context/LanguageContext'
 
 function statusBadgeClass(status) {
   if (status === 'Over Budget') return 'badge-error'
@@ -8,7 +9,14 @@ function statusBadgeClass(status) {
   return 'badge-success'
 }
 
+function translateStatus(status, t) {
+  if (status === 'Over Budget') return t('status.overBudget')
+  if (status === 'Near Limit') return t('status.nearLimit')
+  return t('status.onTrack')
+}
+
 function BudgetCard({ budget, onEdit, onDelete }) {
+  const { t } = useLanguage()
   const remaining = Number(budget.remaining)
   const over = remaining < 0
 
@@ -27,22 +35,23 @@ function BudgetCard({ budget, onEdit, onDelete }) {
             <div className="min-w-0">
               <h3 className="truncate font-semibold">{budget.category.name}</h3>
               <p className="text-xs text-base-content/50">
-                {formatCurrency(budget.amount)} budget
+                {t('bud.budgetLabel', { value: formatCurrency(budget.amount) })}
               </p>
             </div>
           </div>
-          <span className={`badge ${statusBadgeClass(budget.status)}`}>{budget.status}</span>
+          <span className={`badge ${statusBadgeClass(budget.status)}`}>
+            {translateStatus(budget.status, t)}
+          </span>
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-1 text-sm">
           <span className="text-base-content/70">
-            Spent <span className="font-semibold text-base-content">{formatCurrency(budget.spent)}</span>
+            {t('bud.spent')}{' '}
+            <span className="font-semibold text-base-content">{formatCurrency(budget.spent)}</span>
           </span>
           <span className="text-base-content/70">
-            Remaining{' '}
-            <span
-              className={`font-semibold ${over ? 'text-error' : 'text-base-content'}`}
-            >
+            {t('bud.remaining')}{' '}
+            <span className={`font-semibold ${over ? 'text-error' : 'text-base-content'}`}>
               {formatCurrency(remaining)}
             </span>
           </span>
@@ -55,7 +64,7 @@ function BudgetCard({ budget, onEdit, onDelete }) {
             type="button"
             className="btn btn-ghost btn-square btn-sm"
             onClick={() => onEdit(budget)}
-            aria-label={`Edit ${budget.category.name} budget`}
+            aria-label={t('bud.editAria', { name: budget.category.name })}
           >
             <EditIcon />
           </button>
@@ -63,7 +72,7 @@ function BudgetCard({ budget, onEdit, onDelete }) {
             type="button"
             className="btn btn-ghost btn-square btn-sm hover:text-error"
             onClick={() => onDelete(budget)}
-            aria-label={`Delete ${budget.category.name} budget`}
+            aria-label={t('bud.deleteAria', { name: budget.category.name })}
           >
             <TrashIcon />
           </button>

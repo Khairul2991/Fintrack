@@ -6,6 +6,7 @@ import { PlusIcon } from '../components/common/Icons'
 import BudgetCard from '../components/budgets/BudgetCard'
 import BudgetForm from '../components/budgets/BudgetForm'
 import { useToast } from '../context/ToastContext'
+import { useLanguage } from '../context/LanguageContext'
 import {
   createBudget,
   deleteBudget,
@@ -15,9 +16,24 @@ import {
 import { listCategories } from '../services/categoryApi'
 import { formatMonth } from '../utils/format'
 
+const STORAGE_KEY = 'fintrack-budget-view'
+
 function currentMonthYear() {
   const now = new Date()
   return { month: now.getUTCMonth() + 1, year: now.getUTCFullYear() }
+}
+
+function readView() {
+  const current = currentMonthYear()
+  if (typeof localStorage === 'undefined') return current
+  const stored = localStorage.getItem(STORAGE_KEY)
+  if (!stored) return current
+  const match = stored.match(/^(\d{4})-(\d{1,2})$/)
+  if (!match) return current
+  const year = Number(match[1])
+  const month = Number(match[2])
+  if (year < 2000 || year > 2100 || month < 1 || month > 12) return current
+  return { month, year }
 }
 
 function monthLabel(view) {
@@ -35,8 +51,9 @@ function sameMonth(a, b) {
 
 function BudgetsPage() {
   const toast = useToast()
+  const { t, translateError } = useLanguage()
 
-  const [view, setView] = useState(currentMonthYear)
+  const [view, setView] = useState(readView)
   const [budgets, setBudgets] = useState([])
   const [status, setStatus] = useState('loading')
   const [loadError, setLoadError] = useState('')
@@ -57,16 +74,19 @@ function BudgetsPage() {
         setStatus('ready')
       })
       .catch((error) => {
-        setLoadError(error.message)
+        setLoadError(translateError(error.message))
         setStatus('error')
       })
-  }, [view])
+  }, [view, translateError])
 
   useEffect(() => {
     load()
   }, [load, refreshKey])
 
   function changeView(next) {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(STORAGE_KEY, `${next.year}-${next.month}`)
+    }
     setStatus('loading')
     setView(next)
   }
@@ -84,7 +104,7 @@ function BudgetsPage() {
         setEditing(budget)
         setFormOpen(true)
       })
-      .catch((error) => toast.error(error.message))
+      .catch((error) => toast.error(translateError(error.message)))
       .finally(() => setFormBusy(false))
   }
 
@@ -96,10 +116,10 @@ function BudgetsPage() {
   async function handleSave(payload) {
     if (editing) {
       await updateBudget(editing.id, payload)
-      toast.success('Budget updated.')
+      toast.success(t('bud.updated'))
     } else {
       await createBudget(payload)
-      toast.success('Budget added.')
+      toast.success(t('bud.added'))
     }
     closeForm()
     setRefreshKey((key) => key + 1)
@@ -110,11 +130,11 @@ function BudgetsPage() {
     setDeleteLoading(true)
     try {
       await deleteBudget(deleting.id)
-      toast.success('Budget deleted.')
+      toast.success(t('bud.deleted'))
       setDeleting(null)
       setRefreshKey((key) => key + 1)
     } catch (error) {
-      toast.error(error.message)
+      toast.error(translateError(error.message))
     } finally {
       setDeleteLoading(false)
     }
@@ -126,7 +146,7 @@ function BudgetsPage() {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <PageHeader title="Budgets" subtitle="Plan monthly spending by category." />
+        <PageHeader title={t('bud.title')} subtitle={t('bud.subtitle')} />
         <button
           type="button"
           className="btn btn-primary"
@@ -134,7 +154,7 @@ function BudgetsPage() {
           disabled={formBusy}
         >
           {formBusy ? <span className="loading loading-spinner loading-sm" /> : <PlusIcon />}
-          {formBusy ? 'Loading categories...' : 'Add Budget'}
+          {formBusy ? t('bud.loadingCats') : t('bud.add')}
         </button>
       </div>
 
@@ -144,7 +164,7 @@ function BudgetsPage() {
             type="button"
             className="btn btn-sm join-item"
             onClick={() => changeView(shiftMonth(view, -1))}
-            aria-label="Previous month"
+            aria-label={t('bud.prevMonthAria')}
           >
             ‹
           </button>
@@ -152,7 +172,7 @@ function BudgetsPage() {
             type="button"
             className="btn btn-sm join-item no-animation"
             onClick={() => changeView(currentMonthYear())}
-            aria-label="Go to current month"
+            aria-label={t('bud.currentMonthAria')}
           >
             {monthLabel(view)}
           </button>
@@ -160,26 +180,27 @@ function BudgetsPage() {
             type="button"
             className="btn btn-sm join-item"
             onClick={() => changeView(shiftMonth(view, 1))}
-            aria-label="Next month"
+            aria-label={t('bud.nextMonthAria')}
           >
             ›
           </button>
         </div>
         {isCurrent ? (
-          <span className="badge badge-ghost">Current month</span>
+          <span className="badge badge-ghost">{t('bud.currentMonth')}</span>
         ) : (
-          <button type="button" className="btn btn-ghost btn-sm" onClick={() => changeView(currentMonthYear())}>
-            Go to current month
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            onClick={() => changeView(currentMonthYear())}
+          >
+            {t('bud.goCurrent')}
           </button>
         )}
       </div>
 
       {status === 'ready' && overBudgetCount > 0 ? (
         <div role="alert" className="alert alert-warning">
-          <span>
-            You have exceeded {overBudgetCount} budget{overBudgetCount > 1 ? 's' : ''} this
-            month. Review your spending.
-          </span>
+          <span>{t('bud.overAlert', { count: overBudgetCount })}</span>
         </div>
       ) : null}
 
@@ -191,19 +212,19 @@ function BudgetsPage() {
         </div>
       ) : status === 'error' ? (
         <div role="alert" className="alert alert-error flex items-center justify-between gap-2">
-          <span>Unable to load budgets. {loadError}</span>
+          <span>{t('bud.loadError')} {loadError}</span>
           <button type="button" className="btn btn-sm" onClick={retry}>
-            Retry
+            {t('common.retry')}
           </button>
         </div>
       ) : budgets.length === 0 ? (
         <div className="card bg-base-100 shadow">
           <EmptyState
-            title="No budgets created yet"
-            message={`Create a budget for ${monthLabel(view)} to start tracking your spending.`}
+            title={t('bud.empty')}
+            message={t('bud.emptyMsg', { month: monthLabel(view) })}
             action={
               <button type="button" className="btn btn-primary" onClick={() => openForm(null)}>
-                Add Budget
+                {t('bud.add')}
               </button>
             }
           />
@@ -211,12 +232,7 @@ function BudgetsPage() {
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {budgets.map((budget) => (
-            <BudgetCard
-              key={budget.id}
-              budget={budget}
-              onEdit={openForm}
-              onDelete={setDeleting}
-            />
+            <BudgetCard key={budget.id} budget={budget} onEdit={openForm} onDelete={setDeleting} />
           ))}
         </div>
       )}
@@ -232,11 +248,12 @@ function BudgetsPage() {
 
       {deleting ? (
         <ConfirmDialog
-          title="Delete budget"
-          message={`Delete the ${deleting.category.name} budget for ${monthLabel(
-            { month: deleting.month, year: deleting.year },
-          )}? This action cannot be undone.`}
-          confirmLabel="Delete"
+          title={t('bud.confirmTitle')}
+          message={t('bud.confirmMsg', {
+            category: deleting.category.name,
+            month: monthLabel({ month: deleting.month, year: deleting.year }),
+          })}
+          confirmLabel={t('common.delete')}
           loading={deleteLoading}
           onCancel={() => setDeleting(null)}
           onConfirm={handleDelete}

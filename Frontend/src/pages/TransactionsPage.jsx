@@ -7,6 +7,7 @@ import TransactionFilters from '../components/transactions/TransactionFilters'
 import TransactionTable from '../components/transactions/TransactionTable'
 import TransactionForm from '../components/transactions/TransactionForm'
 import { useToast } from '../context/ToastContext'
+import { useLanguage } from '../context/LanguageContext'
 import { listCategories } from '../services/categoryApi'
 import {
   createTransaction,
@@ -33,8 +34,17 @@ const SORTS = {
 
 const PAGE_SIZES = [10, 20, 50]
 
+const STORAGE_KEY = 'fintrack-tx-size'
+
+function readSize() {
+  if (typeof localStorage === 'undefined') return 10
+  const stored = Number(localStorage.getItem(STORAGE_KEY))
+  return PAGE_SIZES.includes(stored) ? stored : 10
+}
+
 function TransactionsPage() {
   const toast = useToast()
+  const { t, translateError } = useLanguage()
 
   const [categories, setCategories] = useState([])
   const [categoriesError, setCategoriesError] = useState('')
@@ -42,7 +52,7 @@ function TransactionsPage() {
 
   const [filters, setFilters] = useState(DEFAULT_FILTERS)
   const [page, setPage] = useState(1)
-  const [size, setSize] = useState(10)
+  const [size, setSize] = useState(readSize)
   const [transactions, setTransactions] = useState([])
   const [meta, setMeta] = useState({ page: 1, limit: 10, total: 0, totalPages: 1 })
   const [status, setStatus] = useState('loading')
@@ -64,12 +74,12 @@ function TransactionsPage() {
         }
       })
       .catch((error) => {
-        if (active) setCategoriesError(error.message)
+        if (active) setCategoriesError(translateError(error.message))
       })
     return () => {
       active = false
     }
-  }, [categoriesAttempt])
+  }, [categoriesAttempt, translateError])
 
   const buildQuery = useCallback(() => {
     const sort = SORTS[filters.sort] || SORTS.newest
@@ -98,14 +108,14 @@ function TransactionsPage() {
       })
       .catch((error) => {
         if (active) {
-          setLoadError(error.message)
+          setLoadError(translateError(error.message))
           setStatus('error')
         }
       })
     return () => {
       active = false
     }
-  }, [buildQuery, refreshKey])
+  }, [buildQuery, refreshKey, translateError])
 
   function startReload() {
     setStatus('loading')
@@ -144,13 +154,22 @@ function TransactionsPage() {
     setEditing(null)
   }
 
+  function changeSize(next) {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(STORAGE_KEY, String(next))
+    }
+    startReload()
+    setSize(next)
+    setPage(1)
+  }
+
   async function handleSave(payload) {
     if (editing) {
       await updateTransaction(editing.id, payload)
-      toast.success('Transaction updated.')
+      toast.success(t('tx.updated'))
     } else {
       await createTransaction(payload)
-      toast.success('Transaction added.')
+      toast.success(t('tx.added'))
     }
     setFormOpen(false)
     setEditing(null)
@@ -164,7 +183,7 @@ function TransactionsPage() {
     setDeleteLoading(true)
     try {
       await deleteTransaction(deleting.id)
-      toast.success('Transaction deleted.')
+      toast.success(t('tx.deleted'))
       setDeleting(null)
       startReload()
       if (meta.page > 1 && transactions.length === 1) {
@@ -173,7 +192,7 @@ function TransactionsPage() {
         setRefreshKey((key) => key + 1)
       }
     } catch (error) {
-      toast.error(error.message)
+      toast.error(translateError(error.message))
     } finally {
       setDeleteLoading(false)
     }
@@ -188,12 +207,9 @@ function TransactionsPage() {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <PageHeader
-          title="Transactions"
-          subtitle="Record and manage your income and expenses."
-        />
+        <PageHeader title={t('tx.title')} subtitle={t('tx.subtitle')} />
         <button type="button" className="btn btn-primary" onClick={openCreate}>
-          Add Transaction
+          {t('tx.add')}
         </button>
       </div>
 
@@ -207,13 +223,13 @@ function TransactionsPage() {
 
       {categoriesError ? (
         <div role="alert" className="flex items-center justify-between gap-2 alert alert-warning">
-          <span>Unable to load categories. {categoriesError}</span>
+          <span>{t('tx.catLoadError')} {categoriesError}</span>
           <button
             type="button"
             className="btn btn-sm"
             onClick={() => setCategoriesAttempt((attempt) => attempt + 1)}
           >
-            Retry
+            {t('common.retry')}
           </button>
         </div>
       ) : null}
@@ -223,7 +239,7 @@ function TransactionsPage() {
           <LoadingSkeleton rows={Math.min(size, 10)} />
         ) : loadError ? (
           <div role="alert" className="m-4 flex items-center justify-between gap-2 alert alert-error">
-            <span>Unable to load transactions. {loadError}</span>
+            <span>{t('tx.loadError')} {loadError}</span>
             <button
               type="button"
               className="btn btn-sm"
@@ -232,22 +248,19 @@ function TransactionsPage() {
                 setRefreshKey((key) => key + 1)
               }}
             >
-              Retry
+              {t('common.retry')}
             </button>
           </div>
         ) : transactions.length === 0 ? (
           filtersActive ? (
-            <EmptyState
-              title="No matching transactions"
-              message="Try adjusting your filters or search terms."
-            />
+            <EmptyState title={t('tx.noMatch')} message={t('tx.noMatchMsg')} />
           ) : (
             <EmptyState
-              title="No transactions yet"
-              message="Record your first income or expense to get started."
+              title={t('tx.noYet')}
+              message={t('tx.noYetMsg')}
               action={
                 <button type="button" className="btn btn-primary" onClick={openCreate}>
-                  Add Transaction
+                  {t('tx.add')}
                 </button>
               }
             />
@@ -261,7 +274,7 @@ function TransactionsPage() {
             />
             <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
               <p className="text-sm text-base-content/60">
-                Showing {from}–{to} of {meta.total} transactions
+                {t('tx.showing', { from, to, total: meta.total })}
               </p>
               <div className="flex flex-wrap items-center gap-3">
                 <div className="join">
@@ -274,14 +287,14 @@ function TransactionsPage() {
                     }}
                     disabled={meta.page <= 1}
                   >
-                    « Prev
+                    {t('tx.prev')}
                   </button>
                   <button
                     type="button"
                     className="join-item btn btn-sm no-animation"
                     aria-current="page"
                   >
-                    Page {meta.page} of {meta.totalPages}
+                    {t('tx.page', { page: meta.page, pages: meta.totalPages })}
                   </button>
                   <button
                     type="button"
@@ -292,25 +305,28 @@ function TransactionsPage() {
                     }}
                     disabled={meta.page >= meta.totalPages}
                   >
-                    Next »
+                    {t('tx.next')}
                   </button>
                 </div>
-                <select
-                  className="select select-bordered select-sm"
-                  value={size}
-                  onChange={(event) => {
-                    startReload()
-                    setSize(Number(event.target.value))
-                    setPage(1)
-                  }}
-                  aria-label="Rows per page"
-                >
-                  {PAGE_SIZES.map((option) => (
-                    <option key={option} value={option}>
-                      {option} / page
-                    </option>
-                  ))}
-                </select>
+                <div className="flex items-center gap-2">
+                  <label className="label">
+                    <span className="label-text text-sm text-base-content/60">
+                      {t('tx.rowsPerPage')}
+                    </span>
+                  </label>
+                  <select
+                    className="select select-bordered select-sm"
+                    value={size}
+                    onChange={(event) => changeSize(Number(event.target.value))}
+                    aria-label={t('tx.rowsPerPage')}
+                  >
+                    {PAGE_SIZES.map((option) => (
+                      <option key={option} value={option}>
+                        {t('tx.perPage', { count: option })}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
           </>
@@ -328,9 +344,9 @@ function TransactionsPage() {
 
       {deleting ? (
         <ConfirmDialog
-          title="Delete transaction"
-          message={`Delete "${deleting.description}"? This action cannot be undone.`}
-          confirmLabel="Delete"
+          title={t('tx.confirmTitle')}
+          message={t('tx.confirmMsg', { name: deleting.description })}
+          confirmLabel={t('common.delete')}
           loading={deleteLoading}
           onCancel={() => setDeleting(null)}
           onConfirm={handleDelete}

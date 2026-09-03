@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useLanguage } from '../../context/LanguageContext'
 
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/
 
@@ -10,6 +11,7 @@ function initialForm(category) {
 }
 
 function CategoryForm({ category, onCancel, onSave }) {
+  const { t } = useLanguage()
   const [form, setForm] = useState(() => initialForm(category))
   const [errors, setErrors] = useState({})
   const [submitError, setSubmitError] = useState('')
@@ -31,15 +33,15 @@ function CategoryForm({ category, onCancel, onSave }) {
   function validate() {
     const next = {}
     if (!form.name.trim()) {
-      next.name = 'Name is required.'
+      next.name = t('catf.errName')
     } else if (form.name.trim().length > 50) {
-      next.name = 'Name must be at most 50 characters.'
+      next.name = t('catf.errNameTooLong')
     }
     if (!form.icon.trim()) {
-      next.icon = 'Icon is required.'
+      next.icon = t('catf.errIcon')
     }
     if (!HEX_COLOR.test(form.color)) {
-      next.color = 'Color must be a hex value like #f59e0b.'
+      next.color = t('catf.errColor')
     }
     setErrors(next)
     return Object.keys(next).length === 0
@@ -57,7 +59,7 @@ function CategoryForm({ category, onCancel, onSave }) {
         color: form.color,
       })
     } catch (error) {
-      setSubmitError(error.message || 'Something went wrong. Please try again.')
+      setSubmitError(error.message || t('common.genericError'))
       setSubmitting(false)
     }
   }
@@ -65,7 +67,7 @@ function CategoryForm({ category, onCancel, onSave }) {
   return (
     <dialog className="modal modal-open">
       <div className="modal-box max-w-md">
-        <h3 className="text-lg font-bold">{category ? 'Edit Category' : 'New Category'}</h3>
+        <h3 className="text-lg font-bold">{category ? t('catf.edit') : t('catf.new')}</h3>
         <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-3">
           {submitError ? (
             <div role="alert" className="alert alert-error text-sm">
@@ -74,7 +76,7 @@ function CategoryForm({ category, onCancel, onSave }) {
           ) : null}
           <div>
             <label className="label" htmlFor="cat-name">
-              <span className="label-text">Name</span>
+              <span className="label-text">{t('catf.name')}</span>
             </label>
             <input
               id="cat-name"
@@ -83,7 +85,7 @@ function CategoryForm({ category, onCancel, onSave }) {
               value={form.name}
               onChange={(event) => setField('name', event.target.value)}
               maxLength={50}
-              placeholder="e.g. Groceries"
+              placeholder={t('catf.namePlaceholder')}
               autoFocus
             />
             {errors.name ? <p className="mt-1 text-xs text-error">{errors.name}</p> : null}
@@ -91,7 +93,8 @@ function CategoryForm({ category, onCancel, onSave }) {
           <div>
             <label className="label" htmlFor="cat-icon">
               <span className="label-text">
-                Icon <span className="ml-1 text-base-content/40">(emoji)</span>
+                {t('catf.icon')}{' '}
+                <span className="ml-1 text-base-content/40">{t('catf.iconEmoji')}</span>
               </span>
             </label>
             <input
@@ -101,13 +104,13 @@ function CategoryForm({ category, onCancel, onSave }) {
               value={form.icon}
               onChange={(event) => setField('icon', event.target.value)}
               maxLength={4}
-              placeholder="e.g. 🍜"
+              placeholder={t('catf.iconPlaceholder')}
             />
             {errors.icon ? <p className="mt-1 text-xs text-error">{errors.icon}</p> : null}
           </div>
           <div>
             <span className="label">
-              <span className="label-text">Color</span>
+              <span className="label-text">{t('catf.color')}</span>
             </span>
             <div className="flex items-center gap-2">
               <input
@@ -116,7 +119,7 @@ function CategoryForm({ category, onCancel, onSave }) {
                 className="h-10 w-14 cursor-pointer rounded border border-base-300 bg-transparent"
                 value={form.color}
                 onChange={(event) => setField('color', event.target.value)}
-                aria-label="Pick color"
+                aria-label={t('catf.colorAria')}
               />
               <input
                 type="text"
@@ -127,18 +130,18 @@ function CategoryForm({ category, onCancel, onSave }) {
                 onChange={(event) => setField('color', event.target.value)}
                 maxLength={7}
                 placeholder="#f59e0b"
-                aria-label="Color hex value"
+                aria-label={t('catf.colorHexAria')}
               />
             </div>
             {errors.color ? <p className="mt-1 text-xs text-error">{errors.color}</p> : null}
           </div>
           <div className="modal-action">
             <button type="button" className="btn" onClick={onCancel} disabled={submitting}>
-              Cancel
+              {t('common.cancel')}
             </button>
             <button type="submit" className="btn btn-primary" disabled={submitting}>
               {submitting ? <span className="loading loading-spinner loading-sm" /> : null}
-              {category ? 'Save changes' : 'Add category'}
+              {category ? t('catf.submitEdit') : t('catf.submitAdd')}
             </button>
           </div>
         </form>
@@ -146,7 +149,7 @@ function CategoryForm({ category, onCancel, onSave }) {
       <button
         type="button"
         className="modal-backdrop"
-        aria-label="Close dialog"
+        aria-label={t('common.closeDialog')}
         onClick={() => {
           if (!submitting) onCancel()
         }}

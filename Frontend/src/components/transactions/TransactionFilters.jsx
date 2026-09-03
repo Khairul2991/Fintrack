@@ -1,11 +1,8 @@
-const SORT_OPTIONS = [
-  { value: 'newest', label: 'Newest' },
-  { value: 'oldest', label: 'Oldest' },
-  { value: 'amount-desc', label: 'Highest amount' },
-  { value: 'amount-asc', label: 'Lowest amount' },
-]
+import { useLanguage } from '../../context/LanguageContext'
 
 function TransactionFilters({ categories, filters, onCommitSearch, onFieldChange, onReset }) {
+  const { t } = useLanguage()
+
   function handleSubmit(event) {
     event.preventDefault()
     const formData = new FormData(event.currentTarget)
@@ -23,40 +20,40 @@ function TransactionFilters({ categories, filters, onCommitSearch, onFieldChange
                 key={filters.search}
                 type="search"
                 className="input input-bordered w-full"
-                placeholder="Search description..."
+                placeholder={t('tx.searchPlaceholder')}
                 defaultValue={filters.search}
-                aria-label="Search transactions"
+                aria-label={t('tx.searchAria')}
               />
               <button type="submit" className="btn">
-                Search
+                {t('common.search')}
               </button>
             </div>
             <div>
               <label className="label">
-                <span className="text-sm text-base-content/60">Type</span>
+                <span className="text-sm text-base-content/60">{t('tx.filterType')}</span>
               </label>
               <select
                 className="select select-bordered w-full"
                 value={filters.type}
                 onChange={(event) => onFieldChange({ type: event.target.value })}
-                aria-label="Filter by type"
+                aria-label={t('tx.filterTypeAria')}
               >
-                <option value="">All types</option>
-                <option value="INCOME">Income</option>
-                <option value="EXPENSE">Expense</option>
+                <option value="">{t('tx.allTypes')}</option>
+                <option value="INCOME">{t('common.income')}</option>
+                <option value="EXPENSE">{t('common.expense')}</option>
               </select>
             </div>
             <div>
               <label className="label">
-                <span className="text-sm text-base-content/60">Category</span>
+                <span className="text-sm text-base-content/60">{t('tx.filterCat')}</span>
               </label>
               <select
                 className="select select-bordered w-full"
                 value={filters.categoryId}
                 onChange={(event) => onFieldChange({ categoryId: event.target.value })}
-                aria-label="Filter by category"
+                aria-label={t('tx.filterCatAria')}
               >
-                <option value="">All categories</option>
+                <option value="">{t('tx.allCats')}</option>
                 {categories.map((category) => (
                   <option key={category.id} value={category.id}>
                     {category.icon} {category.name}
@@ -66,47 +63,46 @@ function TransactionFilters({ categories, filters, onCommitSearch, onFieldChange
             </div>
             <div>
               <label className="label">
-                <span className="text-sm text-base-content/60">From</span>
+                <span className="text-sm text-base-content/60">{t('tx.filterFrom')}</span>
               </label>
               <input
                 type="date"
                 className="input input-bordered w-full"
                 value={filters.startDate}
                 onChange={(event) => onFieldChange({ startDate: event.target.value })}
-                aria-label="Start date"
+                aria-label={t('tx.startDateAria')}
               />
             </div>
             <div>
               <label className="label">
-                <span className="text-sm text-base-content/60">To</span>
+                <span className="text-sm text-base-content/60">{t('tx.filterTo')}</span>
               </label>
               <input
                 type="date"
                 className="input input-bordered w-full"
                 value={filters.endDate}
                 onChange={(event) => onFieldChange({ endDate: event.target.value })}
-                aria-label="End date"
+                aria-label={t('tx.endDateAria')}
               />
             </div>
           </div>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <span className="text-sm text-base-content/60">Sort by</span>
+              <span className="text-sm text-base-content/60">{t('tx.sortBy')}</span>
               <select
                 className="select select-bordered select-sm"
                 value={filters.sort}
                 onChange={(event) => onFieldChange({ sort: event.target.value })}
-                aria-label="Sort transactions"
+                aria-label={t('tx.sortAria')}
               >
-                {SORT_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
+                <option value="newest">{t('tx.sortNewest')}</option>
+                <option value="oldest">{t('tx.sortOldest')}</option>
+                <option value="amount-desc">{t('tx.sortAmountDesc')}</option>
+                <option value="amount-asc">{t('tx.sortAmountAsc')}</option>
               </select>
             </div>
             <button type="button" className="btn btn-ghost btn-sm" onClick={onReset}>
-              Reset filters
+              {t('tx.resetFilters')}
             </button>
           </div>
         </div>

@@ -1,4 +1,5 @@
 import { formatCurrency, formatDate } from '../../utils/format'
+import { useLanguage } from '../../context/LanguageContext'
 
 function EditIcon() {
   return (
@@ -41,17 +42,18 @@ function TrashIcon() {
 }
 
 function TransactionTable({ transactions, onEdit, onDelete }) {
+  const { t } = useLanguage()
   return (
     <div className="overflow-x-auto">
       <table className="table">
         <thead>
           <tr>
-            <th>Date</th>
-            <th>Category</th>
-            <th>Description</th>
-            <th>Type</th>
-            <th className="text-right">Amount</th>
-            <th className="text-right w-24">Actions</th>
+            <th>{t('tx.colDate')}</th>
+            <th>{t('tx.colCategory')}</th>
+            <th>{t('tx.colDescription')}</th>
+            <th>{t('tx.colType')}</th>
+            <th className="text-right">{t('tx.colAmount')}</th>
+            <th className="text-right w-24">{t('tx.colActions')}</th>
           </tr>
         </thead>
         <tbody>
@@ -71,7 +73,7 @@ function TransactionTable({ transactions, onEdit, onDelete }) {
                     transaction.type === 'INCOME' ? 'badge-success' : 'badge-error'
                   }`}
                 >
-                  {transaction.type === 'INCOME' ? 'Income' : 'Expense'}
+                  {transaction.type === 'INCOME' ? t('common.income') : t('common.expense')}
                 </span>
               </td>
               <td
@@ -87,7 +89,7 @@ function TransactionTable({ transactions, onEdit, onDelete }) {
                     type="button"
                     className="btn btn-ghost btn-square btn-sm"
                     onClick={() => onEdit(transaction)}
-                    aria-label={`Edit ${transaction.description}`}
+                    aria-label={t('tx.editAria', { name: transaction.description })}
                   >
                     <EditIcon />
                   </button>
@@ -95,7 +97,7 @@ function TransactionTable({ transactions, onEdit, onDelete }) {
                     type="button"
                     className="btn btn-ghost btn-square btn-sm hover:text-error"
                     onClick={() => onDelete(transaction)}
-                    aria-label={`Delete ${transaction.description}`}
+                    aria-label={t('tx.deleteAria', { name: transaction.description })}
                   >
                     <TrashIcon />
                   </button>

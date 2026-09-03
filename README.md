@@ -1,0 +1,147 @@
+# FinTrack
+
+FinTrack is a responsive personal finance management web application built with React, Node.js, Express, Prisma, and SQLite. It enables users to manage income and expenses, organize transactions by category, create monthly budgets, visualize financial data, and analyze spending patterns through an interactive dashboard and reports.
+
+## Features
+
+- **Dashboard** — total balance, income, expense, recent transactions, income-vs-expense chart, expense-by-category chart, and simple rule-based spending insights.
+- **Transactions** — CRUD with search, type/category/date filters, sorting by date or amount, and pagination.
+- **Categories** — CRUD with pre-seeded defaults and protection against deleting categories still in use.
+- **Budgets** — monthly per-category budgets with live spent/remaining/progress and On Track / Near Limit / Over Budget status.
+- **Reports** — 12-month income & expense comparison, expense-by-category ranking, and highest spending category.
+- **Settings** — theme switcher (System / Light / Dark) and currency info (amounts are stored in IDR).
+- **Polish** — dark mode, toast notifications, loading skeletons, empty states, error states with retry, responsive layout, and accessibility labels.
+
+## Tech Stack
+
+| Area | Technology |
+| --- | --- |
+| Frontend | React 19, JavaScript (JSX), Vite 8, React Router 7, Tailwind CSS 4, DaisyUI 5, Recharts 3 |
+| Backend | Node.js, Express 5, Prisma ORM 7, SQLite |
+| Testing | Node.js built-in test runner (`node --test`) |
+
+## Repository Structure
+
+This repository contains **two independent Node projects** — it is **not** an npm workspace or monorepo. Each folder has its own `package.json` and dependency tree. Run all npm commands inside the specific folder.
+
+```text
+Fintrack/
+├── Backend/
+│   ├── src/            # Express app: routes, controllers, services, middleware, utils
+│   ├── prisma/         # schema.prisma, migrations, seed
+│   ├── tests/          # API + business logic test suites (node:test)
+│   ├── database/       # SQLite databases (gitignored)
+│   ├── .env.example    # environment template
+│   └── package.json
+├── Frontend/
+│   ├── src/            # React app: components, pages, layouts, hooks, services, utils
+│   ├── tests/          # UI-layer (service integration) test suite
+│   └── package.json
+├── docs/               # Architecture, database schema, and API documentation
+├── AGENTS.md           # agent/developer conventions for this repo
+├── PRD.md              # product requirements (source of truth for scope)
+└── README.md
+```
+
+## Prerequisites
+
+- **Node.js >= 18.11** (required for `--env-file`, dynamic `import()`, and `node --test`). Developed and verified on Node 24.
+- **npm** (bundled with Node).
+
+## Getting Started
+
+### 1. Backend
+
+```sh
+cd Backend
+npm install
+
+# create the environment file
+cp .env.example .env
+
+# create the SQLite database and apply migrations
+npm run prisma:migrate
+
+# seed the default categories (idempotent)
+npm run prisma:seed
+
+# start the API server on http://localhost:3000
+npm run dev
+```
+
+The backend runs on **http://localhost:3000**. In dev mode it uses `node --watch` for auto-restart.
+
+### 2. Frontend
+
+```sh
+cd Frontend
+npm install
+
+# start the Vite dev server on http://localhost:5173
+npm run dev
+```
+
+The frontend serves on **http://localhost:5173**. Vite proxies all `/api` requests to `http://localhost:3000` (see `vite.config.js`), so no CORS configuration is needed. Open **http://localhost:5173** in your browser.
+
+> The frontend proxies `/api` to the backend at `localhost:3000`. Both servers must be running to use the application.
+
+## Project Scripts
+
+| Command | Folder | Description |
+| --- | --- | --- |
+| `npm run dev` | Frontend | Start Vite dev server (port 5173) |
+| `npm run dev` | Backend | Start Express API with `--watch` (port 3000) |
+| `npm start` | Backend | Start Express API without watch |
+| `npm run lint` | Frontend | Run oxlint |
+| `npm run build` | Frontend | Production build of the React app |
+| `npm test` | Backend | Run the 45 backend API + business logic tests |
+| `npm test` | Frontend | Run the 17 frontend UI-layer tests |
+| `npm run prisma:generate` | Backend | Generate the Prisma client |
+| `npm run prisma:migrate` | Backend | Apply schema migrations |
+| `npm run prisma:seed` | Backend | Seed idempotent default categories |
+
+## Testing
+
+Both test suites use the Node.js built-in test runner — **no test dependencies are required**.
+
+- **Backend** (`Backend/tests/`): runs the real Express app in-process against an isolated SQLite database (`Backend/database/test.db`) to avoid touching development data.
+- **Frontend** (`Frontend/tests/`): imports the real service modules and talks to a spawned backend instance (port 3101, isolated `test-fe.db` database).
+
+```sh
+cd Backend && npm test   # 45 tests
+cd Frontend && npm test  # 17 tests
+```
+
+Before running the frontend suite, create its test database schema:
+
+```sh
+cd Backend
+$env:DATABASE_URL="file:./database/test-fe.db"; npx prisma migrate deploy; $env:DATABASE_URL="file:./database/test.db"; npx prisma migrate deploy
+```
+
+## Documentation
+
+- [Architecture](docs/Architecture.md)
+- [Database Schema](docs/Database.md)
+- [API Reference](docs/API.md)
+
+## Screenshots
+
+> Screenshots to be added. Start the application (`npm run dev` in both folders), open http://localhost:5173, and capture the dashboard, transactions, categories, budgets, reports, and settings pages.
+
+## Roadmap
+
+Planned future improvements (out of MVP scope — see `PRD.md` §47):
+
+1. Authentication & multi-user
+2. PostgreSQL and cloud deployment
+3. Bank integration / automatic transaction import
+4. Recurring transactions
+5. Export to CSV/Excel and PDF financial reports
+6. Advanced analytics and financial goals
+7. Multiple accounts/wallets
+8. Notifications and PWA/offline support
+
+## Portfolio
+
+Built to demonstrate full-stack development: React component architecture, modern JavaScript, React Router, Express REST API, Prisma ORM, SQLite relational database, CRUD operations, data aggregation, form validation, error handling, search/filter/sort/pagination, data visualization, and responsive UI.

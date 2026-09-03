@@ -4,7 +4,7 @@ import MobileNavigation from './MobileNavigation'
 
 function AppLayout() {
   return (
-    <div className="min-h-dvh bg-base-100 text-base-content">
+    <div className="min-h-dvh bg-base-200 text-base-content">
       <Sidebar />
       <MobileNavigation />
       <main className="flex flex-col px-4 py-6 sm:px-6 lg:ml-64 lg:px-10 lg:py-8">

@@ -1,21 +1,9 @@
 import { useEffect, useState } from 'react'
+import MoneyInput from '../common/MoneyInput'
+import { useLanguage } from '../../context/LanguageContext'
 
 const MIN_YEAR = 2000
 const MAX_YEAR = 2100
-const MONTH_NAMES = [
-  'January',
-  'February',
-  'March',
-  'April',
-  'May',
-  'June',
-  'July',
-  'August',
-  'September',
-  'October',
-  'November',
-  'December',
-]
 
 function initialForm(budget) {
   const now = new Date()
@@ -32,6 +20,7 @@ function initialForm(budget) {
 }
 
 function BudgetForm({ budget, categories, onCancel, onSave }) {
+  const { t } = useLanguage()
   const [form, setForm] = useState(() => initialForm(budget))
   const [errors, setErrors] = useState({})
   const [submitError, setSubmitError] = useState('')
@@ -53,19 +42,19 @@ function BudgetForm({ budget, categories, onCancel, onSave }) {
   function validate() {
     const next = {}
     if (!form.categoryId) {
-      next.categoryId = 'Category is required.'
+      next.categoryId = t('budf.errCategory')
     }
     const month = Number(form.month)
     if (!Number.isInteger(month) || month < 1 || month > 12) {
-      next.month = 'Month must be between 1 and 12.'
+      next.month = t('budf.errMonth')
     }
     const year = Number(form.year)
     if (!Number.isInteger(year) || year < MIN_YEAR || year > MAX_YEAR) {
-      next.year = `Year must be between ${MIN_YEAR} and ${MAX_YEAR}.`
+      next.year = t('budf.errYear', { min: MIN_YEAR, max: MAX_YEAR })
     }
     const amount = Number(form.amount)
     if (!Number.isFinite(amount) || amount <= 0) {
-      next.amount = 'Amount must be a positive number.'
+      next.amount = t('budf.errAmount')
     }
     setErrors(next)
     return Object.keys(next).length === 0
@@ -84,7 +73,7 @@ function BudgetForm({ budget, categories, onCancel, onSave }) {
         amount: form.amount,
       })
     } catch (error) {
-      setSubmitError(error.message || 'Something went wrong. Please try again.')
+      setSubmitError(error.message || t('common.genericError'))
       setSubmitting(false)
     }
   }
@@ -97,7 +86,7 @@ function BudgetForm({ budget, categories, onCancel, onSave }) {
   return (
     <dialog className="modal modal-open">
       <div className="modal-box max-w-md">
-        <h3 className="text-lg font-bold">{budget ? 'Edit Budget' : 'New Budget'}</h3>
+        <h3 className="text-lg font-bold">{budget ? t('budf.edit') : t('budf.new')}</h3>
         <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-3">
           {submitError ? (
             <div role="alert" className="alert alert-error text-sm">
@@ -106,7 +95,7 @@ function BudgetForm({ budget, categories, onCancel, onSave }) {
           ) : null}
           <div>
             <label className="label" htmlFor="budget-category">
-              <span className="label-text">Category</span>
+              <span className="label-text">{t('budf.category')}</span>
             </label>
             <select
               id="budget-category"
@@ -115,19 +104,21 @@ function BudgetForm({ budget, categories, onCancel, onSave }) {
               onChange={(event) => setField('categoryId', event.target.value)}
               autoFocus
             >
-              <option value="">Select a category</option>
+              <option value="">{t('budf.selectCategory')}</option>
               {categories.map((category) => (
                 <option key={category.id} value={category.id}>
                   {category.icon} {category.name}
                 </option>
               ))}
             </select>
-            {errors.categoryId ? <p className="mt-1 text-xs text-error">{errors.categoryId}</p> : null}
+            {errors.categoryId ? (
+              <p className="mt-1 text-xs text-error">{errors.categoryId}</p>
+            ) : null}
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="label" htmlFor="budget-month">
-                <span className="label-text">Month</span>
+                <span className="label-text">{t('budf.month')}</span>
               </label>
               <select
                 id="budget-month"
@@ -135,17 +126,20 @@ function BudgetForm({ budget, categories, onCancel, onSave }) {
                 value={form.month}
                 onChange={(event) => setField('month', event.target.value)}
               >
-                {MONTH_NAMES.map((name, index) => (
-                  <option key={name} value={index + 1}>
-                    {index + 1}. {name}
-                  </option>
-                ))}
+                {Array.from({ length: 12 }, (_, index) => {
+                  const name = t(`months.${index + 1}`)
+                  return (
+                    <option key={name} value={index + 1}>
+                      {index + 1}. {name}
+                    </option>
+                  )
+                })}
               </select>
               {errors.month ? <p className="mt-1 text-xs text-error">{errors.month}</p> : null}
             </div>
             <div>
               <label className="label" htmlFor="budget-year">
-                <span className="label-text">Year</span>
+                <span className="label-text">{t('budf.year')}</span>
               </label>
               <select
                 id="budget-year"
@@ -164,27 +158,24 @@ function BudgetForm({ budget, categories, onCancel, onSave }) {
           </div>
           <div>
             <label className="label" htmlFor="budget-amount">
-              <span className="label-text">Amount (IDR)</span>
+              <span className="label-text">{t('budf.amount')}</span>
             </label>
-            <input
+            <MoneyInput
               id="budget-amount"
-              type="number"
-              min="0"
-              step="any"
-              className={`input input-bordered w-full ${errors.amount ? 'input-error' : ''}`}
               value={form.amount}
-              onChange={(event) => setField('amount', event.target.value)}
-              placeholder="e.g. 1500000"
+              onChange={(value) => setField('amount', value)}
+              placeholder={t('budf.amountPlaceholder')}
+              error={Boolean(errors.amount)}
             />
             {errors.amount ? <p className="mt-1 text-xs text-error">{errors.amount}</p> : null}
           </div>
           <div className="modal-action">
             <button type="button" className="btn" onClick={onCancel} disabled={submitting}>
-              Cancel
+              {t('common.cancel')}
             </button>
             <button type="submit" className="btn btn-primary" disabled={submitting}>
               {submitting ? <span className="loading loading-spinner loading-sm" /> : null}
-              {budget ? 'Save changes' : 'Add budget'}
+              {budget ? t('budf.submitEdit') : t('budf.submitAdd')}
             </button>
           </div>
         </form>
@@ -192,7 +183,7 @@ function BudgetForm({ budget, categories, onCancel, onSave }) {
       <button
         type="button"
         className="modal-backdrop"
-        aria-label="Close dialog"
+        aria-label={t('common.closeDialog')}
         onClick={() => {
           if (!submitting) onCancel()
         }}

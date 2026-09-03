@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "oxlint",
+    "test": "node --import ./tests/register.mjs --test --test-concurrency=1 \"tests/**/*.test.mjs\"",
     "preview": "vite preview"
   },
   "dependencies": {

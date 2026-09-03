@@ -1,8 +1,10 @@
 import { Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
 import EmptyState from '../common/EmptyState'
 import { formatCurrency } from '../../utils/format'
+import { useLanguage } from '../../context/LanguageContext'
 
 function CategoryChart({ categories }) {
+  const { t } = useLanguage()
   const data = categories.map((category) => ({
     name: category.name,
     value: Number(category.total),
@@ -12,14 +14,14 @@ function CategoryChart({ categories }) {
   return (
     <div className="card bg-base-100 shadow">
       <div className="card-body">
-        <h2 className="card-title">Spending by Category</h2>
+        <h2 className="card-title">{t('dash.spendingCat')}</h2>
         {data.length === 0 ? (
           <EmptyState
-            title="No expense data yet"
-            message="Expenses will appear here once you record them."
+            title={t('chart.noExpense')}
+            message={t('chart.noExpenseMsg')}
           />
         ) : (
-          <div role="img" aria-label="Pie chart of expenses by category">
+          <div role="img" aria-label={t('dash.spendingCatAria')}>
             <ResponsiveContainer width="100%" height={280}>
               <PieChart>
                 <Pie

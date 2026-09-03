@@ -5,8 +5,10 @@ import CategoryReportChart from '../components/reports/CategoryReportChart'
 import MonthlyComparison from '../components/reports/MonthlyComparison'
 import HighestCategory from '../components/reports/HighestCategory'
 import { getCategoryReport, getMonthlyReport } from '../services/reportsApi'
+import { useLanguage } from '../context/LanguageContext'
 
 function ReportsPage() {
+  const { t, translateError } = useLanguage()
   const [months, setMonths] = useState([])
   const [categories, setCategories] = useState([])
   const [highest, setHighest] = useState(null)
@@ -27,14 +29,14 @@ function ReportsPage() {
       })
       .catch((error) => {
         if (active) {
-          setLoadError(error.message)
+          setLoadError(translateError(error.message))
           setStatus('error')
         }
       })
     return () => {
       active = false
     }
-  }, [refreshKey])
+  }, [refreshKey, translateError])
 
   function retry() {
     setStatus('loading')
@@ -43,7 +45,7 @@ function ReportsPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <PageHeader title="Reports" subtitle="Analyze your spending patterns." />
+      <PageHeader title={t('rep.title')} subtitle={t('rep.subtitle')} />
 
       {status === 'loading' ? (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -55,13 +57,9 @@ function ReportsPage() {
         <div className="card bg-base-100 shadow">
           <div role="alert" className="card-body">
             <div className="flex items-center justify-between gap-2">
-              <span>Unable to load reports. {loadError}</span>
-              <button
-                type="button"
-                className="btn btn-sm btn-outline"
-                onClick={retry}
-              >
-                Retry
+              <span>{t('rep.loadError')} {loadError}</span>
+              <button type="button" className="btn btn-sm btn-outline" onClick={retry}>
+                {t('common.retry')}
               </button>
             </div>
           </div>

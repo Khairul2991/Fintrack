@@ -6,6 +6,7 @@ import { PlusIcon } from '../components/common/Icons'
 import CategoryCard from '../components/categories/CategoryCard'
 import CategoryForm from '../components/categories/CategoryForm'
 import { useToast } from '../context/ToastContext'
+import { useLanguage } from '../context/LanguageContext'
 import {
   createCategory,
   deleteCategory,
@@ -15,6 +16,7 @@ import {
 
 function CategoriesPage() {
   const toast = useToast()
+  const { t, translateError } = useLanguage()
 
   const [categories, setCategories] = useState([])
   const [status, setStatus] = useState('loading')
@@ -34,10 +36,10 @@ function CategoriesPage() {
         setStatus('ready')
       })
       .catch((error) => {
-        setLoadError(error.message)
+        setLoadError(translateError(error.message))
         setStatus('error')
       })
-  }, [])
+  }, [translateError])
 
   useEffect(() => {
     load()
@@ -61,10 +63,10 @@ function CategoriesPage() {
   async function handleSave(payload) {
     if (editing) {
       await updateCategory(editing.id, payload)
-      toast.success('Category updated.')
+      toast.success(t('cat.updated'))
     } else {
       await createCategory(payload)
-      toast.success('Category added.')
+      toast.success(t('cat.added'))
     }
     setFormOpen(false)
     setEditing(null)
@@ -76,11 +78,11 @@ function CategoriesPage() {
     setDeleteLoading(true)
     try {
       await deleteCategory(deleting.id)
-      toast.success('Category deleted.')
+      toast.success(t('cat.deleted'))
       setDeleting(null)
       setRefreshKey((key) => key + 1)
     } catch (error) {
-      toast.error(error.message)
+      toast.error(translateError(error.message))
     } finally {
       setDeleteLoading(false)
     }
@@ -89,13 +91,10 @@ function CategoriesPage() {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <PageHeader
-          title="Categories"
-          subtitle="Organize your transactions by category."
-        />
+        <PageHeader title={t('cat.title')} subtitle={t('cat.subtitle')} />
         <button type="button" className="btn btn-primary" onClick={openCreate}>
           <PlusIcon />
-          Add Category
+          {t('cat.add')}
         </button>
       </div>
 
@@ -107,7 +106,7 @@ function CategoriesPage() {
         </div>
       ) : status === 'error' ? (
         <div role="alert" className="flex items-center justify-between gap-2 alert alert-error">
-          <span>Unable to load categories. {loadError}</span>
+          <span>{t('cat.loadError')} {loadError}</span>
           <button
             type="button"
             className="btn btn-sm"
@@ -116,17 +115,17 @@ function CategoriesPage() {
               setRefreshKey((key) => key + 1)
             }}
           >
-            Retry
+            {t('common.retry')}
           </button>
         </div>
       ) : categories.length === 0 ? (
         <div className="card bg-base-100 shadow">
           <EmptyState
-            title="No categories available"
-            message="Create a category to start organizing your transactions."
+            title={t('cat.empty')}
+            message={t('cat.emptyMsg')}
             action={
               <button type="button" className="btn btn-primary" onClick={openCreate}>
-                Add Category
+                {t('cat.add')}
               </button>
             }
           />
@@ -145,18 +144,14 @@ function CategoriesPage() {
       )}
 
       {formOpen ? (
-        <CategoryForm
-          category={editing}
-          onCancel={closeForm}
-          onSave={handleSave}
-        />
+        <CategoryForm category={editing} onCancel={closeForm} onSave={handleSave} />
       ) : null}
 
       {deleting ? (
         <ConfirmDialog
-          title="Delete category"
-          message={`Delete "${deleting.name}"? This action cannot be undone.`}
-          confirmLabel="Delete"
+          title={t('cat.confirmTitle')}
+          message={t('cat.confirmMsg', { name: deleting.name })}
+          confirmLabel={t('common.delete')}
           loading={deleteLoading}
           onCancel={() => setDeleting(null)}
           onConfirm={handleDelete}

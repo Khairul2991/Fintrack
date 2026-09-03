@@ -1,19 +1,22 @@
 import { Link } from 'react-router-dom'
 import EmptyState from '../common/EmptyState'
 import { formatCurrency, formatDate } from '../../utils/format'
+import { useLanguage } from '../../context/LanguageContext'
 
 function RecentTransactions({ transactions }) {
+  const { t } = useLanguage()
+
   if (transactions.length === 0) {
     return (
       <div className="card bg-base-100 shadow">
         <div className="card-body">
-          <h2 className="card-title">Recent Transactions</h2>
+          <h2 className="card-title">{t('dash.recent')}</h2>
           <EmptyState
-            title="No transactions yet"
-            message="Your most recent transactions will appear here."
+            title={t('dash.recentEmpty')}
+            message={t('dash.recentEmptyMsg')}
             action={
               <Link to="/transactions" className="btn btn-primary btn-sm">
-                Add a transaction
+                {t('dash.addShort')}
               </Link>
             }
           />
@@ -25,13 +28,10 @@ function RecentTransactions({ transactions }) {
   return (
     <div className="card bg-base-100 shadow">
       <div className="card-body">
-        <h2 className="card-title">Recent Transactions</h2>
+        <h2 className="card-title">{t('dash.recent')}</h2>
         <ul className="flex flex-col">
           {transactions.map((transaction) => (
-            <li
-              key={transaction.id}
-              className="flex items-center gap-3 py-2.5"
-            >
+            <li key={transaction.id} className="flex items-center gap-3 py-2.5">
               <div
                 className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lg"
                 style={{ backgroundColor: `${transaction.category.color}26` }}

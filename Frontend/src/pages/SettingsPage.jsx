@@ -1,33 +1,40 @@
 import PageHeader from '../components/layout/PageHeader'
 import { useToast } from '../context/ToastContext'
 import { useTheme } from '../hooks/useTheme'
+import { useLanguage } from '../context/LanguageContext'
+import { LANGUAGES } from '../l10n/messages'
 
 const THEME_OPTIONS = [
-  { value: 'system', label: 'System', description: 'Follows your device appearance.' },
-  { value: 'light', label: 'Light', description: 'Always uses the light theme.' },
-  { value: 'dark', label: 'Dark', description: 'Always uses the dark theme.' },
+  { value: 'system', labelKey: 'set.optionSystem', descriptionKey: 'set.optionSystemDesc' },
+  { value: 'light', labelKey: 'set.optionLight', descriptionKey: 'set.optionLightDesc' },
+  { value: 'dark', labelKey: 'set.optionDark', descriptionKey: 'set.optionDarkDesc' },
 ]
 
 function SettingsPage() {
   const toast = useToast()
+  const { t, lang, setLang } = useLanguage()
   const [theme, changeTheme] = useTheme()
 
   function handleThemeChange(value) {
     if (value === theme) return
     changeTheme(value)
-    toast.success('Theme updated.')
+    toast.success(t('set.themeUpdated'))
+  }
+
+  function handleLanguageChange(value) {
+    if (value === lang) return
+    setLang(value)
+    toast.success(t('set.languageUpdated'))
   }
 
   return (
     <div className="flex flex-col gap-4">
-      <PageHeader title="Settings" subtitle="Application preferences." />
+      <PageHeader title={t('set.title')} subtitle={t('set.subtitle')} />
 
       <div className="card bg-base-100 shadow">
         <div className="card-body">
-          <h2 className="card-title">Theme</h2>
-          <p className="text-sm text-base-content/60">
-            Choose how FinTrack looks. The default follows your device.
-          </p>
+          <h2 className="card-title">{t('set.theme')}</h2>
+          <p className="text-sm text-base-content/60">{t('set.themeDesc')}</p>
           <div className="mt-1 flex flex-wrap gap-2">
             {THEME_OPTIONS.map((option) => (
               <label
@@ -43,8 +50,8 @@ function SettingsPage() {
                   checked={theme === option.value}
                   onChange={() => handleThemeChange(option.value)}
                 />
-                <span className="text-sm font-semibold">{option.label}</span>
-                <span className="text-xs font-normal opacity-70">{option.description}</span>
+                <span className="text-sm font-semibold">{t(option.labelKey)}</span>
+                <span className="text-xs font-normal opacity-70">{t(option.descriptionKey)}</span>
               </label>
             ))}
           </div>
@@ -53,14 +60,35 @@ function SettingsPage() {
 
       <div className="card bg-base-100 shadow">
         <div className="card-body">
-          <h2 className="card-title">Currency</h2>
-          <p className="text-sm text-base-content/60">
-            FinTrack stores amounts in Indonesian Rupiah (IDR) and formats them consistently
-            across all pages.
-          </p>
-          <p className="text-sm font-semibold tabular-nums">
-            Example: Rp1.250.000
-          </p>
+          <h2 className="card-title">{t('set.language')}</h2>
+          <p className="text-sm text-base-content/60">{t('set.languageDesc')}</p>
+          <div className="mt-1 flex flex-wrap gap-2">
+            {LANGUAGES.map((language) => (
+              <label
+                key={language.value}
+                className={`btn btn-outline flex-1 sm:flex-none ${
+                  lang === language.value ? 'btn-primary' : ''
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="language"
+                  className="sr-only"
+                  checked={lang === language.value}
+                  onChange={() => handleLanguageChange(language.value)}
+                />
+                <span>{language.label}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="card bg-base-100 shadow">
+        <div className="card-body">
+          <h2 className="card-title">{t('set.currency')}</h2>
+          <p className="text-sm text-base-content/60">{t('set.currencyDesc')}</p>
+          <p className="text-sm font-semibold tabular-nums">{t('set.currencyExample')}</p>
         </div>
       </div>
     </div>

@@ -10,8 +10,10 @@ import {
 } from 'recharts'
 import EmptyState from '../common/EmptyState'
 import { formatCurrency, formatCurrencyCompact, formatMonth } from '../../utils/format'
+import { useLanguage } from '../../context/LanguageContext'
 
 function MonthlyChart({ months }) {
+  const { t } = useLanguage()
   const data = months.map((month) => ({
     label: formatMonth(month.month),
     income: Number(month.income),
@@ -22,9 +24,9 @@ function MonthlyChart({ months }) {
   return (
     <div className="card bg-base-100 shadow">
       <div className="card-body">
-        <h2 className="card-title">Monthly Income vs Expense</h2>
+        <h2 className="card-title">{t('rep.monthly')}</h2>
         {hasData ? (
-          <div role="img" aria-label="Bar chart of monthly income versus expenses over the last twelve months">
+          <div role="img" aria-label={t('rep.monthlyAria')}>
             <ResponsiveContainer width="100%" height={320}>
               <BarChart data={data} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -38,16 +40,13 @@ function MonthlyChart({ months }) {
                 />
                 <Tooltip formatter={(value) => formatCurrency(value)} />
                 <Legend />
-                <Bar dataKey="income" name="Income" fill="#22c55e" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="expense" name="Expense" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="income" name={t('common.income')} fill="#22c55e" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="expense" name={t('common.expense')} fill="#ef4444" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         ) : (
-          <EmptyState
-            title="No data available for this period"
-            message="Add income and expenses to see your monthly trends."
-          />
+          <EmptyState title={t('chart.noData')} message={t('chart.noDataMsg')} />
         )}
       </div>
     </div>

@@ -1,5 +1,6 @@
 import { Routes, Route } from 'react-router-dom'
 import AppLayout from './layouts/AppLayout'
+import LanguageProvider from './components/common/LanguageProvider'
 import ToastProvider from './components/common/ToastProvider'
 import DashboardPage from './pages/DashboardPage'
 import TransactionsPage from './pages/TransactionsPage'
@@ -11,8 +12,9 @@ import NotFoundPage from './pages/NotFoundPage'
 
 function App() {
   return (
-    <ToastProvider>
-      <Routes>
+    <LanguageProvider>
+      <ToastProvider>
+        <Routes>
         <Route element={<AppLayout />}>
           <Route path="/" element={<DashboardPage />} />
           <Route path="/transactions" element={<TransactionsPage />} />
@@ -21,9 +23,10 @@ function App() {
           <Route path="/budgets" element={<BudgetsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="*" element={<NotFoundPage />} />
-        </Route>
-      </Routes>
-    </ToastProvider>
+          </Route>
+        </Routes>
+      </ToastProvider>
+    </LanguageProvider>
   )
 }
 
