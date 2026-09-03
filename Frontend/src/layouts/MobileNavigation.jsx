@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Brand, SidebarNav } from './Sidebar'
+import { Brand, BrandMark, SidebarNav } from './Sidebar'
 import { useLanguage } from '../context/LanguageContext'
 
 function MobileNavigation() {
@@ -17,11 +17,16 @@ function MobileNavigation() {
 
   return (
     <>
-      <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-base-300 bg-base-100/95 px-4 backdrop-blur lg:hidden">
-        <Brand />
+      <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-base-200 bg-base-200/90 px-4 backdrop-blur lg:hidden">
+        <div className="flex items-center gap-2.5">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-content">
+            <BrandMark className="h-5 w-5" />
+          </span>
+          <span className="text-base font-bold tracking-tight">FinTrack</span>
+        </div>
         <button
           type="button"
-          className="btn btn-ghost btn-square"
+          className="btn btn-ghost btn-square btn-sm"
           aria-label={t('app.openMenuAria')}
           aria-expanded={open}
           onClick={() => setOpen(true)}
@@ -52,17 +57,17 @@ function MobileNavigation() {
       />
 
       <nav
-        className={`fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-base-100 shadow-xl transition-transform duration-200 lg:hidden ${
+        className={`surface fixed inset-y-0 left-0 z-50 flex w-72 flex-col shadow-elevated transition-transform duration-200 lg:hidden ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
         aria-label={t('app.mobileNavAria')}
         aria-hidden={!open}
       >
-        <div className="flex items-center justify-between pr-2">
+        <div className="flex items-center justify-between border-b border-base-200 pr-2">
           <Brand />
           <button
             type="button"
-            className="btn btn-ghost btn-square"
+            className="btn btn-ghost btn-square btn-sm"
             aria-label={t('app.closeMenuAria')}
             onClick={() => setOpen(false)}
           >

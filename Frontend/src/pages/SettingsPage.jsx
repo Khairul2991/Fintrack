@@ -31,9 +31,9 @@ function SettingsPage() {
     <div className="flex flex-col gap-4">
       <PageHeader title={t('set.title')} subtitle={t('set.subtitle')} />
 
-      <div className="card bg-base-100 shadow">
+      <div className="card surface card-border">
         <div className="card-body">
-          <h2 className="card-title">{t('set.theme')}</h2>
+          <h2 className="card-title text-base font-semibold">{t('set.theme')}</h2>
           <p className="text-sm text-base-content/60">{t('set.themeDesc')}</p>
           <div className="mt-1 flex flex-wrap gap-2">
             {THEME_OPTIONS.map((option) => (
@@ -58,9 +58,9 @@ function SettingsPage() {
         </div>
       </div>
 
-      <div className="card bg-base-100 shadow">
+      <div className="card surface card-border">
         <div className="card-body">
-          <h2 className="card-title">{t('set.language')}</h2>
+          <h2 className="card-title text-base font-semibold">{t('set.language')}</h2>
           <p className="text-sm text-base-content/60">{t('set.languageDesc')}</p>
           <div className="mt-1 flex flex-wrap gap-2">
             {LANGUAGES.map((language) => (
@@ -84,9 +84,9 @@ function SettingsPage() {
         </div>
       </div>
 
-      <div className="card bg-base-100 shadow">
+      <div className="card surface card-border">
         <div className="card-body">
-          <h2 className="card-title">{t('set.currency')}</h2>
+          <h2 className="card-title text-base font-semibold">{t('set.currency')}</h2>
           <p className="text-sm text-base-content/60">{t('set.currencyDesc')}</p>
           <p className="text-sm font-semibold tabular-nums">{t('set.currencyExample')}</p>
         </div>

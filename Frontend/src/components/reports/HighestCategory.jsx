@@ -3,13 +3,13 @@ import { formatCurrency } from '../../utils/format'
 import { useLanguage } from '../../context/LanguageContext'
 
 function HighestCategory({ highest }) {
-  const { t } = useLanguage()
+  const { t, localizeCategory } = useLanguage()
 
   if (!highest) {
     return (
-      <div className="card bg-base-100 shadow">
+      <div className="card surface card-border">
         <div className="card-body">
-          <h2 className="card-title">{t('rep.highest')}</h2>
+          <h2 className="card-title text-base font-semibold">{t('rep.highest')}</h2>
           <EmptyState title={t('chart.noExpense')} message={t('rep.highestMsg')} />
         </div>
       </div>
@@ -17,9 +17,9 @@ function HighestCategory({ highest }) {
   }
 
   return (
-    <div className="card bg-base-100 shadow">
+    <div className="card surface card-border">
       <div className="card-body">
-        <h2 className="card-title">{t('rep.highest')}</h2>
+        <h2 className="card-title text-base font-semibold">{t('rep.highest')}</h2>
         <div className="flex items-center gap-3">
           <div
             className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg text-2xl"
@@ -29,7 +29,7 @@ function HighestCategory({ highest }) {
             {highest.icon}
           </div>
           <div className="min-w-0">
-            <p className="truncate text-lg font-semibold">{highest.name}</p>
+            <p className="truncate text-lg font-semibold">{localizeCategory(highest)}</p>
             <p className="text-sm text-base-content/60">
               {t('rep.inExpenses', { value: formatCurrency(highest.total) })}
             </p>

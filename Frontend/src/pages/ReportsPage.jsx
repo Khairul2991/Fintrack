@@ -54,7 +54,7 @@ function ReportsPage() {
           <div className="skeleton h-96 rounded-box" />
         </div>
       ) : status === 'error' ? (
-        <div className="card bg-base-100 shadow">
+        <div className="card surface card-border">
           <div role="alert" className="card-body">
             <div className="flex items-center justify-between gap-2">
               <span>{t('rep.loadError')} {loadError}</span>

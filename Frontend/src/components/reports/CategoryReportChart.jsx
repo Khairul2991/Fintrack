@@ -4,17 +4,17 @@ import { formatCurrency } from '../../utils/format'
 import { useLanguage } from '../../context/LanguageContext'
 
 function CategoryReportChart({ categories }) {
-  const { t } = useLanguage()
+  const { t, localizeCategory } = useLanguage()
   const data = categories.map((category) => ({
-    name: category.name,
+    name: localizeCategory(category),
     value: Number(category.total),
     fill: category.color,
   }))
 
   return (
-    <div className="card bg-base-100 shadow">
+    <div className="card surface card-border">
       <div className="card-body">
-        <h2 className="card-title">{t('rep.expenseCat')}</h2>
+        <h2 className="card-title text-base font-semibold">{t('rep.expenseCat')}</h2>
         {data.length === 0 ? (
           <EmptyState title={t('chart.noExpense')} message={t('chart.noExpenseMsg')} />
         ) : (
@@ -31,14 +31,23 @@ function CategoryReportChart({ categories }) {
                     innerRadius={55}
                     outerRadius={90}
                     paddingAngle={2}
-                    strokeWidth={1}
+                    stroke="var(--color-base-100)"
+                    strokeWidth={2}
                   >
                     {data.map((entry) => (
                       <Cell key={entry.name} fill={entry.fill} />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(value) => formatCurrency(value)} />
-                  <Legend />
+                  <Tooltip
+                    formatter={(value) => formatCurrency(value)}
+                    contentStyle={{
+                      background: 'var(--color-base-100)',
+                      border: '1px solid var(--color-base-300)',
+                      borderRadius: 'var(--radius-field)',
+                      color: 'var(--color-base-content)',
+                    }}
+                  />
+                  <Legend wrapperStyle={{ fontSize: 12, opacity: 0.8 }} />
                 </PieChart>
               </ResponsiveContainer>
             </div>
@@ -53,7 +62,7 @@ function CategoryReportChart({ categories }) {
                     />
                     <span className="truncate">{row.name}</span>
                   </span>
-                  <span className="whitespace-nowrap font-semibold">
+                  <span className="whitespace-nowrap font-semibold tabular-nums">
                     {formatCurrency(row.value)}
                   </span>
                 </li>

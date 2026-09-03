@@ -14,9 +14,9 @@ function MonthlyComparison({ months }) {
 
   if (!hasDeltas) {
     return (
-      <div className="card bg-base-100 shadow">
+      <div className="card surface card-border">
         <div className="card-body">
-          <h2 className="card-title">{t('rep.monthCompare')}</h2>
+          <h2 className="card-title text-base font-semibold">{t('rep.monthCompare')}</h2>
           <EmptyState title={t('rep.noCompare')} message={t('rep.noCompareMsg')} />
         </div>
       </div>
@@ -37,9 +37,9 @@ function MonthlyComparison({ months }) {
   const changed = currentExpense !== previousExpense
 
   return (
-    <div className="card bg-base-100 shadow">
+    <div className="card surface card-border">
       <div className="card-body">
-        <h2 className="card-title">{t('rep.monthCompare')}</h2>
+        <h2 className="card-title text-base font-semibold">{t('rep.monthCompare')}</h2>
         {!changed ? (
           <p className="text-sm text-base-content/70">
             {t('rep.sameExpense', {
@@ -70,15 +70,15 @@ function MonthlyComparison({ months }) {
               ) : null}
               .
             </p>
-            <div className="stats stats-vertical sm:stats-horizontal mt-2 w-full shadow">
+            <div className="stats stats-vertical sm:stats-horizontal mt-2 w-full border border-base-200 bg-base-200/40">
               <div className="stat">
                 <div className="stat-title">{formatMonth(previous.month)}</div>
-                <div className="stat-value text-lg">{formatCurrency(previousExpense)}</div>
+                <div className="stat-value text-lg tabular-nums">{formatCurrency(previousExpense)}</div>
                 <div className="stat-desc">{t('common.expense')}</div>
               </div>
               <div className="stat">
                 <div className="stat-title">{formatMonth(last.month)}</div>
-                <div className="stat-value text-lg">{formatCurrency(currentExpense)}</div>
+                <div className="stat-value text-lg tabular-nums">{formatCurrency(currentExpense)}</div>
                 <div className="stat-desc">{t('common.expense')}</div>
               </div>
             </div>

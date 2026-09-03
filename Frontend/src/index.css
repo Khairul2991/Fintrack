@@ -4,6 +4,129 @@
   themes: light --default, dark --prefersdark;
 }
 
+/* ============================================================
+   FinTrack design system — "Clear Ledger"
+   Tabular financial precision wrapped in calm product surfaces.
+   ============================================================ */
+
+@theme {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+
+  /* Type scale (1.250 major third) recast as Tailwind sizes */
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+  --text-3xl: 1.875rem;
+
+  /* Motion */
+  --duration-fast: 120ms;
+  --duration: 200ms;
+  --duration-slow: 320ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.45, 0, 0.25, 1);
+}
+
+/* --- Light theme (explicit + default) ------------------------ */
+:root,
+[data-theme="light"] {
+  color-scheme: light;
+
+  /* Surfaces: canvas (base-200) < card (base-100) < elevated (base-300) */
+  --color-base-100: oklch(100% 0 0);            /* card / surface */
+  --color-base-200: oklch(96.2% 0.006 250);     /* page canvas */
+  --color-base-300: oklch(90.5% 0.011 250);     /* borders / subtle fill */
+  --color-base-content: oklch(24% 0.015 250);
+
+  /* Brand — muted indigo (single accent), used sparingly */
+  --color-primary: oklch(52% 0.17 262);
+  --color-primary-content: oklch(98% 0.01 262);
+
+  /* Semantics — used for signed money values only */
+  --color-info: oklch(64% 0.15 250);
+  --color-info-content: oklch(98% 0.01 250);
+  --color-success: oklch(58% 0.135 163);
+  --color-success-content: oklch(98% 0.01 160);
+  --color-warning: oklch(78% 0.14 78);
+  --color-warning-content: oklch(26% 0.04 78);
+  --color-error: oklch(56% 0.19 18);
+  --color-error-content: oklch(98% 0.01 18);
+
+  --color-neutral: oklch(30% 0.02 250);
+  --color-neutral-content: oklch(97% 0.005 250);
+
+  /* Radius — one deliberate two-step scale */
+  --radius-box: 1rem;
+  --radius-field: 0.75rem;
+  --radius-selector: 0.75rem;
+
+  --depth: 0;
+  --noise: 0;
+}
+
+/* --- Dark theme (explicit) ----------------------------------- */
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --color-base-100: oklch(24.5% 0.012 252);     /* card / surface (clearly lighter than canvas) */
+  --color-base-200: oklch(21.2% 0.011 252);     /* page canvas */
+  --color-base-300: oklch(30% 0.016 252);       /* borders / subtle fill */
+  --color-base-content: oklch(96% 0.008 252);
+
+  --color-primary: oklch(74% 0.15 262);
+  --color-primary-content: oklch(20% 0.02 262);
+
+  --color-info: oklch(70% 0.12 250);
+  --color-info-content: oklch(18% 0.02 250);
+  --color-success: oklch(72% 0.13 163);
+  --color-success-content: oklch(18% 0.02 160);
+  --color-warning: oklch(80% 0.13 78);
+  --color-warning-content: oklch(22% 0.04 78);
+  --color-error: oklch(70% 0.16 18);
+  --color-error-content: oklch(18% 0.02 18);
+
+  --color-neutral: oklch(78% 0.02 252);
+  --color-neutral-content: oklch(20% 0.015 252);
+
+  --radius-box: 1rem;
+  --radius-field: 0.75rem;
+  --radius-selector: 0.75rem;
+
+  --depth: 0;
+  --noise: 0;
+}
+
+/* --- Dark theme (system, no explicit data-theme) ------------- */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+
+    --color-base-100: oklch(24.5% 0.012 252);
+    --color-base-200: oklch(21.2% 0.011 252);
+    --color-base-300: oklch(30% 0.016 252);
+    --color-base-content: oklch(96% 0.008 252);
+
+    --color-primary: oklch(74% 0.15 262);
+    --color-primary-content: oklch(20% 0.02 262);
+
+    --color-info: oklch(70% 0.12 250);
+    --color-info-content: oklch(18% 0.02 250);
+    --color-success: oklch(72% 0.13 163);
+    --color-success-content: oklch(18% 0.02 160);
+    --color-warning: oklch(80% 0.13 78);
+    --color-warning-content: oklch(22% 0.04 78);
+    --color-error: oklch(70% 0.16 18);
+    --color-error-content: oklch(18% 0.02 18);
+
+    --color-neutral: oklch(78% 0.02 252);
+    --color-neutral-content: oklch(20% 0.015 252);
+  }
+}
+
 html,
 body,
 #root {
@@ -13,4 +136,73 @@ body,
 body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "tnum" 1;
+}
+
+/* --- Elevation: shadow reserved for floating-surfaces only ---- */
+.shadow-elevated {
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 0.05),
+    0 16px 40px -12px rgb(0 0 0 / 0.22);
+}
+
+/* --- Surface treatment shared by cards ------------------------ */
+.surface {
+  border-radius: var(--radius-box);
+  background-color: var(--color-base-100);
+}
+
+.surface-2 {
+  background-color: color-mix(in oklab, var(--color-base-300) 40%, var(--color-base-100));
+}
+
+/* --- Interactive card (hover affordance beyond color) --------- */
+.surface-interactive {
+  transition:
+    transform var(--duration-fast) var(--ease-out),
+    border-color var(--duration) var(--ease-out),
+    background-color var(--duration) var(--ease-out);
+}
+
+.surface-interactive:hover {
+  border-color: var(--color-primary);
+}
+
+.surface-interactive:active {
+  transform: translateY(1px);
+}
+
+/* --- Consistent visible focus, never suppressed -------------- */
+:where(button, [role="button"], a, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* --- Money: tabular figures + no wrapping by default ---------- */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Subtle fade for cards entering the canvas ---------------- */
+@keyframes ft-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.stagger-in {
+  animation: ft-fade-in var(--duration-slow) var(--ease-out) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stagger-in,
+  .surface-interactive {
+    animation: none;
+    transition: none;
+  }
 }

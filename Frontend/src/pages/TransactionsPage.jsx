@@ -16,14 +16,8 @@ import {
   updateTransaction,
 } from '../services/transactionApi'
 
-const DEFAULT_FILTERS = {
-  search: '',
-  type: '',
-  categoryId: '',
-  startDate: '',
-  endDate: '',
-  sort: 'newest',
-}
+const EMPTY_APPLIED = { type: '', categoryId: '', startDate: '', endDate: '' }
+const EMPTY_DRAFT = { type: '', categoryId: '', startDate: '', endDate: '' }
 
 const SORTS = {
   newest: { sortBy: 'date', sortOrder: 'desc' },
@@ -50,7 +44,12 @@ function TransactionsPage() {
   const [categoriesError, setCategoriesError] = useState('')
   const [categoriesAttempt, setCategoriesAttempt] = useState(0)
 
-  const [filters, setFilters] = useState(DEFAULT_FILTERS)
+  const [applied, setApplied] = useState(EMPTY_APPLIED)
+  const [draft, setDraft] = useState(EMPTY_DRAFT)
+  const [search, setSearch] = useState('')
+  const [searchInput, setSearchInput] = useState('')
+  const [sort] = useState('newest')
+  const [panelOpen, setPanelOpen] = useState(false)
   const [page, setPage] = useState(1)
   const [size, setSize] = useState(readSize)
   const [transactions, setTransactions] = useState([])
@@ -82,19 +81,19 @@ function TransactionsPage() {
   }, [categoriesAttempt, translateError])
 
   const buildQuery = useCallback(() => {
-    const sort = SORTS[filters.sort] || SORTS.newest
+    const sortSpec = SORTS[sort] || SORTS.newest
     return {
-      search: filters.search || undefined,
-      type: filters.type || undefined,
-      categoryId: filters.categoryId || undefined,
-      startDate: filters.startDate || undefined,
-      endDate: filters.endDate || undefined,
-      sortBy: sort.sortBy,
-      sortOrder: sort.sortOrder,
+      search: search || undefined,
+      type: applied.type || undefined,
+      categoryId: applied.categoryId || undefined,
+      startDate: applied.startDate || undefined,
+      endDate: applied.endDate || undefined,
+      sortBy: sortSpec.sortBy,
+      sortOrder: sortSpec.sortOrder,
       page,
       limit: size,
     }
-  }, [filters, page, size])
+  }, [applied, sort, search, page, size])
 
   useEffect(() => {
     let active = true
@@ -121,21 +120,67 @@ function TransactionsPage() {
     setStatus('loading')
   }
 
-  function handleFieldChange(patch) {
+  function handleCommitSearch() {
+    const normalized = searchInput.trim()
+    if (normalized === search) return
     startReload()
-    setFilters((current) => ({ ...current, ...patch }))
+    setSearch(normalized)
     setPage(1)
   }
 
-  function handleCommitSearch(value) {
+  function handleSearchInputChange(value) {
+    setSearchInput(value)
+  }
+
+  function handleClearSearch() {
+    setSearchInput('')
+    if (search === '') return
     startReload()
-    setFilters((current) => ({ ...current, search: value }))
+    setSearch('')
     setPage(1)
   }
 
-  function handleReset() {
+  function handleTogglePanel() {
+    setPanelOpen((open) => !open)
+  }
+
+  function handleDraftChange(patch) {
+    setDraft((current) => ({ ...current, ...patch }))
+  }
+
+  function handleApply() {
+    if (applied.type === draft.type &&
+        applied.categoryId === draft.categoryId &&
+        applied.startDate === draft.startDate &&
+        applied.endDate === draft.endDate) {
+      setPanelOpen(false)
+      return
+    }
     startReload()
-    setFilters(DEFAULT_FILTERS)
+    setApplied({ ...draft })
+    setPage(1)
+    setPanelOpen(false)
+  }
+
+  function handleResetFilters() {
+    if (Object.values(applied).every((value) => value === '')) {
+      setDraft(EMPTY_DRAFT)
+      return
+    }
+    startReload()
+    setApplied(EMPTY_APPLIED)
+    setDraft(EMPTY_DRAFT)
+    setPage(1)
+  }
+
+  function handleClearAll() {
+    const nothingActive = search === '' && Object.values(applied).every((value) => value === '')
+    if (nothingActive) return
+    startReload()
+    setApplied(EMPTY_APPLIED)
+    setDraft(EMPTY_DRAFT)
+    setSearch('')
+    setSearchInput('')
     setPage(1)
   }
 
@@ -198,27 +243,33 @@ function TransactionsPage() {
     }
   }
 
-  const filtersActive = Boolean(
-    filters.search || filters.type || filters.categoryId || filters.startDate || filters.endDate,
-  )
+  const filterCount = Object.values(applied).filter((value) => value !== '').length
+  const searchActive = search !== ''
+  const filterActive = filterCount > 0
   const from = meta.total === 0 ? 0 : (meta.page - 1) * meta.limit + 1
   const to = Math.min(meta.page * meta.limit, meta.total)
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <PageHeader title={t('tx.title')} subtitle={t('tx.subtitle')} />
+      <PageHeader title={t('tx.title')} subtitle={t('tx.subtitle')}>
         <button type="button" className="btn btn-primary" onClick={openCreate}>
           {t('tx.add')}
         </button>
-      </div>
+      </PageHeader>
 
       <TransactionFilters
         categories={categories}
-        filters={filters}
+        searchInput={searchInput}
+        draft={draft}
+        filterCount={filterCount}
+        panelOpen={panelOpen}
+        onSearchInputChange={handleSearchInputChange}
         onCommitSearch={handleCommitSearch}
-        onFieldChange={handleFieldChange}
-        onReset={handleReset}
+        onClearSearch={handleClearSearch}
+        onTogglePanel={handleTogglePanel}
+        onDraftChange={handleDraftChange}
+        onApply={handleApply}
+        onResetFilters={handleResetFilters}
       />
 
       {categoriesError ? (
@@ -234,7 +285,7 @@ function TransactionsPage() {
         </div>
       ) : null}
 
-      <div className="card bg-base-100 shadow">
+      <div className="card surface card-border">
         {status === 'loading' ? (
           <LoadingSkeleton rows={Math.min(size, 10)} />
         ) : loadError ? (
@@ -252,8 +303,36 @@ function TransactionsPage() {
             </button>
           </div>
         ) : transactions.length === 0 ? (
-          filtersActive ? (
-            <EmptyState title={t('tx.noMatch')} message={t('tx.noMatchMsg')} />
+          searchActive && filterActive ? (
+            <EmptyState
+              title={t('tx.noSearchFilter')}
+              message={t('tx.noSearchFilterMsg')}
+              action={
+                <button type="button" className="btn btn-outline" onClick={handleClearAll}>
+                  {t('tx.clearAll')}
+                </button>
+              }
+            />
+          ) : searchActive ? (
+            <EmptyState
+              title={t('tx.noSearch')}
+              message={t('tx.noSearchMsg', { query: search })}
+              action={
+                <button type="button" className="btn btn-outline" onClick={handleClearAll}>
+                  {t('tx.clearAll')}
+                </button>
+              }
+            />
+          ) : filterActive ? (
+            <EmptyState
+              title={t('tx.noFilter')}
+              message={t('tx.noFilterMsg')}
+              action={
+                <button type="button" className="btn btn-outline" onClick={handleClearAll}>
+                  {t('tx.clearAll')}
+                </button>
+              }
+            />
           ) : (
             <EmptyState
               title={t('tx.noYet')}

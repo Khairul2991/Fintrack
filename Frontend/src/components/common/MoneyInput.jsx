@@ -10,14 +10,16 @@ function MoneyInput({
   ariaLabel,
   autoFocus = false,
   className = '',
+  inputRef,
 }) {
-  const inputRef = useRef(null)
+  const innerRef = useRef(null)
   const caretRef = useRef(null)
+  const inputRefResolved = inputRef || innerRef
 
   const display = formatNumberDisplay(value)
 
   useEffect(() => {
-    const input = inputRef.current
+    const input = inputRefResolved.current
     if (!input || caretRef.current == null) return
     input.setSelectionRange(caretRef.current, caretRef.current)
     caretRef.current = null
@@ -42,7 +44,7 @@ function MoneyInput({
 
   return (
     <input
-      ref={inputRef}
+      ref={inputRefResolved}
       id={id}
       type="text"
       inputMode="decimal"

@@ -9,6 +9,7 @@ import CategoryChart from '../components/dashboard/CategoryChart'
 import SpendingInsights from '../components/dashboard/SpendingInsights'
 import { getDashboardSummary } from '../services/dashboardApi'
 import { formatCurrency } from '../utils/format'
+import { IncomeIcon, ExpenseIcon } from '../components/common/Icons'
 import { useLanguage } from '../context/LanguageContext'
 
 function DashboardPage() {
@@ -59,10 +60,10 @@ function DashboardPage() {
     return (
       <div className="flex flex-col gap-4">
         {header}
-        <div className="card bg-base-100 shadow">
+        <div className="card surface card-border">
           <div role="alert" className="card-body">
             <div className="flex items-center justify-between gap-2">
-              <span>{t('dash.loadError')} {loadError}</span>
+              <span className="text-sm text-base-content/80">{t('dash.loadError')} {loadError}</span>
               <button
                 type="button"
                 className="btn btn-sm"
@@ -89,14 +90,24 @@ function DashboardPage() {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <SummaryCard label={t('dash.balance')} value={formatCurrency(data.summary.balance)} />
-        <SummaryCard label={t('dash.income')} value={formatCurrency(data.summary.income)} tone="success" />
-        <SummaryCard label={t('dash.expense')} value={formatCurrency(data.summary.expense)} tone="error" />
+        <SummaryCard
+          label={t('dash.income')}
+          value={formatCurrency(data.summary.income)}
+          tone="success"
+          icon={<IncomeIcon />}
+        />
+        <SummaryCard
+          label={t('dash.expense')}
+          value={formatCurrency(data.summary.expense)}
+          tone="error"
+          icon={<ExpenseIcon />}
+        />
       </div>
 
       {!hasTransactions ? (
         <div className="grid grid-cols-1 lg:grid-cols-2">
           <div className="lg:col-span-2">
-            <div className="card bg-base-100 shadow">
+            <div className="card surface card-border">
               <EmptyState
                 title={t('dash.welcome')}
                 message={t('dash.welcomeMsg')}

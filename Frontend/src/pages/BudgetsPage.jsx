@@ -51,7 +51,7 @@ function sameMonth(a, b) {
 
 function BudgetsPage() {
   const toast = useToast()
-  const { t, translateError } = useLanguage()
+  const { t, translateError, localizeCategory } = useLanguage()
 
   const [view, setView] = useState(readView)
   const [budgets, setBudgets] = useState([])
@@ -145,8 +145,7 @@ function BudgetsPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <PageHeader title={t('bud.title')} subtitle={t('bud.subtitle')} />
+      <PageHeader title={t('bud.title')} subtitle={t('bud.subtitle')}>
         <button
           type="button"
           className="btn btn-primary"
@@ -156,7 +155,7 @@ function BudgetsPage() {
           {formBusy ? <span className="loading loading-spinner loading-sm" /> : <PlusIcon />}
           {formBusy ? t('bud.loadingCats') : t('bud.add')}
         </button>
-      </div>
+      </PageHeader>
 
       <div className="flex flex-wrap items-center gap-2">
         <div className="join">
@@ -218,7 +217,7 @@ function BudgetsPage() {
           </button>
         </div>
       ) : budgets.length === 0 ? (
-        <div className="card bg-base-100 shadow">
+        <div className="card surface card-border">
           <EmptyState
             title={t('bud.empty')}
             message={t('bud.emptyMsg', { month: monthLabel(view) })}
@@ -250,7 +249,7 @@ function BudgetsPage() {
         <ConfirmDialog
           title={t('bud.confirmTitle')}
           message={t('bud.confirmMsg', {
-            category: deleting.category.name,
+            category: localizeCategory(deleting.category),
             month: monthLabel({ month: deleting.month, year: deleting.year }),
           })}
           confirmLabel={t('common.delete')}

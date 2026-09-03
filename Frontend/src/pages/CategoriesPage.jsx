@@ -16,7 +16,7 @@ import {
 
 function CategoriesPage() {
   const toast = useToast()
-  const { t, translateError } = useLanguage()
+  const { t, translateError, localizeCategory } = useLanguage()
 
   const [categories, setCategories] = useState([])
   const [status, setStatus] = useState('loading')
@@ -90,13 +90,12 @@ function CategoriesPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <PageHeader title={t('cat.title')} subtitle={t('cat.subtitle')} />
+      <PageHeader title={t('cat.title')} subtitle={t('cat.subtitle')}>
         <button type="button" className="btn btn-primary" onClick={openCreate}>
           <PlusIcon />
           {t('cat.add')}
         </button>
-      </div>
+      </PageHeader>
 
       {status === 'loading' ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -119,7 +118,7 @@ function CategoriesPage() {
           </button>
         </div>
       ) : categories.length === 0 ? (
-        <div className="card bg-base-100 shadow">
+        <div className="card surface card-border">
           <EmptyState
             title={t('cat.empty')}
             message={t('cat.emptyMsg')}
@@ -150,7 +149,7 @@ function CategoriesPage() {
       {deleting ? (
         <ConfirmDialog
           title={t('cat.confirmTitle')}
-          message={t('cat.confirmMsg', { name: deleting.name })}
+          message={t('cat.confirmMsg', { name: localizeCategory(deleting) })}
           confirmLabel={t('common.delete')}
           loading={deleteLoading}
           onCancel={() => setDeleting(null)}

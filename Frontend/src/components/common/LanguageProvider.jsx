@@ -4,6 +4,7 @@ import { LANGUAGES, DEFAULT_LANG, messages } from '../../l10n/messages'
 import { readLanguage, applyLanguage } from '../../hooks/useLanguage'
 import { translateError } from '../../l10n/serverMessages'
 import { translateInsight } from '../../l10n/insights'
+import { localizeCategory } from '../../l10n/categories'
 
 const STORAGE_KEY = 'fintrack-language'
 
@@ -44,6 +45,7 @@ function LanguageProvider({ children }) {
       t,
       translateError: (message) => translateError(message, lang),
       translateInsight: (text) => translateInsight(text, lang),
+      localizeCategory: (category) => localizeCategory(category, lang),
     }),
     [lang, setLang, t],
   )

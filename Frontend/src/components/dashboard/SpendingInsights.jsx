@@ -4,17 +4,23 @@ import { useLanguage } from '../../context/LanguageContext'
 function SpendingInsights({ insights }) {
   const { t, translateInsight } = useLanguage()
   return (
-    <div className="card bg-base-100 shadow">
+    <div className="card surface card-border">
       <div className="card-body">
-        <h2 className="card-title">{t('dash.insights')}</h2>
+        <h2 className="card-title text-base font-semibold">{t('dash.insights')}</h2>
         {insights.length === 0 ? (
           <EmptyState title={t('dash.noInsights')} message={t('dash.noInsightsMsg')} />
         ) : (
-          <ul className="flex flex-col gap-2">
+          <ul className="flex flex-col gap-3">
             {insights.map((insight, index) => (
-              <li key={index} className="flex items-center gap-3 text-sm">
-                <span className="badge badge-info badge-lg">i</span>
-                <span>{translateInsight(insight)}</span>
+              <li key={index} className="flex items-start gap-3 text-sm text-base-content/80">
+                <span
+                  className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-primary"
+                  style={{ backgroundColor: 'color-mix(in oklab, var(--color-primary) 12%, transparent)' }}
+                  aria-hidden="true"
+                >
+                  i
+                </span>
+                <span className="leading-relaxed">{translateInsight(insight)}</span>
               </li>
             ))}
           </ul>

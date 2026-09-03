@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import MoneyInput from '../common/MoneyInput'
 import { useLanguage } from '../../context/LanguageContext'
 
@@ -20,11 +20,16 @@ function initialForm(budget) {
 }
 
 function BudgetForm({ budget, categories, onCancel, onSave }) {
-  const { t } = useLanguage()
+  const { t, localizeCategory } = useLanguage()
   const [form, setForm] = useState(() => initialForm(budget))
   const [errors, setErrors] = useState({})
   const [submitError, setSubmitError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+
+  const categoryIdRef = useRef(null)
+  const monthRef = useRef(null)
+  const yearRef = useRef(null)
+  const amountRef = useRef(null)
 
   useEffect(() => {
     function handleKeyDown(event) {
@@ -57,13 +62,24 @@ function BudgetForm({ budget, categories, onCancel, onSave }) {
       next.amount = t('budf.errAmount')
     }
     setErrors(next)
-    return Object.keys(next).length === 0
+    return next
   }
 
   async function handleSubmit(event) {
     event.preventDefault()
     setSubmitError('')
-    if (!validate()) return
+    const next = validate()
+    const order = [
+      { key: 'categoryId', ref: categoryIdRef },
+      { key: 'month', ref: monthRef },
+      { key: 'year', ref: yearRef },
+      { key: 'amount', ref: amountRef },
+    ]
+    const firstInvalid = order.find((item) => next[item.key])
+    if (firstInvalid) {
+      if (firstInvalid.ref.current) firstInvalid.ref.current.focus()
+      return
+    }
     setSubmitting(true)
     try {
       await onSave({
@@ -85,7 +101,7 @@ function BudgetForm({ budget, categories, onCancel, onSave }) {
 
   return (
     <dialog className="modal modal-open">
-      <div className="modal-box max-w-md">
+      <div className="modal-box max-w-md rounded-box">
         <h3 className="text-lg font-bold">{budget ? t('budf.edit') : t('budf.new')}</h3>
         <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-3">
           {submitError ? (
@@ -99,6 +115,7 @@ function BudgetForm({ budget, categories, onCancel, onSave }) {
             </label>
             <select
               id="budget-category"
+              ref={categoryIdRef}
               className={`select select-bordered w-full ${errors.categoryId ? 'select-error' : ''}`}
               value={form.categoryId}
               onChange={(event) => setField('categoryId', event.target.value)}
@@ -107,7 +124,7 @@ function BudgetForm({ budget, categories, onCancel, onSave }) {
               <option value="">{t('budf.selectCategory')}</option>
               {categories.map((category) => (
                 <option key={category.id} value={category.id}>
-                  {category.icon} {category.name}
+                  {category.icon} {localizeCategory(category)}
                 </option>
               ))}
             </select>
@@ -122,6 +139,7 @@ function BudgetForm({ budget, categories, onCancel, onSave }) {
               </label>
               <select
                 id="budget-month"
+                ref={monthRef}
                 className={`select select-bordered w-full ${errors.month ? 'select-error' : ''}`}
                 value={form.month}
                 onChange={(event) => setField('month', event.target.value)}
@@ -143,6 +161,7 @@ function BudgetForm({ budget, categories, onCancel, onSave }) {
               </label>
               <select
                 id="budget-year"
+                ref={yearRef}
                 className={`select select-bordered w-full ${errors.year ? 'select-error' : ''}`}
                 value={form.year}
                 onChange={(event) => setField('year', event.target.value)}
@@ -162,6 +181,7 @@ function BudgetForm({ budget, categories, onCancel, onSave }) {
             </label>
             <MoneyInput
               id="budget-amount"
+              inputRef={amountRef}
               value={form.amount}
               onChange={(value) => setField('amount', value)}
               placeholder={t('budf.amountPlaceholder')}

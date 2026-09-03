@@ -1,6 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import MoneyInput from '../common/MoneyInput'
 import { useLanguage } from '../../context/LanguageContext'
+
+const DESCRIPTION_MAX = 200
+const NOTE_MAX = 500
 
 function todayInput() {
   return new Date().toISOString().slice(0, 10)
@@ -28,11 +31,17 @@ function initialForm(transaction, categories) {
 }
 
 function TransactionForm({ transaction, categories, onCancel, onSave }) {
-  const { t } = useLanguage()
+  const { t, localizeCategory } = useLanguage()
   const [form, setForm] = useState(() => initialForm(transaction, categories))
   const [errors, setErrors] = useState({})
   const [submitError, setSubmitError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+
+  const descriptionRef = useRef(null)
+  const amountRef = useRef(null)
+  const typeRef = useRef(null)
+  const categoryIdRef = useRef(null)
+  const dateRef = useRef(null)
 
   useEffect(() => {
     function handleKeyDown(event) {
@@ -66,13 +75,25 @@ function TransactionForm({ transaction, categories, onCancel, onSave }) {
       next.date = t('txf.errDate')
     }
     setErrors(next)
-    return Object.keys(next).length === 0
+    return next
   }
 
   async function handleSubmit(event) {
     event.preventDefault()
     setSubmitError('')
-    if (!validate()) return
+    const next = validate()
+    const order = [
+      { key: 'description', ref: descriptionRef },
+      { key: 'amount', ref: amountRef },
+      { key: 'type', ref: typeRef },
+      { key: 'categoryId', ref: categoryIdRef },
+      { key: 'date', ref: dateRef },
+    ]
+    const firstInvalid = order.find((item) => next[item.key])
+    if (firstInvalid) {
+      if (firstInvalid.ref.current) firstInvalid.ref.current.focus()
+      return
+    }
     setSubmitting(true)
     try {
       await onSave({
@@ -91,7 +112,7 @@ function TransactionForm({ transaction, categories, onCancel, onSave }) {
 
   return (
     <dialog className="modal modal-open">
-      <div className="modal-box max-w-xl">
+      <div className="modal-box max-w-xl rounded-box">
         <h3 className="text-lg font-bold">{transaction ? t('txf.edit') : t('txf.new')}</h3>
         <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-3">
           {submitError ? (
@@ -106,16 +127,21 @@ function TransactionForm({ transaction, categories, onCancel, onSave }) {
               </label>
               <input
                 id="tx-description"
+                ref={descriptionRef}
                 type="text"
                 className={`input input-bordered w-full ${errors.description ? 'input-error' : ''}`}
                 value={form.description}
                 onChange={(event) => setField('description', event.target.value)}
-                maxLength={200}
+                maxLength={DESCRIPTION_MAX}
                 placeholder={t('txf.descPlaceholder')}
               />
               {errors.description ? (
                 <p className="mt-1 text-xs text-error">{errors.description}</p>
-              ) : null}
+              ) : (
+                <p className="mt-1 text-right text-xs text-base-content/40 tabular-nums">
+                  {form.description.length}/{DESCRIPTION_MAX}
+                </p>
+              )}
             </div>
             <div>
               <label className="label" htmlFor="tx-amount">
@@ -123,6 +149,7 @@ function TransactionForm({ transaction, categories, onCancel, onSave }) {
               </label>
               <MoneyInput
                 id="tx-amount"
+                inputRef={amountRef}
                 value={form.amount}
                 onChange={(value) => setField('amount', value)}
                 placeholder={t('txf.amountPlaceholder')}
@@ -136,11 +163,14 @@ function TransactionForm({ transaction, categories, onCancel, onSave }) {
               </span>
               <div className="flex gap-2">
                 <label
-                  className={`btn btn-outline flex-1 ${form.type === 'EXPENSE' ? 'btn-error' : ''}`}
+                  className={`btn btn-outline flex-1 ${
+                    form.type === 'EXPENSE' ? 'btn-error' : 'bg-base-200/40'
+                  }`}
                 >
                   <input
                     type="radio"
                     name="tx-type"
+                    ref={typeRef}
                     className="sr-only"
                     checked={form.type === 'EXPENSE'}
                     onChange={() => setField('type', 'EXPENSE')}
@@ -149,7 +179,7 @@ function TransactionForm({ transaction, categories, onCancel, onSave }) {
                 </label>
                 <label
                   className={`btn btn-outline flex-1 ${
-                    form.type === 'INCOME' ? 'btn-success' : ''
+                    form.type === 'INCOME' ? 'btn-success' : 'bg-base-200/40'
                   }`}
                 >
                   <input
@@ -170,6 +200,7 @@ function TransactionForm({ transaction, categories, onCancel, onSave }) {
               </label>
               <select
                 id="tx-category"
+                ref={categoryIdRef}
                 className={`select select-bordered w-full ${errors.categoryId ? 'select-error' : ''}`}
                 value={form.categoryId}
                 onChange={(event) => setField('categoryId', event.target.value)}
@@ -177,7 +208,7 @@ function TransactionForm({ transaction, categories, onCancel, onSave }) {
                 <option value="">{t('txf.selectCategory')}</option>
                 {categories.map((category) => (
                   <option key={category.id} value={category.id}>
-                    {category.icon} {category.name}
+                    {category.icon} {localizeCategory(category)}
                   </option>
                 ))}
               </select>
@@ -191,6 +222,7 @@ function TransactionForm({ transaction, categories, onCancel, onSave }) {
               </label>
               <input
                 id="tx-date"
+                ref={dateRef}
                 type="date"
                 className={`input input-bordered w-full ${errors.date ? 'input-error' : ''}`}
                 value={form.date}
@@ -211,9 +243,12 @@ function TransactionForm({ transaction, categories, onCancel, onSave }) {
                 rows={2}
                 value={form.note}
                 onChange={(event) => setField('note', event.target.value)}
-                maxLength={500}
+                maxLength={NOTE_MAX}
                 placeholder={t('txf.notePlaceholder')}
               />
+              <p className="mt-1 text-right text-xs text-base-content/40 tabular-nums">
+                {form.note.length}/{NOTE_MAX}
+              </p>
             </div>
           </div>
           <div className="modal-action">

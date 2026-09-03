@@ -45,24 +45,53 @@ function ConfirmDialog({ title, message, confirmLabel, loading = false, onCancel
       aria-labelledby="confirm-dialog-title"
       aria-describedby="confirm-dialog-message"
     >
-      <div className="modal-box">
-        <h3 id="confirm-dialog-title" className="text-lg font-bold">
-          {title}
-        </h3>
-        <p id="confirm-dialog-message" className="py-4 text-sm text-base-content/70">
-          {message}
-        </p>
+      <div className="modal-box rounded-box">
+        <div className="flex items-start gap-3">
+          <span
+            className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-error"
+            style={{ backgroundColor: 'color-mix(in oklab, var(--color-error) 12%, transparent)' }}
+            aria-hidden="true"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={1.8}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="h-5 w-5"
+            >
+              <path d="M12 3 1.5 20.5h21L12 3z" />
+              <path d="M12 10v4" />
+              <path d="M12 17h.01" />
+            </svg>
+          </span>
+          <div className="min-w-0 flex-1">
+            <h3 id="confirm-dialog-title" className="text-base font-semibold text-base-content">
+              {title}
+            </h3>
+            <p id="confirm-dialog-message" className="mt-1 text-sm text-base-content/60">
+              {message}
+            </p>
+          </div>
+        </div>
         <div className="modal-action">
           <button
             ref={cancelRef}
             type="button"
-            className="btn"
+            className="btn btn-ghost"
             onClick={onCancel}
             disabled={loading}
           >
             {t('common.cancel')}
           </button>
-          <button type="button" className="btn btn-error" onClick={onConfirm} disabled={loading}>
+          <button
+            type="button"
+            className="btn btn-error"
+            onClick={onConfirm}
+            disabled={loading}
+          >
             {loading ? <span className="loading loading-spinner loading-sm" /> : null}
             {confirmLabel}
           </button>

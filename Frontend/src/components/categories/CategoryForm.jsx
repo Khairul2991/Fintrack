@@ -66,7 +66,7 @@ function CategoryForm({ category, onCancel, onSave }) {
 
   return (
     <dialog className="modal modal-open">
-      <div className="modal-box max-w-md">
+      <div className="modal-box max-w-md rounded-box">
         <h3 className="text-lg font-bold">{category ? t('catf.edit') : t('catf.new')}</h3>
         <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-3">
           {submitError ? (

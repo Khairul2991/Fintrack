@@ -42,25 +42,42 @@ function TrashIcon() {
 }
 
 function TransactionTable({ transactions, onEdit, onDelete }) {
-  const { t } = useLanguage()
+  const { t, localizeCategory } = useLanguage()
   return (
     <div className="overflow-x-auto">
       <table className="table">
         <thead>
-          <tr>
-            <th>{t('tx.colDate')}</th>
-            <th>{t('tx.colCategory')}</th>
-            <th>{t('tx.colDescription')}</th>
-            <th>{t('tx.colType')}</th>
-            <th className="text-right">{t('tx.colAmount')}</th>
-            <th className="text-right w-24">{t('tx.colActions')}</th>
+          <tr className="text-base-content/60">
+            <th className="text-xs font-medium uppercase tracking-wide">{t('tx.colDate')}</th>
+            <th className="text-xs font-medium uppercase tracking-wide">{t('tx.colCategory')}</th>
+            <th className="text-xs font-medium uppercase tracking-wide">{t('tx.colDescription')}</th>
+            <th className="text-xs font-medium uppercase tracking-wide">{t('tx.colType')}</th>
+            <th className="text-right text-xs font-medium uppercase tracking-wide">
+              {t('tx.colAmount')}
+            </th>
+            <th className="text-right w-24 text-xs font-medium uppercase tracking-wide">
+              {t('tx.colActions')}
+            </th>
           </tr>
         </thead>
         <tbody>
           {transactions.map((transaction) => (
             <tr key={transaction.id} className="hover">
-              <td className="whitespace-nowrap text-sm">{formatDate(transaction.date)}</td>
-              <td className="text-sm">{transaction.category.name}</td>
+              <td className="whitespace-nowrap text-sm text-base-content/70">
+                {formatDate(transaction.date)}
+              </td>
+              <td className="text-sm">
+                <span className="flex items-center gap-2">
+                  <span
+                    className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-xs"
+                    style={{ backgroundColor: `${transaction.category.color}26` }}
+                    aria-hidden="true"
+                  >
+                    {transaction.category.icon}
+                  </span>
+                  {localizeCategory(transaction.category)}
+                </span>
+              </td>
               <td>
                 <div className="font-medium text-sm">{transaction.description}</div>
                 {transaction.note ? (
@@ -69,25 +86,28 @@ function TransactionTable({ transactions, onEdit, onDelete }) {
               </td>
               <td>
                 <span
-                  className={`badge badge-sm ${
-                    transaction.type === 'INCOME' ? 'badge-success' : 'badge-error'
+                  className={`badge badge-sm border-0 font-medium ${
+                    transaction.type === 'INCOME'
+                      ? 'bg-success/12 text-success'
+                      : 'bg-error/12 text-error'
                   }`}
                 >
                   {transaction.type === 'INCOME' ? t('common.income') : t('common.expense')}
                 </span>
               </td>
               <td
-                className={`whitespace-nowrap text-right font-semibold ${
+                className={`whitespace-nowrap text-right font-semibold tabular-nums ${
                   transaction.type === 'INCOME' ? 'text-success' : 'text-error'
                 }`}
               >
+                {transaction.type === 'INCOME' ? '+' : '−'}
                 {formatCurrency(transaction.amount)}
               </td>
               <td>
                 <div className="flex justify-end gap-1">
                   <button
                     type="button"
-                    className="btn btn-ghost btn-square btn-sm"
+                    className="btn btn-ghost btn-square btn-sm text-base-content/60 hover:text-base-content"
                     onClick={() => onEdit(transaction)}
                     aria-label={t('tx.editAria', { name: transaction.description })}
                   >
@@ -95,7 +115,7 @@ function TransactionTable({ transactions, onEdit, onDelete }) {
                   </button>
                   <button
                     type="button"
-                    className="btn btn-ghost btn-square btn-sm hover:text-error"
+                    className="btn btn-ghost btn-square btn-sm text-base-content/60 hover:text-error"
                     onClick={() => onDelete(transaction)}
                     aria-label={t('tx.deleteAria', { name: transaction.description })}
                   >
