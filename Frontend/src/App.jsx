@@ -12,6 +12,7 @@ import AccountsPage from './pages/AccountsPage'
 import RecurringTransactionsPage from './pages/RecurringTransactionsPage'
 import RecurringBudgetsPage from './pages/RecurringBudgetsPage'
 import GoalsPage from './pages/GoalsPage'
+import AiInsightsPage from './pages/AiInsightsPage'
 import NotificationsPage from './pages/NotificationsPage'
 import NotFoundPage from './pages/NotFoundPage'
 
@@ -30,6 +31,7 @@ function App() {
           <Route path="/recurring-budgets" element={<RecurringBudgetsPage />} />
           <Route path="/goals" element={<GoalsPage />} />
           <Route path="/reports" element={<ReportsPage />} />
+          <Route path="/ai-insights" element={<AiInsightsPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="*" element={<NotFoundPage />} />

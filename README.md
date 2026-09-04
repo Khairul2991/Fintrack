@@ -14,6 +14,7 @@ FinTrack is a responsive personal finance management web application built with 
 - **Recurring Budgets** — a recurring budget that rolls into a concrete monthly budget each period without duplicating existing budgets.
 - **Financial Goals** — savings goals with target amount/date, progress tracking, manual progress updates, and automatic COMPLETED status on reaching the target.
 - **Advanced Analytics** — cash flow, savings rate, monthly income/expense trend, budget utilization, highest spending category, spending concentration, and largest transaction.
+- **AI Financial Insights** — per-month AI-assisted analysis (summary, priorities, and recommendations) built from deterministic on-device metrics, with an automatic rule-based fallback when no AI provider is configured or the request fails. Fully EN/ID localized; sees only compact sanitized metrics, never raw transactions.
 - **Export** — download transactions as CSV or Excel (client-side) and a PDF financial report (server-side), localized per language.
 - **Notifications** — in-app notification center (recurring due, budget limit, goal deadline) with optional browser/desktop notifications after a user click.
 - **Settings** — theme switcher (System / Light / Dark) and currency info (amounts are stored in IDR).
@@ -93,6 +94,27 @@ The frontend serves on **http://localhost:5173**. Vite proxies all `/api` reques
 
 > The frontend proxies `/api` to the backend at `localhost:3000`. Both servers must be running to use the application.
 
+### 3. AI Financial Insights (optional)
+
+The AI Insights page works **out of the box** with an automatic rule-based fallback — no configuration is required. To enable AI-assisted summaries, add these variables to `Backend/.env`:
+
+```sh
+# Any OpenAI-compatible chat completions endpoint.
+# e.g. "https://api.openai.com/v1" or "https://your-proxy/v1"
+AI_PROVIDER=https://api.openai.com/v1
+AI_API_KEY=your-key-here
+AI_MODEL=gpt-4o-mini
+```
+
+Behavior and privacy:
+
+- **Deterministic metrics first** — income, expense, net cash flow, savings rate, category breakdown, budgets, goals, and transaction counts are always computed on-device from the local database. The AI may only *summarize, explain, prioritize, or recommend*; it can never alter those displayed numbers.
+- **Sanitized context only** — a compact digest (aggregate amounts, category/budget/goal names, percentages) is sent to the provider. Raw transactions are never sent and nothing is logged or stored permanently.
+- **Safe fallback** — when `AI_PROVIDER` is unset, the request fails, or the provider returns invalid JSON, the endpoint falls back to deterministic rule-based insights with a `source` of `"rule"`.
+- The requested UI language is passed along (`lang=id` → Indonesian) for provider responses and fallback text.
+
+No keys are committed; keep `AI_API_KEY` in local `.env` only.
+
 ## Project Scripts
 
 | Command | Folder | Description |
@@ -102,8 +124,8 @@ The frontend serves on **http://localhost:5173**. Vite proxies all `/api` reques
 | `npm start` | Backend | Start Express API without watch |
 | `npm run lint` | Frontend | Run oxlint |
 | `npm run build` | Frontend | Production build of the React app |
-| `npm test` | Backend | Run the 66 backend API + business logic tests |
-| `npm test` | Frontend | Run the 41 frontend UI-layer tests |
+| `npm test` | Backend | Run the 92 backend API + business logic tests |
+| `npm test` | Frontend | Run the 54 frontend UI-layer tests |
 | `npm run prisma:generate` | Backend | Generate the Prisma client |
 | `npm run prisma:migrate` | Backend | Apply schema migrations |
 | `npm run prisma:seed` | Backend | Seed idempotent default categories |
@@ -116,8 +138,8 @@ Both test suites use the Node.js built-in test runner — **no test dependencies
 - **Frontend** (`Frontend/tests/`): imports the real service modules and talks to a spawned backend instance (port 3101, isolated `test-fe.db` database).
 
 ```sh
-cd Backend && npm test   # 66 tests
-cd Frontend && npm test  # 41 tests
+cd Backend && npm test   # 92 tests
+cd Frontend && npm test  # 54 tests
 ```
 
 Before running the frontend suite, create its test database schema:
@@ -137,7 +159,7 @@ $env:DATABASE_URL="file:./database/test-fe.db"; npx prisma migrate deploy; $env:
 
 > Screenshots to be added. Start the application (`npm run dev` in both folders), open http://localhost:5173, and capture the dashboard, transactions, categories, budgets, reports, and settings pages.
 
-## Implemented: Phase 13 (Future Improvements)
+## Implemented: Post-MVP features
 
 The earlier future-improvements roadmap is now largely implemented:
 
@@ -149,6 +171,7 @@ The earlier future-improvements roadmap is now largely implemented:
 6. ✅ Recurring budgets
 7. ✅ Notifications (in-app + optional browser)
 8. ✅ EN/ID localization and UI/UX polish
+9. ✅ AI financial insights (deterministic metrics + optional AI interpretation with rule-based fallback)
 
 These remain **out of scope** in this build (deferred — see `PRD.md` §47):
 
@@ -156,9 +179,8 @@ These remain **out of scope** in this build (deferred — see `PRD.md` §47):
 2. PostgreSQL and cloud deployment
 3. Bank integration / automatic transaction import
 4. PWA / offline support
-5. AI-assisted financial insights
 
-All data stays in a local SQLite database (Prisma + SQLite are retained; no destructive migration), and the full suite remains green: backend **66/66**, frontend **41/41**, lint + build clean.
+All data stays in a local SQLite database (Prisma + SQLite are retained; no destructive migration), and the full suite remains green: backend **92/92**, frontend **54/54**, lint + build clean.
 
 ## Portfolio
 

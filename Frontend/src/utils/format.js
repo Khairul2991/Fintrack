@@ -60,3 +60,43 @@ export function formatCurrencyCompact(value) {
   if (!Number.isFinite(amount)) return '—'
   return compactCurrencyFormatter.format(amount)
 }
+
+const numberFormatterCache = new Map()
+
+function numberFormatterFor(lang) {
+  if (!numberFormatterCache.has(lang)) {
+    numberFormatterCache.set(
+      lang,
+      new Intl.NumberFormat(localeFor(lang), { maximumFractionDigits: 2 }),
+    )
+  }
+  return numberFormatterCache.get(lang)
+}
+
+export function formatNumber(value, lang = currentLang()) {
+  const amount = Number(value)
+  if (!Number.isFinite(amount)) return '—'
+  return numberFormatterFor(lang).format(amount)
+}
+
+export function formatCount(value, lang = currentLang()) {
+  const amount = Number(value)
+  if (!Number.isFinite(amount)) return '—'
+  return new Intl.NumberFormat(localeFor(lang), { maximumFractionDigits: 0 }).format(Math.trunc(amount))
+}
+
+export function formatPercent(value, lang = currentLang()) {
+  const amount = Number(value)
+  if (!Number.isFinite(amount)) return '—'
+  return `${formatNumber(amount, lang)}%`
+}
+
+export function formatInsightMetric(value, format, lang = currentLang()) {
+  if (value === null || value === undefined) return '—'
+  if (format === 'currency') return formatCurrency(value)
+  if (format === 'percentage') return formatPercent(value, lang)
+  if (format === 'count') return formatCount(value, lang)
+  if (format === 'number') return formatNumber(value, lang)
+  if (format === 'date') return formatDate(String(value), lang)
+  return '—'
+}

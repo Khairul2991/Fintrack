@@ -1,305 +1,470 @@
 # FinTrack — Product Requirements Document (PRD)
 
-**Document Version:** 1.0  
-**Status:** Draft / MVP Specification  
-**Product:** FinTrack  
-**Platform:** Responsive Web Application  
-**Primary Stack:** React + JavaScript + Vite + Express.js + Prisma + SQLite  
-**UI Stack:** Tailwind CSS + DaisyUI  
-**Visualization:** Recharts  
-**Architecture:** React Frontend → Express REST API → Prisma → SQLite
+**Document Version:** 2.0
+**Status:** Active Product Specification / Post-MVP Expansion
+**Product:** FinTrack
+**Platform:** Responsive Web Application
+**Primary Stack:** React + JavaScript + Vite + Express.js + Prisma
+**Database:** PostgreSQL for production
+**Development Database:** SQLite may be used only where appropriate for local development/testing
+**UI Stack:** Tailwind CSS + DaisyUI
+**Visualization:** Recharts
+**Architecture:** React Frontend → Express REST API → Authentication → Prisma → PostgreSQL
 
 ---
 
-## 1. Product Overview
+# 1. Product Overview
 
-FinTrack adalah aplikasi web untuk membantu pengguna mengelola keuangan pribadi secara sederhana. Pengguna dapat mencatat pemasukan dan pengeluaran, mengelompokkan transaksi berdasarkan kategori, memantau saldo, membuat budget bulanan, dan melihat laporan keuangan melalui dashboard serta visualisasi data.
+FinTrack adalah aplikasi web untuk membantu pengguna mengelola keuangan pribadi secara sederhana namun komprehensif.
 
-FinTrack dibuat sebagai aplikasi **single-user personal finance management**. Seluruh transaksi dimasukkan secara manual oleh pengguna dan disimpan pada database SQLite lokal.
+Pengguna dapat:
 
-Produk ini sengaja memiliki ruang lingkup menengah. Tujuannya bukan menjadi aplikasi perbankan atau financial platform yang kompleks, tetapi menjadi aplikasi portfolio yang menunjukkan kemampuan pengembangan full-stack modern, khususnya React, REST API, relational database, CRUD, data processing, filtering, dan data visualization.
+* mencatat pemasukan dan pengeluaran;
+* mengelola kategori;
+* mengelola akun atau wallet;
+* membuat budget;
+* membuat recurring transactions;
+* membuat recurring budgets;
+* menetapkan financial goals;
+* melihat dashboard;
+* melihat laporan;
+* menganalisis pola keuangan;
+* melakukan export data;
+* menghasilkan financial report PDF;
+* menerima notifications dan reminders;
+* mendapatkan AI-assisted financial insights.
+
+FinTrack dikembangkan dari aplikasi single-user berbasis SQLite menjadi aplikasi **online-first, authenticated, multi-user, dan production-deployable**.
+
+Seluruh data keuangan pengguna harus terisolasi berdasarkan akun pengguna yang terautentikasi.
+
+FinTrack bukan aplikasi perbankan dan tidak melakukan sinkronisasi otomatis dengan rekening bank.
 
 ---
 
-## 2. Problem Statement
+# 2. Product Vision
 
-Pengguna sering mencatat pemasukan dan pengeluaran secara terpisah atau hanya mengandalkan ingatan. Hal tersebut menyulitkan pengguna untuk mengetahui:
+FinTrack harus terasa seperti aplikasi personal finance modern yang benar-benar dapat digunakan, bukan sekadar kumpulan halaman CRUD.
 
-- Berapa total pemasukan dalam suatu periode.
-- Berapa total pengeluaran.
-- Berapa saldo yang tersisa.
-- Kategori apa yang paling banyak menghabiskan uang.
-- Apakah pengeluaran bulan ini meningkat atau menurun.
-- Apakah pengeluaran suatu kategori sudah melebihi budget.
+Ketika pengguna membuka aplikasi, mereka harus dapat langsung memahami:
 
-FinTrack menyelesaikan masalah tersebut dengan menyediakan satu tempat untuk mencatat dan menganalisis data keuangan pribadi secara sederhana.
+* kondisi saldo;
+* pemasukan;
+* pengeluaran;
+* cash flow;
+* budget;
+* progress tujuan finansial;
+* pola pengeluaran;
+* insight finansial.
+
+Ketika pengguna ingin mencatat aktivitas keuangan, prosesnya harus cepat dan jelas.
+
+Ketika pengguna ingin memahami kondisi finansial, dashboard, reports, analytics, dan AI insights harus memberikan informasi yang relevan berdasarkan data aktual.
+
+Ketika aplikasi digunakan oleh banyak pengguna, setiap pengguna hanya boleh mengakses data miliknya sendiri.
+
+Prioritas produk:
+
+**Correctness → Security → Maintainability → Usability → Visual Quality → Additional Features**
 
 ---
 
-## 3. Product Goals
+# 3. Problem Statement
 
-### 3.1 Primary Goals
+Pengguna sering mencatat pemasukan dan pengeluaran secara terpisah atau hanya mengandalkan ingatan.
+
+Hal tersebut menyulitkan pengguna untuk mengetahui:
+
+* berapa total pemasukan;
+* berapa total pengeluaran;
+* berapa saldo;
+* kategori apa yang paling banyak menghabiskan uang;
+* apakah pengeluaran meningkat atau menurun;
+* apakah budget telah terlampaui;
+* apakah tujuan finansial berjalan sesuai target;
+* bagaimana pola keuangan mereka dalam periode tertentu.
+
+FinTrack menyelesaikan masalah tersebut dengan menyediakan satu tempat untuk mencatat, mengelola, memvisualisasikan, dan menganalisis data keuangan pribadi.
+
+---
+
+# 4. Product Goals
+
+## 4.1 Primary Goals
 
 FinTrack harus memungkinkan pengguna untuk:
 
-1. Melihat ringkasan kondisi keuangan.
-2. Mencatat pemasukan dan pengeluaran.
-3. Mengelola kategori transaksi.
-4. Mencari dan memfilter transaksi.
-5. Membuat dan mengelola budget bulanan.
-6. Melihat laporan keuangan.
-7. Memahami pola pengeluaran melalui chart dan insight sederhana.
-
-### 3.2 Technical Goals
-
-Project harus menunjukkan:
-
-- React component architecture.
-- JavaScript modern.
-- React Router.
-- Responsive UI.
-- REST API.
-- Express.js.
-- Prisma ORM.
-- SQLite relational database.
-- CRUD operations.
-- Data aggregation.
-- Form validation.
-- Error handling.
-- Search, filtering, sorting, dan pagination.
-- Data visualization.
-- Clean separation antara frontend dan backend.
-
-### 3.3 Non-Goals
-
-Versi MVP tidak mencakup:
-
-- Bank integration.
-- Payment gateway.
-- Automatic bank transaction import.
-- Investment tracking.
-- Cryptocurrency tracking.
-- AI financial advisor.
-- Multi-user system.
-- Complex authentication.
-- OAuth.
-- JWT authentication.
-- Real-time WebSocket.
-- Microservices.
-- Redis.
-- Cloud database.
+1. Membuat dan mengelola akun.
+2. Login dan logout dengan aman.
+3. Mengelola data keuangan pribadi.
+4. Mencatat pemasukan dan pengeluaran.
+5. Mengelola kategori.
+6. Mengelola account/wallet.
+7. Mencari dan memfilter transaksi.
+8. Membuat dan mengelola budget.
+9. Mengelola recurring transactions.
+10. Mengelola recurring budgets.
+11. Membuat financial goals.
+12. Melihat dashboard.
+13. Melihat laporan keuangan.
+14. Melakukan advanced analytics.
+15. Export data ke CSV/Excel.
+16. Menghasilkan financial report PDF.
+17. Melihat notifications/reminders.
+18. Mendapatkan AI-assisted financial insights.
+19. Menggunakan aplikasi secara online dari environment production.
 
 ---
 
-# 4. Target Users
+## 4.2 Technical Goals
 
-Target pengguna adalah individu yang ingin mengelola keuangan pribadi secara sederhana.
+Project harus menunjukkan kemampuan:
+
+* React component architecture.
+* Modern JavaScript.
+* React Router.
+* Responsive UI.
+* REST API.
+* Express.js.
+* Prisma ORM.
+* PostgreSQL.
+* Relational database.
+* Authentication.
+* Authorization.
+* Multi-user data isolation.
+* CRUD operations.
+* Data aggregation.
+* Form validation.
+* Error handling.
+* Search.
+* Filtering.
+* Sorting.
+* Pagination.
+* Data visualization.
+* Export.
+* PDF generation.
+* AI-assisted analysis.
+* Secure environment configuration.
+* Production deployment.
+* Clean separation antara frontend dan backend.
+
+---
+
+# 5. Non-Goals
+
+FinTrack tidak mencakup:
+
+* Bank integration.
+* Automatic bank transaction import.
+* Payment gateway.
+* Investment portfolio management.
+* Cryptocurrency tracking.
+* Financial product marketplace.
+* PWA.
+* Offline-first functionality.
+* Offline synchronization.
+* Real-time WebSocket architecture.
+* Microservices architecture.
+* Redis sebagai requirement utama.
+* Complex distributed architecture.
+
+**Bank integration dan PWA/offline secara resmi berada di luar product scope dan bukan fitur yang direncanakan untuk implementasi.**
+
+---
+
+# 6. Target Users
+
+Target pengguna adalah individu yang ingin mengelola keuangan pribadi.
 
 Contoh:
 
-- Mahasiswa.
-- Karyawan.
-- Freelancer.
-- Pengguna umum.
+* Mahasiswa.
+* Karyawan.
+* Freelancer.
+* Pengguna umum.
 
-MVP tidak membutuhkan sistem account atau authentication. Aplikasi dianggap digunakan oleh satu pengguna pada satu instalasi.
+Setiap pengguna memiliki akun FinTrack sendiri.
 
----
-
-# 5. Product Scope
-
-FinTrack MVP terdiri dari:
-
-1. Dashboard.
-2. Transactions.
-3. Categories.
-4. Reports.
-5. Budgets.
-6. Settings sederhana.
-
-Prioritas utama:
-
-**P0 — Must Have**
-- Dashboard.
-- Transaction CRUD.
-- Category CRUD.
-- Budget CRUD.
-- Search.
-- Filtering.
-- Sorting.
-- Pagination.
-- Reports.
-- Financial calculations.
-- Responsive layout.
-- Loading/error/empty states.
-
-**P1 — Should Have**
-- Spending insights.
-- Toast notifications.
-- Dark mode.
-- Currency setting.
-
-**P2 — Future**
-- Authentication.
-- Multi-user.
-- Cloud database.
-- Bank integration.
-- Advanced analytics.
+Data finansial antar pengguna harus terisolasi.
 
 ---
 
-# 6. User Stories
+# 7. Product Scope
 
-## 6.1 Dashboard
+## P0 — Core
 
-Sebagai pengguna, saya ingin melihat total pemasukan, pengeluaran, dan saldo sehingga saya dapat memahami kondisi keuangan saya dengan cepat.
+* Authentication.
+* Multi-user.
+* Authorization.
+* Dashboard.
+* Transactions.
+* Categories.
+* Accounts/Wallets.
+* Budgets.
+* Reports.
+* Financial calculations.
+* Responsive layout.
+* Data isolation.
+* PostgreSQL production database.
 
-Sebagai pengguna, saya ingin melihat grafik pemasukan dan pengeluaran berdasarkan bulan sehingga saya dapat mengetahui perubahan kondisi keuangan.
+## P1 — Financial Management
 
-Sebagai pengguna, saya ingin melihat kategori pengeluaran terbesar sehingga saya dapat mengetahui ke mana uang saya paling banyak digunakan.
+* Recurring transactions.
+* Recurring budgets.
+* Financial goals.
+* Advanced analytics.
+* Notifications/reminders.
+* CSV/Excel export.
+* PDF financial report.
 
-Sebagai pengguna, saya ingin melihat transaksi terbaru sehingga saya dapat memantau aktivitas keuangan terakhir.
+## P1 — Intelligence
 
----
+* AI-assisted financial insights.
+* Deterministic fallback insights.
+* Financial metric analysis.
 
-## 6.2 Transactions
+## P2 — Production
 
-Sebagai pengguna, saya ingin menambahkan transaksi sehingga catatan keuangan saya tersimpan.
-
-Sebagai pengguna, saya ingin mengedit transaksi jika terdapat kesalahan.
-
-Sebagai pengguna, saya ingin menghapus transaksi yang tidak diperlukan.
-
-Sebagai pengguna, saya ingin mencari transaksi berdasarkan deskripsi.
-
-Sebagai pengguna, saya ingin memfilter transaksi berdasarkan tipe, kategori, dan tanggal.
-
-Sebagai pengguna, saya ingin mengurutkan transaksi berdasarkan tanggal atau jumlah.
-
----
-
-## 6.3 Categories
-
-Sebagai pengguna, saya ingin membuat kategori sendiri sehingga transaksi dapat dikelompokkan sesuai kebutuhan.
-
-Sebagai pengguna, saya ingin mengubah kategori.
-
-Sebagai pengguna, saya ingin menghapus kategori yang tidak digunakan.
-
-Sebagai pengguna, saya ingin sistem mencegah penghapusan kategori yang masih digunakan oleh transaksi atau budget agar data tetap konsisten.
-
----
-
-## 6.4 Budgets
-
-Sebagai pengguna, saya ingin membuat budget bulanan berdasarkan kategori.
-
-Sebagai pengguna, saya ingin melihat jumlah uang yang telah digunakan dibandingkan budget.
-
-Sebagai pengguna, saya ingin mendapatkan peringatan ketika pengeluaran melebihi budget.
+* Cloud deployment.
+* Production security hardening.
+* Production monitoring/health verification.
+* Production end-to-end testing.
 
 ---
 
-## 6.5 Reports
+# 8. User Stories
 
-Sebagai pengguna, saya ingin melihat pengeluaran berdasarkan kategori.
+## 8.1 Authentication
 
-Sebagai pengguna, saya ingin membandingkan pemasukan dan pengeluaran antarbulan.
+Sebagai pengguna, saya ingin membuat akun agar data keuangan saya tersimpan secara pribadi.
 
-Sebagai pengguna, saya ingin mengetahui kategori dengan pengeluaran terbesar.
+Sebagai pengguna, saya ingin login agar dapat mengakses data saya.
+
+Sebagai pengguna, saya ingin logout agar session dapat dihentikan.
+
+Sebagai pengguna, saya ingin login menggunakan Google agar proses authentication lebih mudah.
+
+Sebagai pengguna, saya ingin session tetap tersedia setelah refresh selama session masih valid.
 
 ---
 
-# 7. Functional Requirements
+## 8.2 Multi-user
 
-## FR-001 Dashboard Summary
+Sebagai pengguna, saya ingin hanya melihat data keuangan saya sendiri.
 
-Sistem harus menampilkan:
+Sebagai pengguna, saya tidak ingin pengguna lain dapat melihat transaksi, budget, account, goals, atau data pribadi saya.
 
-- Total Balance.
-- Total Income.
-- Total Expense.
+Sebagai sistem, setiap request yang membutuhkan data pengguna harus memverifikasi identitas dan ownership data.
+
+---
+
+## 8.3 Transactions
+
+Sebagai pengguna, saya ingin menambahkan transaksi.
+
+Sebagai pengguna, saya ingin mengedit transaksi.
+
+Sebagai pengguna, saya ingin menghapus transaksi.
+
+Sebagai pengguna, saya ingin mencari transaksi.
+
+Sebagai pengguna, saya ingin memfilter transaksi.
+
+Sebagai pengguna, saya ingin mengurutkan transaksi.
+
+---
+
+## 8.4 Accounts / Wallets
+
+Sebagai pengguna, saya ingin membuat account atau wallet.
+
+Sebagai pengguna, saya ingin melihat saldo setiap account.
+
+Sebagai pengguna, saya ingin menghubungkan transaksi dengan account.
+
+Sebagai pengguna, saya ingin mengelola beberapa account sekaligus.
+
+---
+
+## 8.5 Budgets
+
+Sebagai pengguna, saya ingin membuat budget berdasarkan kategori dan periode.
+
+Sebagai pengguna, saya ingin melihat progress budget.
+
+Sebagai pengguna, saya ingin mengetahui apakah budget hampir habis atau telah terlampaui.
+
+---
+
+## 8.6 Recurring Transactions
+
+Sebagai pengguna, saya ingin menentukan transaksi berulang.
+
+Sebagai pengguna, saya ingin mengatur frekuensi transaksi berulang.
+
+Sebagai pengguna, saya ingin melihat recurring transactions yang aktif.
+
+---
+
+## 8.7 Recurring Budgets
+
+Sebagai pengguna, saya ingin membuat budget yang berulang.
+
+Sebagai pengguna, saya ingin mengelola recurring budget.
+
+---
+
+## 8.8 Financial Goals
+
+Sebagai pengguna, saya ingin membuat tujuan finansial.
+
+Sebagai pengguna, saya ingin menentukan target amount.
+
+Sebagai pengguna, saya ingin melihat current progress.
+
+Sebagai pengguna, saya ingin mengetahui persentase progress menuju target.
+
+---
+
+## 8.9 Reports & Analytics
+
+Sebagai pengguna, saya ingin melihat laporan pemasukan dan pengeluaran.
+
+Sebagai pengguna, saya ingin membandingkan kondisi finansial antarbulan.
+
+Sebagai pengguna, saya ingin melihat kategori pengeluaran terbesar.
+
+Sebagai pengguna, saya ingin melihat pola pengeluaran melalui analytics.
+
+---
+
+## 8.10 AI Insights
+
+Sebagai pengguna, saya ingin mendapatkan insight berdasarkan data keuangan saya.
+
+Sebagai pengguna, saya ingin mengetahui perubahan pengeluaran.
+
+Sebagai pengguna, saya ingin mengetahui savings rate.
+
+Sebagai pengguna, saya ingin mendapatkan peringatan terkait budget dan goals.
+
+AI tidak boleh mengubah atau mengarang angka finansial aktual.
+
+---
+
+# 9. Functional Requirements
+
+## FR-001 Authentication
+
+Sistem harus menyediakan authentication.
+
+Minimal:
+
+* Register.
+* Login.
+* Logout.
+* Session management.
+* Google OAuth.
+
+Authentication provider harus menggunakan provider authentication yang sesuai untuk production.
+
+Frontend tidak boleh menyimpan secret authentication provider.
+
+---
+
+## FR-002 Authorization
+
+Setiap protected API request harus memiliki authenticated user context.
+
+Backend harus memastikan user hanya dapat mengakses resource miliknya.
+
+Contoh:
+
+```text
+User A → Transaction A → allowed
+
+User A → Transaction B milik User B → denied
+```
+
+Authorization harus berlaku untuk:
+
+* Transactions.
+* Categories.
+* Accounts.
+* Budgets.
+* Recurring transactions.
+* Recurring budgets.
+* Goals.
+* Notifications.
+* User-specific analytics.
+* AI insights.
+
+---
+
+## FR-003 Dashboard Summary
+
+Dashboard harus menampilkan:
+
+* Total Balance.
+* Total Income.
+* Total Expense.
+* Net Cash Flow.
+* Account balances jika tersedia.
+* Recent transactions.
+* Charts.
+* Spending insights.
 
 Formula:
 
 ```text
-Balance = Total Income - Total Expense
+Net Cash Flow = Total Income - Total Expense
 ```
 
-Nilai harus berasal dari database dan tidak boleh hardcoded.
+Nilai harus berasal dari data pengguna yang sedang login.
 
 ---
 
-## FR-002 Recent Transactions
+## FR-004 Transaction Creation
 
-Dashboard harus menampilkan transaksi terbaru berdasarkan tanggal atau waktu pembuatan.
+Pengguna dapat membuat transaksi.
 
-Informasi minimal:
+Field minimal:
 
-- Description.
-- Category.
-- Type.
-- Amount.
-- Date.
+* Description.
+* Amount.
+* Type.
+* Category.
+* Date.
 
----
+Field tambahan:
 
-## FR-003 Income vs Expense Chart
+* Account.
+* Note.
 
-Dashboard harus menampilkan grafik pemasukan dan pengeluaran berdasarkan bulan.
+`amount` harus positif.
 
-Data harus berasal dari transaksi yang tersimpan.
-
-Chart harus responsive.
-
----
-
-## FR-004 Expense by Category
-
-Dashboard dan Reports harus dapat menampilkan total pengeluaran berdasarkan kategori.
-
-Contoh:
+`type`:
 
 ```text
-Food          Rp1.250.000
-Transport       Rp750.000
-Bills           Rp500.000
-Shopping        Rp300.000
+INCOME
+EXPENSE
 ```
 
 ---
 
-## FR-005 Transaction Creation
+## FR-005 Transaction Update
 
-Pengguna dapat membuat transaksi baru.
-
-Field wajib:
-
-- Description.
-- Amount.
-- Type.
-- Category.
-- Date.
-
-Field opsional:
-
-- Note.
+Pengguna dapat mengubah transaksi miliknya.
 
 ---
 
-## FR-006 Transaction Update
+## FR-006 Transaction Delete
 
-Pengguna dapat mengubah transaksi yang sudah tersimpan.
-
----
-
-## FR-007 Transaction Delete
-
-Pengguna dapat menghapus transaksi setelah melalui confirmation dialog.
+Pengguna dapat menghapus transaksi miliknya setelah confirmation dialog.
 
 ---
 
-## FR-008 Transaction Search
+## FR-007 Transaction Search
 
 Pengguna dapat mencari transaksi berdasarkan description.
 
@@ -307,87 +472,96 @@ Search bersifat case-insensitive.
 
 ---
 
-## FR-009 Transaction Filtering
+## FR-008 Transaction Filtering
 
-Pengguna dapat memfilter transaksi berdasarkan:
+Filter:
 
-- Type.
-- Category.
-- Start date.
-- End date.
+* Type.
+* Category.
+* Account.
+* Start date.
+* End date.
 
 Filter dapat digunakan secara bersamaan.
 
 ---
 
-## FR-010 Transaction Sorting
+## FR-009 Transaction Sorting
 
-Pengguna dapat mengurutkan transaksi berdasarkan:
+Sorting:
 
-- Newest.
-- Oldest.
-- Highest amount.
-- Lowest amount.
-
----
-
-## FR-011 Transaction Pagination
-
-Daftar transaksi menggunakan pagination ketika jumlah data cukup banyak.
-
-Default dapat menggunakan 10 atau 20 item per halaman.
+* Newest.
+* Oldest.
+* Highest amount.
+* Lowest amount.
 
 ---
 
-## FR-012 Category Management
+## FR-010 Transaction Pagination
+
+Transaction list menggunakan pagination ketika jumlah data cukup banyak.
+
+---
+
+## FR-011 Category Management
 
 Pengguna dapat:
 
-- Melihat kategori.
-- Membuat kategori.
-- Mengedit kategori.
-- Menghapus kategori.
+* melihat kategori;
+* membuat kategori;
+* mengedit kategori;
+* menghapus kategori.
 
-Kategori tidak boleh memiliki nama duplikat yang tidak diperlukan.
+Kategori sistem dapat memiliki registry localization.
 
----
-
-## FR-013 Category Protection
-
-Kategori yang masih digunakan oleh transaksi atau budget tidak boleh dihapus secara diam-diam.
-
-Sistem harus memberikan pesan yang jelas kepada pengguna.
-
-Contoh:
-
-> This category cannot be deleted because it is currently in use.
+Kategori custom pengguna tidak harus diterjemahkan secara otomatis.
 
 ---
 
-## FR-014 Budget Creation
+## FR-012 Category Protection
 
-Pengguna dapat membuat budget untuk:
+Kategori yang masih digunakan oleh transaction atau budget tidak boleh dihapus secara merusak data.
 
-- Category.
-- Month.
-- Year.
-- Amount.
+Sistem harus memberikan pesan yang jelas.
+
+---
+
+## FR-013 Account / Wallet Management
+
+Pengguna dapat:
+
+* membuat account;
+* mengedit account;
+* menghapus account jika tidak melanggar data integrity;
+* melihat saldo;
+* menghubungkan transaksi dengan account.
+
+Saldo account harus dihitung secara konsisten berdasarkan business rules.
+
+---
+
+## FR-014 Budget Management
+
+Pengguna dapat membuat budget berdasarkan:
+
+* Category.
+* Month.
+* Year.
+* Amount.
 
 ---
 
 ## FR-015 Budget Uniqueness
 
-Sistem harus mencegah lebih dari satu budget untuk kombinasi:
+Tidak boleh terdapat lebih dari satu budget untuk kombinasi:
 
 ```text
-category + month + year
+user + category + month + year
 ```
 
 ---
 
 ## FR-016 Budget Progress
-
-Sistem menghitung:
 
 ```text
 Progress = Spent / Budget × 100
@@ -395,183 +569,537 @@ Progress = Spent / Budget × 100
 
 Sistem menampilkan:
 
-- Budget.
-- Spent.
-- Remaining.
-- Progress.
-- Status.
+* Budget.
+* Spent.
+* Remaining.
+* Progress.
+* Status.
 
 ---
 
 ## FR-017 Budget Status
 
-Status minimal:
+Minimal:
 
-- On Track.
-- Near Limit.
-- Over Budget.
+* On Track.
+* Near Limit.
+* Over Budget.
 
-Threshold untuk "Near Limit" dapat ditetapkan sekitar 80% atau dibuat sebagai konstanta konfigurasi.
+Threshold Near Limit dapat ditentukan sebagai constant.
 
 ---
 
-## FR-018 Reports
+## FR-018 Recurring Transactions
+
+Sistem harus dapat menyimpan recurring transaction dengan informasi:
+
+* Description.
+* Amount.
+* Type.
+* Category.
+* Account jika tersedia.
+* Frequency.
+* Start date.
+* End date atau active status.
+
+Recurring transaction tidak boleh menyebabkan duplicate execution yang tidak disengaja.
+
+---
+
+## FR-019 Recurring Budgets
+
+Sistem harus dapat menyimpan recurring budget berdasarkan:
+
+* Category.
+* Amount.
+* Frequency.
+* Start date.
+* Active status.
+
+---
+
+## FR-020 Financial Goals
+
+Goal minimal memiliki:
+
+* Name.
+* Target amount.
+* Current amount.
+* Target date jika digunakan.
+* Status.
+
+Formula:
+
+```text
+Goal Progress = Current Amount / Target Amount × 100
+```
+
+Jika target amount adalah zero, sistem tidak boleh menghasilkan NaN atau Infinity.
+
+---
+
+## FR-021 Reports
 
 Reports harus menyediakan:
 
-- Monthly income.
-- Monthly expense.
-- Expense by category.
-- Monthly comparison.
-- Highest spending category.
+* Monthly income.
+* Monthly expense.
+* Net cash flow.
+* Expense by category.
+* Monthly comparison.
+* Highest spending category.
 
 ---
 
-## FR-019 Spending Insight
+## FR-022 Advanced Analytics
 
-Sistem menghasilkan insight berbasis rule sederhana.
+Analytics dapat menyediakan:
+
+* Income trend.
+* Expense trend.
+* Net cash flow.
+* Savings rate.
+* Category concentration.
+* Budget utilization.
+* Transaction frequency.
+* Largest transactions.
+* Period comparisons.
+
+---
+
+## FR-023 Export
+
+Pengguna dapat melakukan export data yang menjadi hak aksesnya.
+
+Minimal:
+
+* CSV.
+* Excel.
+
+Export tidak boleh menyertakan data pengguna lain.
+
+---
+
+## FR-024 PDF Financial Report
+
+Sistem dapat menghasilkan financial report PDF.
+
+Report harus menggunakan data aktual dari user yang sedang login.
+
+---
+
+## FR-025 Notifications
+
+Sistem menyediakan notifications/reminders untuk kondisi yang relevan.
 
 Contoh:
 
-Jika pengeluaran bulan berjalan lebih tinggi:
+* Budget warning.
+* Budget exceeded.
+* Goal reminder.
+* Recurring transaction reminder.
 
-> Your expenses increased compared to last month.
+Pengguna dapat:
 
-Jika lebih rendah:
-
-> Your expenses decreased compared to last month.
-
-Jika kategori tertentu merupakan pengeluaran terbesar:
-
-> Food is your highest spending category this month.
-
-Jika budget terlampaui:
-
-> You have exceeded your Food budget.
-
-Insight tidak menggunakan AI dan tidak memberikan nasihat keuangan profesional.
+* melihat notifications;
+* menandai notification sebagai read;
+* menandai seluruh notification sebagai read.
 
 ---
 
-# 8. Data Model
+## FR-026 AI Financial Insights
 
-## 8.1 Category
+Sistem dapat menghasilkan AI-assisted financial insights.
+
+AI context harus menggunakan aggregated dan sanitized financial data.
+
+AI tidak boleh menerima data yang tidak diperlukan.
+
+AI tidak boleh mengubah factual financial metrics.
+
+Jika AI tidak tersedia, gagal, menghasilkan invalid response, atau tidak dikonfigurasi, sistem harus menyediakan deterministic fallback jika memungkinkan.
+
+---
+
+# 10. AI Insights Financial Rules
+
+## Net Cash Flow
+
+```text
+Net Cash Flow = Income - Expense
+```
+
+Contoh:
+
+```text
+Income  = 5,000,000
+Expense = 2,009,000
+
+Net Cash Flow = 2,991,000
+```
+
+---
+
+## Savings
+
+```text
+Savings = Income - Expense
+```
+
+---
+
+## Savings Rate
+
+Jika income > 0:
+
+```text
+Savings Rate =
+(Income - Expense) / Income × 100
+```
+
+Jika income = 0, nilai harus null atau state yang sesuai.
+
+---
+
+## Expense Change
+
+Jika previous expense > 0:
+
+```text
+Expense Change =
+(Current Expense - Previous Expense)
+/
+Previous Expense × 100
+```
+
+Jika previous expense = 0, sistem tidak boleh menghasilkan Infinity atau NaN.
+
+---
+
+## Category Percentage
+
+```text
+Category Share =
+Category Expense / Total Expense × 100
+```
+
+---
+
+## Budget Utilization
+
+```text
+Budget Utilization =
+Actual Expense / Budget Amount × 100
+```
+
+---
+
+## Goal Progress
+
+```text
+Goal Progress =
+Current Amount / Target Amount × 100
+```
+
+Jika target = 0, progress harus ditangani secara aman.
+
+---
+
+## Metric Semantics
+
+Setiap insight metric harus memiliki semantic format.
+
+Minimal:
+
+```text
+currency
+percentage
+number
+count
+```
+
+Frontend tidak boleh menebak bahwa semua metric adalah currency.
+
+Contoh:
+
+```text
+59.82 → 59,82%
+```
+
+bukan:
+
+```text
+Rp 59,82
+```
+
+---
+
+# 11. Data Model
+
+Database production menggunakan PostgreSQL melalui Prisma.
+
+## 11.1 User
+
+Konsep:
+
+```text
+User
+----
+id
+email
+name
+createdAt
+updatedAt
+```
+
+`id` harus dapat dikaitkan dengan identity dari authentication provider.
+
+---
+
+## 11.2 Category
 
 ```text
 Category
----------
+--------
 id
+userId
 name
 icon
 color
 createdAt
+updatedAt
 ```
 
 Relationship:
 
 ```text
+User 1 ──── * Category
 Category 1 ──── * Transaction
 Category 1 ──── * Budget
 ```
 
+System/default category dapat memiliki strategi khusus sesuai kebutuhan implementasi.
+
 ---
 
-## 8.2 Transaction
+## 11.3 Account
+
+```text
+Account
+-------
+id
+userId
+name
+type
+initialBalance
+createdAt
+updatedAt
+```
+
+---
+
+## 11.4 Transaction
 
 ```text
 Transaction
 -----------
 id
+userId
+accountId
+categoryId
 description
 amount
 type
-categoryId
 date
 note
 createdAt
+updatedAt
 ```
 
-`type` memiliki dua nilai:
+Relationship:
 
 ```text
-INCOME
-EXPENSE
+User 1 ──── * Transaction
+Account 1 ──── * Transaction
+Category 1 ──── * Transaction
 ```
-
-`amount` harus bernilai positif.
 
 ---
 
-## 8.3 Budget
+## 11.5 Budget
 
 ```text
 Budget
 ------
 id
+userId
 categoryId
 month
 year
 amount
 createdAt
+updatedAt
 ```
 
-`month` memiliki nilai 1–12.
-
-`amount` harus positif.
-
----
-
-# 9. Database Requirements
-
-Database menggunakan SQLite.
-
-ORM menggunakan Prisma.
-
-Prisma harus digunakan untuk:
-
-- Schema definition.
-- Migrations.
-- Queries.
-- Relations.
-- Database access.
-
-Database harus memiliki foreign key antara:
+Unique:
 
 ```text
-Transaction.categoryId → Category.id
-Budget.categoryId → Category.id
+userId + categoryId + month + year
 ```
 
-Tambahkan index yang relevan jika dibutuhkan untuk query transaksi, kategori, dan tanggal.
+---
+
+## 11.6 Recurring Transaction
+
+Recurring transaction harus memiliki ownership user.
+
+Minimal:
+
+```text
+RecurringTransaction
+--------------------
+id
+userId
+accountId
+categoryId
+description
+amount
+type
+frequency
+startDate
+endDate
+active
+createdAt
+updatedAt
+```
 
 ---
 
-# 10. Default Seed Data
+## 11.7 Recurring Budget
 
-Database harus memiliki seed categories:
-
-- Food.
-- Transport.
-- Shopping.
-- Entertainment.
-- Bills.
-- Health.
-- Education.
-- Salary.
-- Freelance.
-- Other.
-
-Seed harus idempotent atau aman untuk dijalankan lebih dari sekali tanpa membuat duplikasi kategori.
+```text
+RecurringBudget
+---------------
+id
+userId
+categoryId
+amount
+frequency
+startDate
+active
+createdAt
+updatedAt
+```
 
 ---
 
-# 11. REST API Requirements
+## 11.8 Financial Goal
+
+```text
+Goal
+----
+id
+userId
+name
+targetAmount
+currentAmount
+targetDate
+status
+createdAt
+updatedAt
+```
+
+---
+
+## 11.9 Notification
+
+```text
+Notification
+------------
+id
+userId
+type
+title
+message
+read
+createdAt
+```
+
+---
+
+# 12. Database Requirements
+
+Production:
+
+```text
+PostgreSQL
++
+Prisma ORM
+```
+
+Prisma digunakan untuk:
+
+* schema definition;
+* migrations;
+* queries;
+* relations;
+* transactions;
+* database access.
+
+Database harus memiliki foreign key dan ownership relationships yang jelas.
+
+Index harus ditambahkan berdasarkan query pattern yang benar-benar dibutuhkan.
+
+Minimal pertimbangkan index untuk:
+
+* userId;
+* transaction date;
+* categoryId;
+* accountId;
+* budget period;
+* notification read status;
+* recurring active status.
+
+Migration harus aman dan tidak destructive tanpa alasan yang jelas.
+
+---
+
+# 13. Existing Data Migration
+
+Perpindahan dari SQLite ke PostgreSQL harus dilakukan secara terkontrol.
+
+Migration strategy harus menentukan apakah:
+
+1. Data development lama dipertahankan dan di-assign ke development user; atau
+2. Production database dimulai kosong sementara database development tetap terpisah.
+
+Production database tidak boleh menggunakan data testing secara tidak sengaja.
+
+Migration harus:
+
+* preserve valid data;
+* preserve relationships;
+* validate ownership;
+* avoid duplicate records;
+* avoid destructive data loss.
+
+---
+
+# 14. REST API Requirements
 
 Base URL:
 
 ```text
 /api
 ```
+
+## Authentication
+
+Authentication dapat ditangani oleh external authentication provider.
+
+Backend tetap harus memverifikasi authenticated identity sebelum protected resource diakses.
+
+---
 
 ## Transactions
 
@@ -583,6 +1111,8 @@ PUT    /api/transactions/:id
 DELETE /api/transactions/:id
 ```
 
+---
+
 ## Categories
 
 ```http
@@ -591,6 +1121,20 @@ POST   /api/categories
 PUT    /api/categories/:id
 DELETE /api/categories/:id
 ```
+
+---
+
+## Accounts
+
+```http
+GET    /api/accounts
+GET    /api/accounts/:id
+POST   /api/accounts
+PUT    /api/accounts/:id
+DELETE /api/accounts/:id
+```
+
+---
 
 ## Budgets
 
@@ -601,11 +1145,48 @@ PUT    /api/budgets/:id
 DELETE /api/budgets/:id
 ```
 
+---
+
+## Recurring Transactions
+
+```http
+GET    /api/recurring-transactions
+POST   /api/recurring-transactions
+PUT    /api/recurring-transactions/:id
+DELETE /api/recurring-transactions/:id
+```
+
+---
+
+## Recurring Budgets
+
+```http
+GET    /api/recurring-budgets
+POST   /api/recurring-budgets
+PUT    /api/recurring-budgets/:id
+DELETE /api/recurring-budgets/:id
+```
+
+---
+
+## Goals
+
+```http
+GET    /api/goals
+POST   /api/goals
+PUT    /api/goals/:id
+DELETE /api/goals/:id
+```
+
+---
+
 ## Dashboard
 
 ```http
 GET /api/dashboard/summary
 ```
+
+---
 
 ## Reports
 
@@ -614,15 +1195,68 @@ GET /api/reports/monthly
 GET /api/reports/categories
 ```
 
+---
+
+## Analytics
+
+```http
+GET /api/analytics
+```
+
+---
+
+## Export
+
+```text
+Export endpoint atau client-side export dapat digunakan sesuai kebutuhan arsitektur.
+```
+
+Export harus tetap dibatasi berdasarkan authenticated user.
+
+---
+
+## PDF
+
+```http
+GET /api/reports/financial-report
+```
+
+Bahasa report dapat didukung jika diperlukan.
+
+---
+
+## Notifications
+
+```http
+GET  /api/notifications
+POST /api/notifications/generate
+PUT  /api/notifications/:id/read
+PUT  /api/notifications/read-all
+```
+
+---
+
+## AI Insights
+
+```http
+GET /api/ai-insights?month=8&year=2026&lang=id
+```
+
+AI endpoint harus menggunakan data user yang sedang login.
+
+---
+
 ## Health
 
 ```http
 GET /api/health
 ```
 
+Health endpoint digunakan untuk deployment dan operational verification.
+
 ---
 
-# 12. API Response Format
+# 15. API Response Format
 
 Successful response:
 
@@ -642,7 +1276,7 @@ Error response:
 }
 ```
 
-List response dapat menggunakan metadata:
+List response:
 
 ```json
 {
@@ -657,326 +1291,313 @@ List response dapat menggunakan metadata:
 }
 ```
 
+Authentication/authorization errors harus menggunakan status code yang sesuai.
+
 ---
 
-# 13. HTTP Status Codes
+# 16. HTTP Status Codes
 
-Gunakan status code secara konsisten.
+Gunakan secara konsisten:
 
 ```text
 200 OK
 201 Created
 400 Bad Request
+401 Unauthorized
+403 Forbidden
 404 Not Found
 409 Conflict
+422 Unprocessable Entity
 500 Internal Server Error
 ```
 
-Gunakan `409 Conflict` untuk kondisi seperti:
+`401` digunakan ketika authentication tidak valid atau tidak tersedia.
 
-- Duplicate category.
-- Duplicate budget.
+`403` digunakan ketika user telah terautentikasi tetapi tidak memiliki akses terhadap resource.
+
+`409` digunakan untuk conflict seperti:
+
+* duplicate category;
+* duplicate budget;
+* conflict resource lainnya.
 
 ---
 
-# 14. Transaction API Query Parameters
+# 17. Security Requirements
 
-`GET /api/transactions` dapat mendukung:
+Security menjadi requirement utama karena FinTrack menyimpan data finansial pribadi.
+
+Minimal:
+
+* Authentication wajib untuk production.
+* Authorization wajib untuk seluruh protected resource.
+* Setiap resource harus memiliki ownership verification.
+* User A tidak boleh mengakses data User B.
+* Backend wajib memvalidasi input.
+* Prisma digunakan untuk database access.
+* Secret tidak boleh disimpan dalam source code.
+* `.env` tidak boleh masuk Git.
+* `.env.example` harus tersedia.
+* API key AI hanya berada di backend.
+* Frontend tidak boleh menerima AI provider secret.
+* Error response tidak boleh membocorkan stack trace.
+* Jangan melakukan logging terhadap raw financial data yang tidak diperlukan.
+* HTTPS wajib pada production.
+* CORS harus dikonfigurasi untuk production origin.
+* Security headers harus dipertimbangkan.
+* Rate limiting dapat digunakan pada endpoint yang membutuhkan perlindungan tambahan.
+
+---
+
+# 18. Authentication Architecture
+
+Authentication harus mengikuti pola:
 
 ```text
-search
-type
-categoryId
-startDate
-endDate
-sortBy
-sortOrder
-page
-limit
+Browser
+   ↓
+Authentication Provider
+   ↓
+Authenticated Session / Token
+   ↓
+Express Backend
+   ↓
+Verify Identity
+   ↓
+Authenticated User Context
+   ↓
+Business Logic
+   ↓
+Prisma
+   ↓
+PostgreSQL
 ```
 
-Contoh:
+Backend tidak boleh mempercayai `userId` yang dikirim bebas oleh frontend sebagai bukti ownership.
+
+Identity harus berasal dari authenticated session/token yang telah diverifikasi.
+
+---
+
+# 19. Multi-user Data Isolation
+
+Semua protected resources harus mengikuti prinsip:
 
 ```text
-/api/transactions?type=EXPENSE&categoryId=1&page=1&limit=10
+Authenticated User
+        ↓
+User-owned Resource
 ```
 
-Filter harus dapat dikombinasikan.
+Query tidak boleh hanya berdasarkan resource ID jika ownership verification dibutuhkan.
+
+Secara konseptual:
+
+```text
+find transaction
+WHERE
+    id = requestedId
+    AND userId = authenticatedUserId
+```
+
+Bukan hanya:
+
+```text
+find transaction
+WHERE id = requestedId
+```
+
+Hal ini berlaku untuk seluruh resource.
 
 ---
 
-# 15. Validation Requirements
-
-Frontend dan backend harus melakukan validation.
-
-Transaction:
-
-- Description tidak boleh kosong.
-- Amount harus > 0.
-- Type harus valid.
-- Category harus ada.
-- Date harus valid.
-
-Category:
-
-- Name wajib.
-- Name harus memiliki panjang yang masuk akal.
-- Duplicate name harus ditolak.
-
-Budget:
-
-- Category wajib.
-- Month 1–12.
-- Year valid.
-- Amount > 0.
-- Kombinasi category/month/year harus unik.
-
-Backend validation wajib dilakukan walaupun frontend sudah melakukan validation.
-
----
-
-# 16. Frontend Requirements
+# 20. Frontend Requirements
 
 Frontend menggunakan:
 
-- React.
-- JavaScript.
-- Vite.
-- React Router.
-- Tailwind CSS.
-- DaisyUI.
-- Recharts.
+* React.
+* JavaScript.
+* Vite.
+* React Router.
+* Tailwind CSS.
+* DaisyUI.
+* Recharts.
 
-Tidak menggunakan TypeScript untuk MVP.
+Tidak menggunakan TypeScript kecuali keputusan arsitektur berubah secara eksplisit.
 
 ---
 
-# 17. Application Routes
+# 21. Application Routes
+
+Public routes:
+
+```text
+/login
+/register
+```
+
+Protected routes:
 
 ```text
 /
-    Dashboard
-
 /transactions
-    Transactions
-
 /categories
-    Categories
-
-/reports
-    Reports
-
+/accounts
 /budgets
-    Budgets
-
+/recurring-transactions
+/recurring-budgets
+/goals
+/reports
+/analytics
+/ai-insights
+/notifications
 /settings
-    Settings
 ```
 
-Route yang tidak ditemukan harus menampilkan halaman 404 sederhana.
+Jika user belum authenticated dan mencoba membuka protected route:
+
+```text
+protected route
+      ↓
+authentication check
+      ↓
+/login
+```
+
+Route yang tidak ditemukan harus menampilkan halaman 404.
 
 ---
 
-# 18. Application Layout
+# 22. Application Layout
 
-Desktop layout:
+Desktop:
 
 ```text
 ┌─────────────────────────────────────────────┐
-│ Sidebar        │ Main Content               │
-│                │                            │
-│ FinTrack       │ Page Header                │
-│                │                            │
-│ Dashboard      │ Content                    │
-│ Transactions   │                            │
-│ Categories     │                            │
-│ Reports        │                            │
-│ Budgets        │                            │
-│ Settings       │                            │
+│ Sidebar       │ Main Content                │
+│               │                             │
+│ FinTrack      │ Page Header                 │
+│               │                             │
+│ Dashboard     │ Content                     │
+│ Transactions  │                             │
+│ Accounts      │                             │
+│ Categories    │                             │
+│ Budgets       │                             │
+│ Goals         │                             │
+│ Reports       │                             │
+│ Analytics     │                             │
+│ AI Insights   │                             │
+│ Notifications │                             │
+│ Settings      │                             │
 └─────────────────────────────────────────────┘
 ```
 
-Mobile layout harus menggunakan:
+Mobile:
 
-- Hamburger menu, atau
-- Mobile navigation.
-
----
-
-# 19. Dashboard UI Requirements
-
-Dashboard harus memiliki:
-
-### Summary Cards
-
-- Total Balance.
-- Total Income.
-- Total Expense.
-
-### Charts
-
-- Income vs Expense.
-- Expense by Category.
-
-### Recent Transactions
-
-Menampilkan transaksi terbaru.
-
-### Spending Insight
-
-Menampilkan insight sederhana berdasarkan data.
+* hamburger menu;
+* collapsible navigation;
+* stacked cards;
+* responsive charts;
+* usable forms;
+* no uncontrolled horizontal overflow.
 
 ---
 
-# 20. Transactions UI Requirements
-
-Transactions page harus memiliki:
-
-- Page title.
-- Add Transaction button.
-- Search field.
-- Type filter.
-- Category filter.
-- Date filter.
-- Sort control.
-- Transaction table.
-- Pagination.
-
-Table:
-
-```text
-Date
-Description
-Category
-Type
-Amount
-Actions
-```
-
-Actions:
-
-- Edit.
-- Delete.
-
----
-
-# 21. Transaction Form
-
-Form fields:
-
-```text
-Description
-Amount
-Type
-Category
-Date
-Note
-```
-
-Form harus memiliki:
-
-- Validation.
-- Loading state saat submit.
-- Error feedback.
-- Success notification.
-- Cancel action.
-
----
-
-# 22. Categories UI Requirements
-
-Categories page dapat menggunakan card layout atau table.
-
-Setiap kategori menampilkan:
-
-- Icon.
-- Name.
-- Color.
-- Optional transaction count.
-
-Actions:
-
-- Edit.
-- Delete.
-
----
-
-# 23. Reports UI Requirements
-
-Reports page harus memiliki:
-
-1. Monthly Income vs Expense chart.
-2. Expense by Category chart.
-3. Monthly comparison.
-4. Highest spending category.
-
-Jika tidak terdapat data, tampilkan empty state.
-
----
-
-# 24. Budgets UI Requirements
-
-Budgets page harus menampilkan:
-
-```text
-Category
-Budget
-Spent
-Remaining
-Progress
-Status
-Actions
-```
-
-Progress bar harus merepresentasikan penggunaan budget.
-
-Jika lebih dari 100%, visual progress tidak boleh merusak layout. Nilai dapat dibatasi secara visual pada 100%, sementara status tetap menunjukkan "Over Budget".
-
----
-
-# 25. Settings UI Requirements
-
-Settings MVP bersifat sederhana.
+# 23. Settings
 
 Pengguna dapat mengatur:
 
-- Currency.
-- Theme jika dark mode tersedia.
-
-Default currency:
-
-```text
-IDR
-```
-
-UI-only preferences dapat disimpan di localStorage.
-
----
-
-# 26. Currency Formatting
-
-Aplikasi harus menyediakan utility terpusat untuk format currency.
+* Currency.
+* Theme.
+* Language.
 
 Default:
 
 ```text
-IDR
+Currency: IDR
+Language: English
+```
+
+Bahasa minimal:
+
+* English.
+* Indonesian.
+
+User-specific settings harus terisolasi berdasarkan user.
+
+UI-only preferences dapat menggunakan localStorage jika sesuai.
+
+---
+
+# 24. Localization
+
+Aplikasi harus mempertahankan parity antara English dan Indonesian.
+
+Localization harus mencakup:
+
+* navigation;
+* page titles;
+* forms;
+* errors;
+* empty states;
+* notifications;
+* insight titles;
+* insight explanations;
+* metric labels;
+* authentication UI.
+
+Tidak boleh terdapat missing localization key pada production UI.
+
+---
+
+# 25. Currency Formatting
+
+Aplikasi harus memiliki utility currency terpusat.
+
+Contoh:
+
+```text
+2009000
+→ Rp2.009.000
+```
+
+Financial values harus mempertahankan numeric value di API.
+
+Frontend bertanggung jawab terhadap display formatting.
+
+---
+
+# 26. Financial Metric Formatting
+
+Metric harus memiliki semantic format.
+
+```text
+currency
+percentage
+number
+count
 ```
 
 Contoh:
 
 ```text
-35000
-→ Rp35.000
+Income:
+Rp5.000.000
 
-1250000
-→ Rp1.250.000
+Net Cash Flow:
+Rp2.991.000
 
-8500000
-→ Rp8.500.000
+Savings Rate:
+59,82%
+
+Category Concentration:
+49,78%
+
+Goal Progress:
+10%
 ```
 
-Jangan mengulang logic currency formatting pada banyak component.
+Percentage tidak boleh diformat sebagai currency.
 
 ---
 
@@ -984,11 +1605,11 @@ Jangan mengulang logic currency formatting pada banyak component.
 
 Aplikasi harus memiliki utility date formatting terpusat.
 
-Tanggal harus ditampilkan secara konsisten.
+Backend dan frontend harus menggunakan format yang jelas dan konsisten.
 
-Backend dan frontend harus menggunakan format tanggal yang jelas dan konsisten.
+Timezone handling harus dilakukan secara eksplisit.
 
-Hindari parsing tanggal menggunakan format yang ambigu.
+Hindari parsing tanggal menggunakan format ambigu.
 
 ---
 
@@ -1003,39 +1624,23 @@ services/
     api.js
     transactionApi.js
     categoryApi.js
+    accountApi.js
     budgetApi.js
+    recurringTransactionApi.js
+    recurringBudgetApi.js
+    goalApi.js
     dashboardApi.js
     reportApi.js
+    analyticsApi.js
+    notificationApi.js
+    aiInsightsApi.js
 ```
 
 Raw HTTP request tidak boleh tersebar tanpa alasan ke seluruh component.
 
 ---
 
-# 29. Component Architecture
-
-Reusable components yang direkomendasikan:
-
-```text
-SummaryCard
-ChartCard
-TransactionTable
-TransactionForm
-TransactionFilters
-CategoryCard
-BudgetProgress
-EmptyState
-LoadingSkeleton
-ConfirmDialog
-```
-
-Component hanya perlu dibuat jika memiliki tanggung jawab yang jelas atau digunakan kembali.
-
-Hindari membuat satu component raksasa yang mengandung seluruh aplikasi.
-
----
-
-# 30. Backend Architecture
+# 29. Backend Architecture
 
 Backend harus memisahkan:
 
@@ -1047,149 +1652,150 @@ middleware
 utils
 ```
 
-Routes menentukan endpoint.
+Routes:
 
-Controllers menangani HTTP request/response.
+* menentukan endpoint.
 
-Services menangani business logic.
+Controllers:
 
-Prisma digunakan untuk database access.
+* menangani HTTP request/response.
 
-Error middleware menangani error secara terpusat.
+Middleware:
+
+* authentication;
+* authorization;
+* validation;
+* error handling.
+
+Services:
+
+* business logic.
+
+Prisma:
+
+* database access.
 
 `server.js` tidak boleh berisi seluruh business logic.
 
 ---
 
-# 31. Loading States
+# 30. Loading States
 
 Setiap halaman yang mengambil data dari API harus memiliki loading state.
 
-Contoh:
+Minimal:
 
-- Dashboard skeleton.
-- Table loading.
-- Button loading saat submit.
-
----
-
-# 32. Empty States
-
-Jika tidak ada data:
-
-Transactions:
-
-> No transactions yet.
-
-Categories:
-
-> No categories available.
-
-Budgets:
-
-> No budgets created yet.
-
-Reports:
-
-> No data available for this period.
-
-Empty state sebaiknya menyediakan action yang relevan jika memungkinkan.
+* Dashboard skeleton.
+* Table loading.
+* Form submit loading.
+* AI Insights loading.
+* Report loading.
 
 ---
 
-# 33. Error States
+# 31. Empty States
 
-Jika API gagal, tampilkan pesan yang mudah dipahami.
+Jika tidak terdapat data, gunakan empty state yang jelas.
 
 Contoh:
 
-> Unable to load transactions. Please try again.
+```text
+No transactions yet.
+No budgets created yet.
+No goals created yet.
+No notifications.
+No data available for this period.
+```
 
-Jangan menampilkan stack trace atau detail internal backend kepada pengguna.
+Empty state sebaiknya memiliki action relevan jika memungkinkan.
 
 ---
 
-# 34. Notifications
+# 32. Error States
 
-Gunakan toast notification untuk operasi:
-
-- Create.
-- Update.
-- Delete.
+API failure harus menampilkan pesan yang mudah dipahami.
 
 Contoh:
 
-> Transaction added successfully.
+```text
+Unable to load transactions. Please try again.
+```
 
-> Transaction updated successfully.
+Jangan menampilkan:
 
-> Transaction deleted successfully.
+* stack trace;
+* database error;
+* secret;
+* internal implementation detail.
 
-Error:
-
-> Failed to save transaction.
+Retry harus tersedia jika sesuai.
 
 ---
 
-# 35. Responsive Design Requirements
+# 33. Notifications
+
+Toast notification digunakan untuk operasi penting:
+
+* Create.
+* Update.
+* Delete.
+* Authentication actions.
+* Export.
+* Error.
+
+Contoh:
+
+```text
+Transaction added successfully.
+Budget updated successfully.
+Goal created successfully.
+```
+
+---
+
+# 34. Responsive Design
 
 FinTrack harus dapat digunakan pada:
 
-- Desktop.
-- Tablet.
-- Mobile.
+* Desktop.
+* Tablet.
+* Mobile.
 
 Desktop:
 
-- Sidebar permanen.
-- Multi-column dashboard.
-- Full-width content.
+* sidebar permanen;
+* multi-column dashboard.
 
 Tablet:
 
-- Sidebar dapat diperkecil atau dikolaps.
+* sidebar dapat dikolaps.
 
 Mobile:
 
-- Sidebar berubah menjadi menu mobile.
-- Cards dapat ditumpuk.
-- Table tidak boleh menyebabkan halaman overflow secara tidak terkendali.
-- Chart harus responsive.
-- Form harus nyaman digunakan.
+* mobile navigation;
+* cards stacked;
+* responsive charts;
+* table tidak menyebabkan uncontrolled overflow;
+* forms nyaman digunakan.
 
 ---
 
-# 36. Accessibility
-
-UI harus memperhatikan accessibility dasar.
+# 35. Accessibility
 
 Minimal:
 
-- Form memiliki label.
-- Button memiliki nama yang jelas.
-- Interactive elements dapat digunakan dengan keyboard.
-- Contrast teks cukup baik.
-- Modal memiliki struktur yang jelas.
-- Jangan menggunakan warna sebagai satu-satunya indikator status.
+* form memiliki label;
+* button memiliki accessible name;
+* keyboard navigation;
+* sufficient contrast;
+* modal structure jelas;
+* focus state;
+* warna bukan satu-satunya indikator status;
+* semantic HTML jika memungkinkan.
 
 ---
 
-# 37. Security Requirements
-
-Meskipun aplikasi single-user lokal:
-
-- Backend wajib memvalidasi input.
-- Gunakan Prisma untuk query database.
-- Jangan menyimpan secret di source code.
-- Gunakan `.env` jika diperlukan.
-- `.env` harus masuk `.gitignore`.
-- Sediakan `.env.example`.
-
-Tidak perlu authentication untuk MVP.
-
----
-
-# 38. Business Rules
+# 36. Business Rules
 
 ## Balance
 
@@ -1197,38 +1803,40 @@ Tidak perlu authentication untuk MVP.
 Balance = Income - Expense
 ```
 
+## Net Cash Flow
+
+```text
+Net Cash Flow = Income - Expense
+```
+
 ## Expense
 
-Hanya transaksi dengan:
+Hanya:
 
 ```text
 type = EXPENSE
 ```
 
-yang masuk ke perhitungan pengeluaran.
+yang masuk expense calculation.
 
 ## Income
 
-Hanya transaksi dengan:
+Hanya:
 
 ```text
 type = INCOME
 ```
 
-yang masuk ke perhitungan pemasukan.
+yang masuk income calculation.
 
 ## Budget Spending
 
-Budget kategori hanya menghitung transaksi:
+Budget hanya menghitung expense:
 
-```text
-type = EXPENSE
-```
-
-yang:
-
-- memiliki category yang sama;
-- berada pada bulan dan tahun budget.
+* category sama;
+* bulan sama;
+* tahun sama;
+* user sama.
 
 ## Budget Remaining
 
@@ -1236,7 +1844,7 @@ yang:
 Remaining = Budget - Spent
 ```
 
-Nilai dapat menjadi negatif ketika budget terlampaui.
+Nilai dapat negatif.
 
 ## Budget Progress
 
@@ -1244,138 +1852,330 @@ Nilai dapat menjadi negatif ketika budget terlampaui.
 Progress = Spent / Budget × 100
 ```
 
-Visual progress dapat dibatasi pada 100%.
+Visual dapat dibatasi 100%.
+
+## Goal Progress
+
+```text
+Progress = Current Amount / Target Amount × 100
+```
+
+Zero target harus ditangani secara aman.
 
 ---
 
-# 39. Spending Insight Rules
+# 37. Spending Insight Rules
 
-Insight harus deterministic.
+Deterministic insight tetap digunakan sebagai fallback dan sebagai sumber insight non-AI.
 
-### Rule 1 — Increased Spending
+Minimal:
 
-Jika:
+### Increased Spending
 
-```text
-currentMonthExpense > previousMonthExpense
-```
+Jika current expense > previous expense.
 
-tampilkan insight bahwa pengeluaran meningkat.
+### Decreased Spending
 
-### Rule 2 — Decreased Spending
+Jika current expense < previous expense.
 
-Jika:
+### Highest Category
 
-```text
-currentMonthExpense < previousMonthExpense
-```
+Kategori dengan expense terbesar.
 
-tampilkan insight bahwa pengeluaran menurun.
+### Budget Exceeded
 
-### Rule 3 — Highest Category
+Jika spent > budget.
 
-Cari kategori dengan total expense terbesar.
+### Savings
 
-### Rule 4 — Budget Exceeded
+Jika savings rate rendah atau tinggi sesuai threshold yang ditentukan.
 
-Jika:
+### Category Concentration
 
-```text
-spent > budget
-```
+Jika sebagian besar expense terkonsentrasi pada kategori tertentu.
 
-tampilkan warning.
+### Goal Progress
 
-Jika tidak terdapat data pembanding, jangan membuat insight yang menyesatkan.
+Jika progress goal rendah atau membutuhkan perhatian.
+
+Tidak boleh membuat insight yang menyesatkan jika data pembanding tidak tersedia.
 
 ---
 
-# 40. Error Handling Requirements
+# 38. AI Insights Architecture
 
-Backend menggunakan centralized error handler.
+AI Insights menggunakan hybrid architecture:
 
-Frontend harus menangani:
+```text
+Financial Data
+      ↓
+Backend deterministic calculations
+      ↓
+Sanitized compact context
+      ↓
+Optional AI provider
+      ↓
+Structured AI interpretation
+      ↓
+Validation
+      ↓
+Frontend
+```
 
-- Validation error.
-- Not found.
-- Conflict.
-- Server error.
-- Network error.
+Backend tetap menjadi sumber kebenaran untuk angka finansial.
 
-Response error harus konsisten.
+AI hanya menginterpretasikan data.
+
+AI tidak boleh:
+
+* mengubah income;
+* mengubah expense;
+* mengubah net cash flow;
+* mengubah savings rate;
+* mengarang transaction;
+* mengarang budget;
+* mengarang goal;
+* memberikan angka finansial yang bertentangan dengan backend.
+
+Jika AI tidak tersedia, deterministic fallback digunakan jika memungkinkan.
 
 ---
 
-# 41. Performance Requirements
+# 39. Performance Requirements
 
-MVP tidak membutuhkan optimasi tingkat lanjut.
+Prioritas:
+
+**Correctness → Maintainability → Performance**
 
 Namun:
 
-- Gunakan pagination untuk transaction list.
-- Hindari request API yang tidak diperlukan.
-- Jangan mengambil seluruh database jika hanya membutuhkan summary.
-- Gunakan query aggregation pada backend untuk perhitungan laporan.
-- Gunakan index database jika memang dibutuhkan.
+* gunakan pagination;
+* hindari request yang tidak diperlukan;
+* gunakan aggregation query;
+* jangan mengambil seluruh database jika hanya membutuhkan summary;
+* gunakan index yang sesuai;
+* hindari duplicate AI request;
+* gunakan sensible caching/refresh;
+* jangan melakukan expensive calculation di frontend jika lebih tepat dilakukan backend.
 
-Target utama adalah correctness dan maintainability, bukan premature optimization.
-
----
-
-# 42. Testing Requirements
-
-Minimal lakukan pengujian terhadap:
-
-### Transaction
-
-- Create.
-- Read.
-- Update.
-- Delete.
-- Search.
-- Filter.
-- Sort.
-- Pagination.
-- Invalid input.
-- Missing category.
-- Nonexistent transaction.
-
-### Category
-
-- Create.
-- Read.
-- Update.
-- Delete.
-- Duplicate name.
-- Delete while in use.
-
-### Budget
-
-- Create.
-- Update.
-- Delete.
-- Duplicate budget.
-- Invalid month.
-- Invalid amount.
-- Budget progress.
-- Over budget.
-
-### Dashboard
-
-- Income calculation.
-- Expense calculation.
-- Balance calculation.
-- Recent transactions.
-
-### Reports
-
-- Monthly aggregation.
-- Category aggregation.
-- Month comparison.
+AI request harus memiliki mekanisme refresh yang jelas.
 
 ---
 
-# 43. Project Structure
+# 40. Deployment Requirements
+
+FinTrack harus dapat dijalankan pada production environment.
+
+Architecture:
+
+```text
+User Browser
+      ↓ HTTPS
+Production Frontend
+      ↓ HTTPS
+Production Backend
+      ↓
+Prisma
+      ↓
+PostgreSQL
+```
+
+Authentication provider terintegrasi dengan production frontend/backend.
+
+Production harus menggunakan environment variables.
+
+Tidak boleh ada:
+
+* hardcoded secret;
+* API key di frontend;
+* development database sebagai production database;
+* localhost dependency.
+
+---
+
+# 41. Environment Configuration
+
+Minimal:
+
+```text
+.env
+.env.example
+```
+
+Environment variable dapat mencakup:
+
+```text
+DATABASE_URL
+AUTH_PROVIDER_URL
+AUTH_PROVIDER_PUBLIC_KEY
+AI_PROVIDER
+AI_API_KEY
+AI_MODEL
+FRONTEND_URL
+```
+
+Nama variable final mengikuti provider dan implementasi aktual.
+
+Secret hanya berada pada environment yang aman.
+
+---
+
+# 42. Deployment Health
+
+Backend menyediakan:
+
+```http
+GET /api/health
+```
+
+Production deployment harus dapat diverifikasi dengan:
+
+* frontend HTTP availability;
+* backend health;
+* database connection;
+* authentication;
+* API access;
+* protected resource access.
+
+---
+
+# 43. Testing Requirements
+
+Testing harus mencakup:
+
+## Authentication
+
+* Register.
+* Login.
+* Logout.
+* Invalid credentials.
+* Session persistence.
+* Expired session.
+* Invalid token.
+* Google OAuth flow.
+
+## Authorization
+
+* User A can access User A data.
+* User A cannot access User B data.
+* User A cannot update User B data.
+* User A cannot delete User B data.
+* Unauthenticated request is denied.
+
+## Transactions
+
+* Create.
+* Read.
+* Update.
+* Delete.
+* Search.
+* Filter.
+* Sort.
+* Pagination.
+* Invalid input.
+* Missing category.
+* Missing account.
+* Nonexistent transaction.
+* Cross-user access.
+
+## Categories
+
+* CRUD.
+* Duplicate.
+* Delete while in use.
+* Cross-user access.
+
+## Accounts
+
+* CRUD.
+* Balance.
+* Transaction relationship.
+* Cross-user access.
+
+## Budgets
+
+* CRUD.
+* Duplicate.
+* Invalid month.
+* Invalid amount.
+* Progress.
+* Over budget.
+* Cross-user access.
+
+## Recurring
+
+* CRUD.
+* Frequency.
+* Active/inactive.
+* Ownership.
+
+## Goals
+
+* CRUD.
+* Progress.
+* Zero target.
+* Ownership.
+
+## Dashboard
+
+* Income.
+* Expense.
+* Balance.
+* Net cash flow.
+* Recent transactions.
+* User isolation.
+
+## Reports
+
+* Monthly aggregation.
+* Category aggregation.
+* Month comparison.
+* User isolation.
+
+## Analytics
+
+* Savings rate.
+* Category concentration.
+* Budget utilization.
+* Transaction frequency.
+* User isolation.
+
+## AI Insights
+
+* Correct net cash flow.
+* Correct savings rate.
+* Correct percentage.
+* Correct currency.
+* Zero denominators.
+* AI unavailable.
+* AI failure.
+* Invalid AI response.
+* AI cannot override factual metrics.
+* User isolation.
+
+## Export
+
+* Correct user data.
+* No other user data.
+* CSV.
+* Excel.
+
+## PDF
+
+* Correct user data.
+* Correct financial totals.
+
+## Notifications
+
+* List.
+* Generate.
+* Read.
+* Read all.
+* User isolation.
+
+---
+
+# 44. Project Structure
 
 Recommended:
 
@@ -1391,6 +2191,7 @@ Fintrack/
 │   │   ├── services/
 │   │   ├── utils/
 │   │   ├── constants/
+│   │   ├── l10n/
 │   │   ├── App.jsx
 │   │   └── main.jsx
 │   └── package.json
@@ -1408,10 +2209,11 @@ Fintrack/
 │   ├── prisma/
 │   │   └── schema.prisma
 │   │
-│   ├── database/
 │   └── package.json
 │
+├── docs/
 ├── AGENTS.md
+├── PRD.md
 ├── README.md
 └── .gitignore
 ```
@@ -1420,314 +2222,562 @@ Structure dapat disesuaikan jika terdapat alasan teknis yang jelas.
 
 ---
 
-# 44. Technical Constraints
+# 45. Technical Constraints
 
-- Gunakan JavaScript, bukan TypeScript.
-- Gunakan React + Vite.
-- Gunakan Express.js.
-- Gunakan Prisma.
-- Gunakan SQLite.
-- Gunakan Tailwind CSS + DaisyUI.
-- Gunakan Recharts untuk visualization.
-- Jangan menggunakan database cloud pada MVP.
-- Jangan menggunakan authentication pada MVP.
-- Jangan menambahkan dependency tanpa kebutuhan yang jelas.
-- Jangan membuat architecture terlalu kompleks.
+* Gunakan JavaScript.
+* Gunakan React + Vite.
+* Gunakan Express.js.
+* Gunakan Prisma.
+* PostgreSQL menjadi production database.
+* SQLite tidak digunakan sebagai production multi-user database.
+* Gunakan Tailwind CSS + DaisyUI.
+* Gunakan Recharts.
+* Authentication wajib untuk production.
+* Authorization wajib untuk protected resource.
+* Jangan membuat authentication cryptography sendiri jika provider authentication yang sesuai tersedia.
+* Jangan menambahkan dependency tanpa kebutuhan yang jelas.
+* Jangan membuat microservices tanpa alasan kuat.
+* Jangan menggunakan PWA/offline architecture.
+* Jangan mengimplementasikan bank integration.
+* AI API key harus server-side.
+* Database migration harus non-destructive kecuali memang diperlukan dan direncanakan.
+* Existing functionality Phase 1–13 tidak boleh diregress.
 
 ---
 
-# 45. UX Principles
+# 46. UX Principles
 
 FinTrack harus:
 
-- Simple.
-- Clear.
-- Fast to understand.
-- Consistent.
-- Responsive.
-- Professional.
+* Simple.
+* Clear.
+* Fast to understand.
+* Consistent.
+* Responsive.
+* Professional.
+* Secure.
+* Trustworthy.
 
-Pengguna harus dapat memahami kondisi keuangan dari dashboard tanpa perlu membuka banyak halaman.
+Pengguna harus dapat memahami kondisi finansial tanpa membuka terlalu banyak halaman.
 
-Operasi penting seperti menambahkan transaksi harus membutuhkan langkah sesedikit mungkin.
+Operasi penting harus membutuhkan langkah sesedikit mungkin.
 
 Operasi destructive harus meminta konfirmasi.
 
 Error harus dijelaskan menggunakan bahasa yang mudah dipahami.
 
----
-
-# 46. MVP Acceptance Criteria
-
-MVP dinyatakan selesai jika seluruh kondisi berikut terpenuhi:
-
-### Application
-
-- React frontend dapat dijalankan.
-- Express backend dapat dijalankan.
-- SQLite database dapat digunakan.
-- Prisma migration berhasil.
-- Seed berhasil.
-
-### Transactions
-
-- User dapat create transaction.
-- User dapat read transaction.
-- User dapat update transaction.
-- User dapat delete transaction.
-- Search berfungsi.
-- Filter berfungsi.
-- Sorting berfungsi.
-- Pagination berfungsi.
-
-### Categories
-
-- CRUD berfungsi.
-- Duplicate category ditolak.
-- Category yang digunakan tidak dapat dihapus secara merusak data.
-
-### Budgets
-
-- CRUD berfungsi.
-- Duplicate budget dicegah.
-- Spending dihitung dengan benar.
-- Progress dihitung dengan benar.
-- Over Budget ditampilkan.
-
-### Dashboard
-
-- Balance benar.
-- Income benar.
-- Expense benar.
-- Recent transactions benar.
-- Charts menggunakan data aktual.
-
-### Reports
-
-- Monthly report benar.
-- Category report benar.
-- Comparison benar.
-
-### UX
-
-- Loading states tersedia.
-- Empty states tersedia.
-- Error states tersedia.
-- Toast notifications tersedia.
-- Responsive layout berfungsi.
-
-### Quality
-
-- Tidak ada major console errors.
-- Tidak ada broken routes.
-- Tidak ada hardcoded financial summary.
-- Tidak ada dummy data sebagai source utama setelah integration selesai.
-- README tersedia.
-- Project dapat dijalankan developer lain mengikuti README.
+Financial values harus ditampilkan secara jelas dan tidak ambigu.
 
 ---
 
-# 47. Future Improvements
+# 47. Production Acceptance Criteria
 
-Fitur berikut tidak termasuk MVP, tetapi dapat menjadi roadmap berikutnya:
+FinTrack dianggap production-ready jika:
 
-1. Authentication.
-2. Multi-user.
-3. PostgreSQL.
-4. Cloud deployment.
-5. Bank integration.
-6. Recurring transactions.
-7. Export CSV/Excel.
-8. PDF financial report.
-9. Advanced analytics.
-10. Financial goals.
-11. Multiple accounts/wallets.
-12. Recurring budgets.
-13. Notifications.
-14. PWA/offline support.
-15. AI-assisted financial insights.
+## Authentication
 
-Future features tidak boleh mempengaruhi scope MVP.
+* Register berfungsi.
+* Login berfungsi.
+* Logout berfungsi.
+* Session berfungsi.
+* Google authentication berfungsi jika provider telah dikonfigurasi.
+
+## Multi-user
+
+* User A hanya melihat data User A.
+* User B hanya melihat data User B.
+* Cross-user access ditolak.
+* Semua protected endpoint memiliki authorization.
+
+## Database
+
+* PostgreSQL production berjalan.
+* Prisma migration berhasil.
+* Database connection stabil.
+* Tidak ada destructive migration yang tidak direncanakan.
+
+## Core Features
+
+* Transactions berfungsi.
+* Categories berfungsi.
+* Accounts berfungsi.
+* Budgets berfungsi.
+* Goals berfungsi.
+* Recurring features berfungsi.
+* Reports berfungsi.
+* Analytics berfungsi.
+* Notifications berfungsi.
+* Export berfungsi.
+* PDF report berfungsi.
+* AI Insights berfungsi dengan fallback.
+
+## Frontend
+
+* Semua protected routes berfungsi.
+* Responsive layout.
+* Loading states.
+* Empty states.
+* Error states.
+* Authentication states.
+* No major console errors.
+
+## Security
+
+* HTTPS.
+* Secrets aman.
+* CORS benar.
+* Authorization benar.
+* Tidak ada cross-user data leakage.
+* AI credentials tidak terekspos.
+
+## Deployment
+
+* Frontend production dapat diakses.
+* Backend production dapat diakses.
+* `/api/health` berhasil.
+* Database production terhubung.
+* Authentication production berhasil.
+* End-to-end flow berhasil.
 
 ---
 
-# 48. Portfolio Positioning
-
-FinTrack harus dapat digunakan sebagai portfolio project untuk menunjukkan kemampuan full-stack development.
-
-Project description:
-
-> FinTrack is a responsive personal finance management web application built with React, Node.js, Express, Prisma, and SQLite. It enables users to manage income and expenses, organize transactions by category, create monthly budgets, visualize financial data, and analyze spending patterns through an interactive dashboard and reports.
-
-Skill yang ditunjukkan:
-
-- React.
-- JavaScript.
-- REST API.
-- Node.js.
-- Express.js.
-- Prisma.
-- SQLite.
-- CRUD.
-- Relational database.
-- Data aggregation.
-- Data visualization.
-- Responsive UI.
-- Form validation.
-- Error handling.
-- Search/filter/sort/pagination.
-
----
-
-# 49. Definition of Done
+# 48. Definition of Done
 
 Sebuah fitur dianggap selesai jika:
 
-1. Requirement fitur telah diimplementasikan.
-2. Backend endpoint tersedia jika diperlukan.
-3. Database operation berjalan dengan benar.
-4. Frontend dapat menggunakan endpoint tersebut.
-5. Validation tersedia.
-6. Loading state tersedia jika diperlukan.
-7. Error state tersedia.
-8. Empty state tersedia jika relevan.
-9. UI responsive.
-10. Tidak ada console error yang terkait.
-11. Fitur telah diuji menggunakan data nyata dari SQLite.
-12. Dokumentasi diperbarui jika diperlukan.
+1. Requirement telah diimplementasikan.
+2. Backend tersedia jika diperlukan.
+3. Database operation berjalan benar.
+4. Frontend dapat menggunakan endpoint.
+5. Authentication/authorization diterapkan jika resource protected.
+6. Validation tersedia.
+7. Loading state tersedia jika diperlukan.
+8. Error state tersedia.
+9. Empty state tersedia jika relevan.
+10. UI responsive.
+11. Tidak ada major console error.
+12. Fitur diuji menggunakan data nyata.
+13. Ownership/user isolation telah diuji jika relevan.
+14. Regression test lulus.
+15. Dokumentasi diperbarui jika diperlukan.
 
 ---
 
-# 50. Recommended Development Sequence
+# 49. Development Status & Sequence
 
-Implementasi harus dilakukan secara bertahap.
+Development dilakukan secara bertahap.
 
-## Phase 1 — Foundation
+## Phase 1 — Foundation — COMPLETED
 
-- Repository setup.
-- AGENTS.md.
-- Frontend initialization.
-- Backend initialization.
-- Basic routing.
-- Basic Express server.
+* Repository setup.
+* AGENTS.md.
+* Frontend initialization.
+* Backend initialization.
+* Basic routing.
+* Express server.
 
-## Phase 2 — Database
+## Phase 2 — Database — COMPLETED
 
-- Prisma setup.
-- SQLite setup.
-- Schema.
-- Migration.
-- Seed.
+* Prisma setup.
+* SQLite setup.
+* Initial schema.
+* Migration.
+* Seed.
 
-## Phase 3 — Backend
+## Phase 3 — Backend Core — COMPLETED
 
-- Error handling.
-- Health endpoint.
-- Transaction API.
-- Category API.
-- Budget API.
-- Dashboard API.
-- Report API.
+* Error handling.
+* Health endpoint.
+* Transaction API.
+* Category API.
+* Budget API.
+* Dashboard API.
+* Report API.
 
-## Phase 4 — Frontend Foundation
+## Phase 4 — Frontend Foundation — COMPLETED
 
-- Layout.
-- Sidebar.
-- Navigation.
-- Responsive structure.
-- Shared UI components.
+* Layout.
+* Sidebar.
+* Navigation.
+* Responsive structure.
+* Shared UI components.
 
-## Phase 5 — Transactions
+## Phase 5 — Transactions — COMPLETED
 
-- Transaction list.
-- Create form.
-- Edit form.
-- Delete confirmation.
-- Search.
-- Filter.
-- Sort.
-- Pagination.
+* Transaction list.
+* Create.
+* Edit.
+* Delete.
+* Search.
+* Filter.
+* Sort.
+* Pagination.
 
-## Phase 6 — Categories
+## Phase 6 — Categories — COMPLETED
 
-- Category list.
-- Create.
-- Edit.
-- Delete.
-- Category protection.
+* Category CRUD.
+* Category protection.
+* Duplicate handling.
 
-## Phase 7 — Dashboard
+## Phase 7 — Dashboard — COMPLETED
 
-- Summary cards.
-- Recent transactions.
-- Income/expense chart.
-- Category chart.
-- Spending insights.
+* Summary cards.
+* Recent transactions.
+* Income/expense chart.
+* Category chart.
+* Spending insights.
 
-## Phase 8 — Reports
+## Phase 8 — Reports — COMPLETED
 
-- Monthly reports.
-- Category reports.
-- Month comparison.
-- Highest spending category.
+* Monthly reports.
+* Category reports.
+* Month comparison.
+* Highest spending category.
 
-## Phase 9 — Budgets
+## Phase 9 — Budgets — COMPLETED
 
-- Budget CRUD.
-- Spending calculation.
-- Progress.
-- Status.
-- Over-budget warning.
+* Budget CRUD.
+* Spending calculation.
+* Progress.
+* Status.
+* Over-budget warning.
 
-## Phase 10 — Polish
+## Phase 10 — Frontend Polish — COMPLETED
 
-- Validation.
-- Toast.
-- Loading.
-- Empty states.
-- Error states.
-- Responsive improvements.
-- Accessibility.
-- Optional dark mode.
+* Validation.
+* Toast.
+* Loading.
+* Empty states.
+* Error states.
+* Responsive improvements.
+* Accessibility.
+* Theme.
+* Currency settings.
 
-## Phase 11 — Testing
+## Phase 11 — Testing — COMPLETED
 
-- API testing.
-- Business logic testing.
-- UI testing.
-- Edge cases.
-- Build verification.
+* Backend testing.
+* Frontend testing.
+* Business logic testing.
+* Edge cases.
+* Build verification.
+* Regression verification.
 
-## Phase 12 — Documentation
+## Phase 12 — Documentation — COMPLETED
 
-- README.
-- Installation instructions.
-- Architecture.
-- Database schema.
-- API documentation.
-- Screenshots.
-- Future roadmap.
+* README.
+* Architecture documentation.
+* Database documentation.
+* API documentation.
+* Project cleanup.
+
+## Phase 13 — Post-MVP Financial Features — COMPLETED
+
+Implemented:
+
+* Accounts / Wallets.
+* Recurring Transactions.
+* Recurring Budgets.
+* Financial Goals.
+* Advanced Analytics.
+* CSV/Excel Export.
+* PDF Financial Report.
+* Notifications/Reminders.
+
+AI-Assisted Financial Insights was also implemented as part of the post-MVP expansion.
+
+## Phase 13A — AI-Assisted Financial Insights — COMPLETED
+
+Implemented:
+
+* AI Insights page.
+* Monthly financial context.
+* Deterministic metrics.
+* AI interpretation.
+* Deterministic fallback.
+* AI provider configuration.
+* Structured insight response.
+* Metric semantic formatting.
+* English/Indonesian localization.
+* AI error handling.
+* Financial metric validation.
+* Net cash flow correctness.
+* Percentage/currency semantic formatting.
 
 ---
 
-# 51. Final Product Vision
+# 50. Next Development Roadmap
 
-FinTrack harus terasa seperti aplikasi personal finance modern yang benar-benar dapat digunakan, bukan sekadar kumpulan CRUD pages.
+## Phase 14 — Authentication Foundation
 
-Ketika pengguna membuka aplikasi, mereka harus langsung mendapatkan gambaran kondisi keuangan melalui dashboard.
+Goals:
 
-Ketika pengguna ingin mencatat aktivitas keuangan, prosesnya harus cepat melalui transaction form.
+* Authentication provider integration.
+* Register.
+* Login.
+* Logout.
+* Session handling.
+* Google OAuth.
+* Protected routes.
+* Backend authentication middleware.
+* Authenticated user context.
+* User profile synchronization.
 
-Ketika pengguna ingin mencari data, search, filtering, sorting, dan pagination harus tersedia.
+Database ownership design must be finalized before implementation.
 
-Ketika pengguna ingin memahami pola pengeluaran, reports dan charts harus memberikan informasi yang jelas.
+---
 
-Ketika pengguna ingin mengontrol pengeluaran, budgets dan spending insights harus membantu mereka melihat apakah pengeluaran masih berada dalam batas yang ditentukan.
+## Phase 15 — Multi-user & Authorization
 
-Namun seluruh pengalaman tersebut harus tetap dibangun dengan arsitektur yang sederhana, mudah dipahami, dan sesuai untuk project portfolio satu developer.
+Goals:
+
+* User ownership.
+* Authorization middleware.
+* Data isolation.
+* Resource ownership checks.
+* Cross-user access protection.
+* Update/delete authorization.
+* User-specific dashboard.
+* User-specific reports.
+* User-specific analytics.
+* User-specific AI insights.
+* Security regression tests.
+
+This phase is security-critical.
+
+---
+
+## Phase 16 — PostgreSQL Migration
+
+Goals:
+
+* PostgreSQL production schema.
+* Prisma PostgreSQL configuration.
+* Migration strategy.
+* Existing data strategy.
+* Development/production database separation.
+* Index review.
+* Relationship validation.
+* Data integrity testing.
+
+SQLite must not remain the production multi-user database.
+
+---
+
+## Phase 17 — Production Configuration
+
+Goals:
+
+* Production environment variables.
+* Secure secrets.
+* Production CORS.
+* Production API URL.
+* Authentication production configuration.
+* AI production configuration.
+* Error handling.
+* Health check.
+* Production logging strategy.
+
+---
+
+## Phase 18 — Backend Deployment
+
+Goals:
+
+* Deploy Express backend.
+* Connect PostgreSQL.
+* Configure environment variables.
+* Configure HTTPS.
+* Configure health check.
+* Verify API.
+* Verify authentication.
+* Verify protected endpoints.
+
+---
+
+## Phase 19 — Frontend Deployment
+
+Goals:
+
+* Production build.
+* Deploy React frontend.
+* Configure production API URL.
+* Configure authentication redirect URLs.
+* Configure environment variables.
+* Verify protected routes.
+* Verify responsive production UI.
+
+---
+
+## Phase 20 — Security Hardening
+
+Goals:
+
+* Authentication audit.
+* Authorization audit.
+* IDOR/cross-user access testing.
+* CORS audit.
+* Security headers.
+* Rate limiting where appropriate.
+* Secret audit.
+* Error leakage audit.
+* Input validation audit.
+* Dependency/security audit.
+
+---
+
+## Phase 21 — Production End-to-End Verification
+
+Goals:
+
+Test the complete production flow:
+
+```text
+Register
+   ↓
+Login
+   ↓
+Dashboard
+   ↓
+Create Account
+   ↓
+Create Transaction
+   ↓
+Create Budget
+   ↓
+Create Goal
+   ↓
+View Reports
+   ↓
+View Analytics
+   ↓
+AI Insights
+   ↓
+Export
+   ↓
+PDF Report
+   ↓
+Notifications
+   ↓
+Logout
+```
+
+Then verify isolation:
+
+```text
+User A
+   ↓
+Own data visible
+
+User B
+   ↓
+Own data visible
+
+User B
+   ↓
+User A data
+   ↓
+DENIED
+```
+
+Phase 21 marks the transition from development project to production-ready application.
+
+---
+
+# 51. Features Explicitly Removed from Roadmap
+
+The following features are **not deferred** and should not be planned as future phases unless the product scope is intentionally changed:
+
+## Bank Integration
+
+Not implemented.
+
+Reason:
+
+FinTrack focuses on manual personal finance management rather than automatic bank synchronization.
+
+## PWA / Offline
+
+Not implemented.
+
+Reason:
+
+FinTrack is designed as an online-first application. Offline synchronization and PWA architecture are outside the product scope.
+
+---
+
+# 52. Portfolio Positioning
+
+FinTrack is a production-oriented personal finance management web application built with React, Node.js, Express, Prisma, and PostgreSQL.
+
+It demonstrates:
+
+* React.
+* JavaScript.
+* REST API.
+* Node.js.
+* Express.js.
+* Prisma.
+* PostgreSQL.
+* Relational database.
+* Authentication.
+* Authorization.
+* Multi-user architecture.
+* CRUD.
+* Data aggregation.
+* Data visualization.
+* Responsive UI.
+* Form validation.
+* Error handling.
+* Search/filter/sort/pagination.
+* Financial analytics.
+* Export.
+* PDF generation.
+* AI-assisted analysis.
+* Production deployment.
+
+Portfolio description:
+
+> FinTrack is a responsive, multi-user personal finance management web application built with React, Node.js, Express, Prisma, and PostgreSQL. It enables users to manage accounts, income, expenses, budgets, recurring financial activities, goals, reports, analytics, notifications, and AI-assisted financial insights through a secure authenticated platform.
+
+---
+
+# 53. Final Product Vision
+
+FinTrack harus berkembang dari portfolio CRUD application menjadi aplikasi personal finance yang memiliki:
+
+```text
+Authentication
+      ↓
+Multi-user
+      ↓
+Secure Data Isolation
+      ↓
+Financial Management
+      ↓
+Analytics
+      ↓
+AI Insights
+      ↓
+PostgreSQL
+      ↓
+Production Deployment
+```
+
+FinTrack tidak bertujuan menjadi aplikasi perbankan.
+
+FinTrack juga tidak menggunakan offline-first architecture atau PWA.
+
+Fokus utama adalah menyediakan pengalaman personal finance online yang:
+
+* sederhana;
+* aman;
+* jelas;
+* responsive;
+* maintainable;
+* data-driven;
+* production-ready.
 
 Prioritas utama:
 
-**Correctness → Maintainability → Usability → Visual Quality → Additional Features**
-
-Jangan menambah kompleksitas jika tidak memberikan nilai yang jelas terhadap tujuan produk.
+**Correctness → Security → Maintainability → Usability → Visual Quality → Additional Features**

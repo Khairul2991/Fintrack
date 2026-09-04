@@ -315,6 +315,72 @@ Expense totals per category (all time), sorted descending, plus the highest-spen
 
 ---
 
+## AI Insights
+
+### `GET /api/ai-insights?month=&year=&lang=`
+
+Per-month AI-assisted financial insights. Metrics are always computed deterministically on-device; an optional AI provider may summarize and prioritize them. When no provider is configured, the provider call fails, or the response is invalid, the endpoint returns deterministic rule-based insights (`source: "rule"`).
+
+Query params:
+
+| Param | Required | Description |
+| --- | --- | --- |
+| `month` | yes | 1–12 |
+| `year` | yes | 2000–2100 |
+| `lang` | no | `en` (default) or `id`. Drives provider instruction + fallback language. |
+
+Returns (abridged):
+
+```json
+{
+  "success": true,
+  "data": {
+    "period": "2026-09",
+    "month": 9,
+    "year": 2026,
+    "source": "rule" | "ai",
+    "aiConfigured": false,
+    "summary": "You had a healthy savings rate this month.",
+    "metrics": {
+      "income": 5000000,
+      "expense": 2000000,
+      "net": 3000000,
+      "savingsRate": 60,
+      "transactionCount": 4,
+      "prevMonthExpense": 1000000,
+      "expenseChangePercent": 100,
+      "topCategories": [ { "name": "Food", "total": 1000000, "share": 50 } ],
+      "budgetStatus": [ { "category": "Food", "amount": 1000000, "spent": 950000, "utilization": 95, "status": "Near Limit" } ],
+      "goals": [ { "name": "Vacation", "progress": 50, "status": "IN_PROGRESS" } ],
+      "largestTransactions": [ { "description": "gaji", "amount": 5000000, "type": "INCOME", "category": "Salary" } ]
+    },
+    "insights": [
+      {
+        "type": "cashflow",
+        "severity": "positive",
+        "title": "Good savings rate",
+        "explanation": "A healthy share of your income is being kept as savings.",
+        "recommendation": "Keep it up and reinforce this habit next month.",
+        "metrics": { "current": 60, "previous": null, "changePercent": null },
+        "source": "rule"
+      }
+    ]
+  }
+}
+```
+
+When `source` is `"ai"`, the `title`/`explanation`/`recommendation` (and optionally `metrics` on each insight) come from the provider; the top-level `data.metrics` are always deterministic and are never overridden by the AI. All text is returned in the requested `lang`.
+
+**AI provider configuration** (optional, server-side only in `Backend/.env`):
+
+- `AI_PROVIDER` — any OpenAI-compatible `.../chat/completions` base URL.
+- `AI_API_KEY` — bearer token.
+- `AI_MODEL` — model name.
+
+If `AI_PROVIDER` is unset, the fallback runs automatically. Standard status codes: `400` for missing/out-of-range `month`/`year`.
+
+---
+
 ## Error handling notes
 
 - **Malformed JSON body** → `400` (handled by the error middleware).

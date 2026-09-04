@@ -44,6 +44,14 @@ const icons = {
       <path d="M7 15l4-5 3 3 5-7" />
     </svg>
   ),
+  aiInsights: (
+    <svg {...iconProps}>
+      <path d="M12 2a3 3 0 0 1 3 3v1h1a3 3 0 0 1 0 6h-1v1a3 3 0 0 1-6 0v-1H8a3 3 0 0 1 0-6h1V5a3 3 0 0 1 3-3z" />
+      <path d="M6 15l-2 2" />
+      <path d="M18 15l2 2" />
+      <path d="M12 19v2" />
+    </svg>
+  ),
   accounts: (
     <svg {...iconProps}>
       <path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
@@ -95,6 +103,7 @@ export const NAV_ITEMS = [
   { labelKey: 'nav.recurringBudget', to: '/recurring-budgets', icon: icons.recurringBudget },
   { labelKey: 'nav.goals', to: '/goals', icon: icons.goals },
   { labelKey: 'nav.reports', to: '/reports', icon: icons.reports },
+  { labelKey: 'nav.aiInsights', to: '/ai-insights', icon: icons.aiInsights },
   { labelKey: 'nav.notifications', to: '/notifications', icon: icons.notifications },
   { labelKey: 'nav.settings', to: '/settings', icon: icons.settings },
 ]
