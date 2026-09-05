@@ -34,19 +34,19 @@ after(async () => {
 
 describe('Service input validation (business logic)', () => {
   before(async () => {
-    await resetDb(state.base)
+    await resetDb(state.base, state.testUserId)
   })
 
   it('rejects a missing description', async () => {
-    await assert.rejects(transactionService.createTransaction({}), (err) => {
+    await assert.rejects(transactionService.createTransaction(state.testUserId, {}), (err) => {
       return err instanceof AppError && err.status === 400 && err.message === 'Description is required.'
     })
   })
 
   it('rejects non-positive amounts', async () => {
-    const cat = (await getCategories(state.base))[0]
+    const cat = (await getCategories(state.base, state.testUserId))[0]
     await assert.rejects(
-      transactionService.createTransaction({
+      transactionService.createTransaction(state.testUserId, {
         description: 'x',
         amount: '0',
         type: 'EXPENSE',
@@ -57,7 +57,7 @@ describe('Service input validation (business logic)', () => {
     )
     for (const amount of ['-5', 'abc']) {
       await assert.rejects(
-        transactionService.createTransaction({
+        transactionService.createTransaction(state.testUserId, {
           description: 'x',
           amount,
           type: 'EXPENSE',
@@ -70,9 +70,9 @@ describe('Service input validation (business logic)', () => {
   })
 
   it('rejects invalid type and invalid calendar dates', async () => {
-    const cat = (await getCategories(state.base))[0]
+    const cat = (await getCategories(state.base, state.testUserId))[0]
     await assert.rejects(
-      transactionService.createTransaction({
+      transactionService.createTransaction(state.testUserId, {
         description: 'x',
         amount: '10',
         type: 'TRANSFER',
@@ -83,7 +83,7 @@ describe('Service input validation (business logic)', () => {
     )
     for (const date of ['2026-13-40', '2026-02-30', 'not-a-date']) {
       await assert.rejects(
-        transactionService.createTransaction({
+        transactionService.createTransaction(state.testUserId, {
           description: 'x',
           amount: '10',
           type: 'EXPENSE',
@@ -97,39 +97,39 @@ describe('Service input validation (business logic)', () => {
 
   it('rejects an invalid category color', async () => {
     await assert.rejects(
-      categoryService.createCategory({ name: 'Travel', icon: '✈️', color: 'red' }),
+      categoryService.createCategory(state.testUserId, { name: 'Travel', icon: '✈️', color: 'red' }),
       (err) => err instanceof AppError && err.message === 'Color must be a hex value like #f59e0b.',
     )
   })
 
   it('rejects an out-of-range budget month', async () => {
-    const cat = (await getCategories(state.base))[0]
+    const cat = (await getCategories(state.base, state.testUserId))[0]
     await assert.rejects(
-      budgetService.createBudget({ categoryId: cat.id, month: 13, year: 2026, amount: '100' }),
+      budgetService.createBudget(state.testUserId, { categoryId: cat.id, month: 13, year: 2026, amount: '100' }),
       (err) => err instanceof AppError && err.message === 'month must be at most 12.',
     )
   })
 
   it('returns AppError 404 for a nonexistent transaction', async () => {
-    await assert.rejects(transactionService.getTransaction(999999), (err) => {
+    await assert.rejects(transactionService.getTransaction(state.testUserId, 999999), (err) => {
       return err instanceof AppError && err.status === 404 && err.message === 'Transaction not found.'
     })
   })
 
   it('protects categories currently used by transactions', async () => {
-    const category = await categoryService.createCategory({
+    const category = await categoryService.createCategory(state.testUserId, {
       name: 'TravelBus',
       icon: '✈️',
       color: '#0ea5e9',
     })
-    await transactionService.createTransaction({
+    await transactionService.createTransaction(state.testUserId, {
       description: 'flight',
       amount: '750000',
       type: 'EXPENSE',
       categoryId: category.id,
       date: '2026-08-10',
     })
-    await assert.rejects(categoryService.deleteCategory(category.id), (err) => {
+    await assert.rejects(categoryService.deleteCategory(state.testUserId, category.id), (err) => {
       return (
         err instanceof AppError &&
         err.status === 409 &&
@@ -143,16 +143,16 @@ describe('Budget status classification (business logic)', () => {
   const { curM, curY } = currentKeys()
 
   before(async () => {
-    await resetDb(state.base)
+    await resetDb(state.base, state.testUserId)
   })
 
   it('classifies On Track, Near Limit, and Over Budget from cumulative spending', async () => {
-    const category = await categoryService.createCategory({
+    const category = await categoryService.createCategory(state.testUserId, {
       name: 'Travel',
       icon: '✈️',
       color: '#0ea5e9',
     })
-    const budget = await budgetService.createBudget({
+    const budget = await budgetService.createBudget(state.testUserId, {
       categoryId: category.id,
       month: curM,
       year: curY,
@@ -160,7 +160,7 @@ describe('Budget status classification (business logic)', () => {
     })
     const prisma = await getPrisma()
 
-    const fresh = await budgetService.getBudget(budget.id)
+    const fresh = await budgetService.getBudget(state.testUserId, budget.id)
     assert.equal(Number(fresh.spent), 0)
     assert.equal(Number(fresh.progress), 0)
     assert.equal(Number(fresh.remaining), 100000)
@@ -173,9 +173,10 @@ describe('Budget status classification (business logic)', () => {
         type: 'EXPENSE',
         categoryId: category.id,
         date: new Date(Date.UTC(curY, curM - 1, 5)),
+        userId: state.testUserId,
       },
     })
-    const near = await budgetService.getBudget(budget.id)
+    const near = await budgetService.getBudget(state.testUserId, budget.id)
     assert.equal(Number(near.spent), 80000)
     assert.equal(Number(near.progress), 80)
     assert.equal(near.status, 'Near Limit')
@@ -187,9 +188,10 @@ describe('Budget status classification (business logic)', () => {
         type: 'EXPENSE',
         categoryId: category.id,
         date: new Date(Date.UTC(curY, curM - 1, 20)),
+        userId: state.testUserId,
       },
     })
-    const over = await budgetService.getBudget(budget.id)
+    const over = await budgetService.getBudget(state.testUserId, budget.id)
     assert.equal(Number(over.spent), 120000)
     assert.equal(Number(over.progress), 120)
     assert.equal(over.status, 'Over Budget')
@@ -201,10 +203,10 @@ describe('Dashboard and report aggregation (business logic)', () => {
   const { curY, curM, prevY, prevM, ppY, ppM } = currentKeys()
 
   before(async () => {
-    await resetDb(state.base)
-    const salary = (await getCategories(state.base)).find((c) => c.name === 'Salary')
-    const food = (await getCategories(state.base)).find((c) => c.name === 'Food')
-    const transport = (await getCategories(state.base)).find((c) => c.name === 'Transport')
+    await resetDb(state.base, state.testUserId)
+    const salary = (await getCategories(state.base, state.testUserId)).find((c) => c.name === 'Salary')
+    const food = (await getCategories(state.base, state.testUserId)).find((c) => c.name === 'Food')
+    const transport = (await getCategories(state.base, state.testUserId)).find((c) => c.name === 'Transport')
 
     await request(state.base, 'POST', '/transactions', {
       description: 'salary',
@@ -212,32 +214,32 @@ describe('Dashboard and report aggregation (business logic)', () => {
       type: 'INCOME',
       categoryId: salary.id,
       date: isoDate(ppY, ppM, 5),
-    })
+    }, { userId: state.testUserId })
     await request(state.base, 'POST', '/transactions', {
       description: 'groceries prev',
       amount: '150000',
       type: 'EXPENSE',
       categoryId: food.id,
       date: isoDate(prevY, prevM, 10),
-    })
+    }, { userId: state.testUserId })
     await request(state.base, 'POST', '/transactions', {
       description: 'groceries current',
       amount: '230000',
       type: 'EXPENSE',
       categoryId: food.id,
       date: isoDate(curY, curM, 10),
-    })
+    }, { userId: state.testUserId })
     await request(state.base, 'POST', '/transactions', {
       description: 'transport current',
       amount: '150000',
       type: 'EXPENSE',
       categoryId: transport.id,
       date: isoDate(curY, curM, 12),
-    })
+    }, { userId: state.testUserId })
   })
 
   it('builds the dashboard summary from stored transactions', async () => {
-    const summary = await dashboardService.getSummary()
+    const summary = await dashboardService.getSummary(state.testUserId)
     assert.equal(Number(summary.summary.income), 8000000)
     assert.equal(Number(summary.summary.expense), 530000)
     assert.equal(Number(summary.summary.balance), 7470000)
@@ -255,7 +257,7 @@ describe('Dashboard and report aggregation (business logic)', () => {
   })
 
   it('computes monthly report deltas', async () => {
-    const report = await reportService.getMonthlyReport()
+    const report = await reportService.getMonthlyReport(state.testUserId)
     const months = report.months
     assert.equal(months.length, 12)
     assert.equal(months[0].incomeDelta, null)
@@ -272,7 +274,7 @@ describe('Dashboard and report aggregation (business logic)', () => {
   })
 
   it('returns the highest spending category', async () => {
-    const report = await reportService.getCategoryReport()
+    const report = await reportService.getCategoryReport(state.testUserId)
     assert.equal(report.categories.length, 2)
     assert.equal(report.highest.name, 'Food')
     assert.equal(Number(report.highest.total), 380000)

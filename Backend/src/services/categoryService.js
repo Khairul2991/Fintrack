@@ -4,9 +4,9 @@ const { requireText } = require('../utils/validate')
 
 const NAME_MAX = 50
 
-async function ensureCategoryExists(prisma, categoryId, status = 404) {
-  const found = await prisma.category.findUnique({
-    where: { id: categoryId },
+async function ensureCategoryExists(prisma, userId, categoryId, status = 404) {
+  const found = await prisma.category.findFirst({
+    where: { id: categoryId, userId },
     select: { id: true },
   })
   if (!found) {
@@ -28,37 +28,37 @@ function parseCategoryInput(body) {
   return { name, icon, color }
 }
 
-async function listCategories() {
+async function listCategories(userId) {
   const prisma = await getPrisma()
-  return prisma.category.findMany({ orderBy: { name: 'asc' } })
+  return prisma.category.findMany({ where: { userId }, orderBy: { name: 'asc' } })
 }
 
-async function getCategory(id) {
+async function getCategory(userId, id) {
   const prisma = await getPrisma()
-  const category = await prisma.category.findUnique({ where: { id } })
+  const category = await prisma.category.findFirst({ where: { id, userId } })
   if (!category) {
     throw new AppError('Category not found.', 404)
   }
   return category
 }
 
-async function createCategory(body) {
+async function createCategory(userId, body) {
   const prisma = await getPrisma()
-  return prisma.category.create({ data: parseCategoryInput(body) })
+  return prisma.category.create({ data: { ...parseCategoryInput(body), userId } })
 }
 
-async function updateCategory(id, body) {
+async function updateCategory(userId, id, body) {
   const prisma = await getPrisma()
-  await ensureCategoryExists(prisma, id)
+  await ensureCategoryExists(prisma, userId, id)
   return prisma.category.update({ where: { id }, data: parseCategoryInput(body) })
 }
 
-async function deleteCategory(id) {
+async function deleteCategory(userId, id) {
   const prisma = await getPrisma()
-  await ensureCategoryExists(prisma, id)
+  await ensureCategoryExists(prisma, userId, id)
   const usedCount =
-    (await prisma.transaction.count({ where: { categoryId: id } })) +
-    (await prisma.budget.count({ where: { categoryId: id } }))
+    (await prisma.transaction.count({ where: { categoryId: id, userId } })) +
+    (await prisma.budget.count({ where: { categoryId: id, userId } }))
   if (usedCount > 0) {
     throw new AppError('This category cannot be deleted because it is currently in use.', 409)
   }

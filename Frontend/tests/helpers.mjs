@@ -1,10 +1,30 @@
-import { spawn } from 'node:child_process'
+import { spawn, execSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
+import { createRequire } from 'node:module'
 import path from 'node:path'
 
+const require = createRequire(import.meta.url)
 const DIR = path.dirname(fileURLToPath(import.meta.url))
 const BACKEND_DIR = path.resolve(DIR, '../../Backend')
 const PORT = 3101
+
+require(path.join(BACKEND_DIR, 'node_modules/dotenv')).config({ path: path.join(BACKEND_DIR, '.env') })
+
+export const TEST_SCHEMA = 'fintrack_test_fe'
+
+function withSchema(url, schema) {
+  const qIndex = url.indexOf('?')
+  const params = new URLSearchParams(qIndex === -1 ? '' : url.slice(qIndex + 1))
+  params.set('schema', schema)
+  return `${qIndex === -1 ? url : url.slice(0, qIndex)}?${params.toString()}`
+}
+
+const BASE_DB_URL = process.env.DATABASE_URL
+if (!BASE_DB_URL) {
+  throw new Error('DATABASE_URL must be configured (load Backend/.env) before running the frontend suite.')
+}
+
+const TEST_DB_URL = withSchema(BASE_DB_URL, TEST_SCHEMA)
 
 export const SEED_CATEGORIES = [
   { name: 'Food', icon: '🍜', color: '#f59e0b' },
@@ -21,8 +41,44 @@ export const SEED_CATEGORIES = [
 
 let realFetch
 let child
+let testUserId
 
 export async function startBackend() {
+  process.env.NODE_ENV = 'test'
+  process.env.DATABASE_URL = TEST_DB_URL
+
+  const { Pool } = require(path.resolve(BACKEND_DIR, 'node_modules/pg'))
+  const admin = new Pool({ connectionString: BASE_DB_URL })
+  try {
+    await admin.query(`DROP SCHEMA IF EXISTS "${TEST_SCHEMA}" CASCADE`)
+    await admin.query(`CREATE SCHEMA "${TEST_SCHEMA}"`)
+  } finally {
+    await admin.end()
+  }
+
+  execSync('npx prisma migrate deploy', {
+    cwd: BACKEND_DIR,
+    env: { ...process.env, DATABASE_URL: TEST_DB_URL },
+    timeout: 60000,
+  })
+
+  const { getPrisma } = require(path.resolve(BACKEND_DIR, 'src/lib/prisma.js'))
+  const prisma = await getPrisma()
+  const existing = await prisma.user.findUnique({ where: { authUserId: 'fe-test-user' } })
+  if (existing) {
+    testUserId = existing.id
+  } else {
+    const user = await prisma.user.create({
+      data: {
+        authUserId: 'fe-test-user',
+        email: 'fe-test@fintrack.local',
+        name: 'FE Test',
+      },
+    })
+    testUserId = user.id
+  }
+  await prisma.$disconnect()
+
   child = spawn(
     'node',
     ['--env-file=.env', 'server.js'],
@@ -30,8 +86,9 @@ export async function startBackend() {
       cwd: BACKEND_DIR,
       env: {
         ...process.env,
-        DATABASE_URL: 'file:./database/test-fe.db',
+        DATABASE_URL: TEST_DB_URL,
         PORT: String(PORT),
+        NODE_ENV: 'test',
       },
       stdio: ['ignore', 'pipe', 'pipe'],
     },
@@ -49,7 +106,8 @@ export async function startBackend() {
         globalThis.fetch = (input, init) => {
           const url = typeof input === 'string' ? input : input && input.url
           if (typeof url === 'string' && url.startsWith('/api')) {
-            return realFetch(base + url, init)
+            const mergedHeaders = { 'x-test-user-id': String(testUserId), ...init?.headers }
+            return realFetch(base + url, { ...init, headers: mergedHeaders })
           }
           return realFetch(input, init)
         }
@@ -70,9 +128,13 @@ export function stopBackend() {
 }
 
 export async function request(method, path, body) {
+  const headers = { 'x-test-user-id': String(testUserId) }
+  if (body !== undefined) {
+    headers['content-type'] = 'application/json'
+  }
   const res = await realFetch(`http://127.0.0.1:${PORT}${path}`, {
     method,
-    headers: body !== undefined ? { 'content-type': 'application/json' } : undefined,
+    headers,
     body: body !== undefined ? JSON.stringify(body) : undefined,
   })
   let data = null

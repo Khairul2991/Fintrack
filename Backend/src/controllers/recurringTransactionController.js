@@ -3,22 +3,23 @@ const { integer } = require('../utils/validate')
 const recurringTransactionService = require('../services/recurringTransactionService')
 
 async function listRecurringTransactions(req, res) {
-  const { data, catchUp } = await recurringTransactionService.listRecurringTransactions()
+  const { data, catchUp } = await recurringTransactionService.listRecurringTransactions(req.user.id)
   success(res, { items: data, catchUp })
 }
 
 async function getRecurringTransaction(req, res) {
-  const item = await recurringTransactionService.getRecurringTransaction(integer(req.params.id, 'id'))
+  const item = await recurringTransactionService.getRecurringTransaction(req.user.id, integer(req.params.id, 'id'))
   success(res, item)
 }
 
 async function createRecurringTransaction(req, res) {
-  const item = await recurringTransactionService.createRecurringTransaction(req.body)
+  const item = await recurringTransactionService.createRecurringTransaction(req.user.id, req.body)
   success(res, item, 201)
 }
 
 async function updateRecurringTransaction(req, res) {
   const item = await recurringTransactionService.updateRecurringTransaction(
+    req.user.id,
     integer(req.params.id, 'id'),
     req.body,
   )
@@ -27,6 +28,7 @@ async function updateRecurringTransaction(req, res) {
 
 async function setActive(req, res) {
   const item = await recurringTransactionService.setActive(
+    req.user.id,
     integer(req.params.id, 'id'),
     Boolean(req.body.active),
   )
@@ -35,6 +37,7 @@ async function setActive(req, res) {
 
 async function deleteRecurringTransaction(req, res) {
   const result = await recurringTransactionService.deleteRecurringTransaction(
+    req.user.id,
     integer(req.params.id, 'id'),
   )
   success(res, result)

@@ -42,25 +42,25 @@ function requireFrequency(value) {
   return value
 }
 
-async function ensureBudgetMissing(prisma, categoryId, month, year) {
+async function ensureBudgetMissing(prisma, userId, categoryId, month, year) {
   const existing = await prisma.budget.findUnique({
-    where: { categoryId_month_year: { categoryId, month, year } },
+    where: { userId_categoryId_month_year: { userId, categoryId, month, year } },
     select: { id: true },
   })
   return !existing
 }
 
-async function rollPeriods(prisma, item) {
+async function rollPeriods(prisma, userId, item) {
   const today = currentPeriod()
   let month = item.nextMonth
   let year = item.nextYear
   let rolled = 0
 
   while (periodKey(month, year) <= periodKey(today.month, today.year) && rolled < MAX_ROLL_PER_RUN) {
-    const missing = await ensureBudgetMissing(prisma, item.categoryId, month, year)
+    const missing = await ensureBudgetMissing(prisma, userId, item.categoryId, month, year)
     if (missing) {
       await prisma.budget.create({
-        data: { categoryId: item.categoryId, month, year, amount: item.amount },
+        data: { userId, categoryId: item.categoryId, month, year, amount: item.amount },
       })
     }
     const advanced = advancePeriod(month, year, item.frequency)
@@ -75,13 +75,13 @@ async function rollPeriods(prisma, item) {
   return rolled
 }
 
-async function runBudgetRollover() {
+async function runBudgetRollover(userId) {
   const prisma = await getPrisma()
   const items = await prisma.recurringBudget.findMany({
-    where: { active: true },
+    where: { active: true, userId },
     select: { id: true, categoryId: true, amount: true, frequency: true, startMonth: true, nextMonth: true, nextYear: true },
   })
-  const results = await Promise.all(items.map((item) => rollPeriods(prisma, item)))
+  const results = await Promise.all(items.map((item) => rollPeriods(prisma, userId, item)))
   const rolled = results.reduce((sum, count) => sum + count, 0)
   return { rolled, processed: items.length }
 }
@@ -93,20 +93,21 @@ function serialize(item) {
   }
 }
 
-async function listRecurringBudgets() {
+async function listRecurringBudgets(userId) {
   const prisma = await getPrisma()
-  await runBudgetRollover()
+  await runBudgetRollover(userId)
   const items = await prisma.recurringBudget.findMany({
+    where: { userId },
     orderBy: [{ nextYear: 'asc' }, { nextMonth: 'asc' }],
     include: { category: { select: { id: true, name: true, icon: true, color: true } } },
   })
   return items.map(serialize)
 }
 
-async function getRecurringBudget(id) {
+async function getRecurringBudget(userId, id) {
   const prisma = await getPrisma()
-  const item = await prisma.recurringBudget.findUnique({
-    where: { id },
+  const item = await prisma.recurringBudget.findFirst({
+    where: { id, userId },
     include: { category: { select: { id: true, name: true, icon: true, color: true } } },
   })
   if (!item) {
@@ -115,13 +116,14 @@ async function getRecurringBudget(id) {
   return serialize(item)
 }
 
-async function createRecurringBudget(body) {
+async function createRecurringBudget(userId, body) {
   const prisma = await getPrisma()
   const input = parseRecurringBudgetInput(body)
-  await ensureCategoryExists(prisma, input.categoryId, 400)
+  await ensureCategoryExists(prisma, userId, input.categoryId, 400)
   const { frequency, startMonth, startYear } = input
   const item = await prisma.recurringBudget.create({
     data: {
+      userId,
       categoryId: input.categoryId,
       amount: input.amount,
       frequency,
@@ -131,17 +133,17 @@ async function createRecurringBudget(body) {
       nextYear: startYear,
     },
   })
-  return getRecurringBudget(item.id)
+  return getRecurringBudget(userId, item.id)
 }
 
-async function updateRecurringBudget(id, body) {
+async function updateRecurringBudget(userId, id, body) {
   const prisma = await getPrisma()
-  const existing = await prisma.recurringBudget.findUnique({ where: { id } })
+  const existing = await prisma.recurringBudget.findFirst({ where: { id, userId } })
   if (!existing) {
     throw new AppError('Recurring budget not found.', 404)
   }
   const input = parseRecurringBudgetInput(body)
-  await ensureCategoryExists(prisma, input.categoryId, 400)
+  await ensureCategoryExists(prisma, userId, input.categoryId, 400)
   const item = await prisma.recurringBudget.update({
     where: { id },
     data: {
@@ -154,12 +156,12 @@ async function updateRecurringBudget(id, body) {
       nextYear: input.startYear,
     },
   })
-  return getRecurringBudget(item.id)
+  return getRecurringBudget(userId, item.id)
 }
 
-async function setActive(id, active) {
+async function setActive(userId, id, active) {
   const prisma = await getPrisma()
-  const existing = await prisma.recurringBudget.findUnique({ where: { id } })
+  const existing = await prisma.recurringBudget.findFirst({ where: { id, userId } })
   if (!existing) {
     throw new AppError('Recurring budget not found.', 404)
   }
@@ -167,12 +169,12 @@ async function setActive(id, active) {
     where: { id },
     data: { active: Boolean(active) },
   })
-  return getRecurringBudget(item.id)
+  return getRecurringBudget(userId, item.id)
 }
 
-async function deleteRecurringBudget(id) {
+async function deleteRecurringBudget(userId, id) {
   const prisma = await getPrisma()
-  const existing = await prisma.recurringBudget.findUnique({ where: { id } })
+  const existing = await prisma.recurringBudget.findFirst({ where: { id, userId } })
   if (!existing) {
     throw new AppError('Recurring budget not found.', 404)
   }

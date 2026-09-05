@@ -40,14 +40,14 @@ function parseTransactionInput(body) {
   return { description, amount, type, categoryId, accountId, date, note }
 }
 
-async function listTransactions(query) {
+async function listTransactions(userId, query) {
   const prisma = await getPrisma()
-  const where = {}
+  const where = { userId }
 
   if (query.search && typeof query.search === 'string') {
     const search = query.search.trim()
     if (search) {
-      where.description = { contains: search }
+      where.description = { contains: search, mode: 'insensitive' }
     }
   }
 
@@ -59,11 +59,15 @@ async function listTransactions(query) {
   }
 
   if (query.categoryId) {
-    where.categoryId = integer(query.categoryId, 'categoryId')
+    const categoryId = integer(query.categoryId, 'categoryId')
+    await ensureCategoryOwnedBy(prisma, userId, categoryId)
+    where.categoryId = categoryId
   }
 
   if (query.accountId) {
-    where.accountId = integer(query.accountId, 'accountId')
+    const accountId = integer(query.accountId, 'accountId')
+    await ensureAccountOwnedBy(prisma, userId, accountId)
+    where.accountId = accountId
   }
 
   if (query.startDate) {
@@ -111,10 +115,10 @@ async function listTransactions(query) {
   return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } }
 }
 
-async function getTransaction(id) {
+async function getTransaction(userId, id) {
   const prisma = await getPrisma()
-  const transaction = await prisma.transaction.findUnique({
-    where: { id },
+  const transaction = await prisma.transaction.findFirst({
+    where: { id, userId },
     include: {
       category: { select: { id: true, name: true, icon: true, color: true } },
       account: { select: { id: true, name: true, type: true } },
@@ -126,30 +130,38 @@ async function getTransaction(id) {
   return transaction
 }
 
-async function createTransaction(body) {
-  const prisma = await getPrisma()
-  const input = parseTransactionInput(body)
-  await ensureCategoryExists(prisma, input.categoryId, 400)
-  if (input.accountId) {
-    await ensureAccountExists(prisma, input.accountId, 400)
-  }
-  return prisma.transaction.create({ data: input })
+async function ensureCategoryOwnedBy(prisma, userId, categoryId) {
+  await ensureCategoryExists(prisma, userId, categoryId, 400)
 }
 
-async function updateTransaction(id, body) {
+async function ensureAccountOwnedBy(prisma, userId, accountId) {
+  await ensureAccountExists(prisma, userId, accountId, 400)
+}
+
+async function createTransaction(userId, body) {
   const prisma = await getPrisma()
-  await getTransaction(id)
   const input = parseTransactionInput(body)
-  await ensureCategoryExists(prisma, input.categoryId, 400)
+  await ensureCategoryExists(prisma, userId, input.categoryId, 400)
   if (input.accountId) {
-    await ensureAccountExists(prisma, input.accountId, 400)
+    await ensureAccountExists(prisma, userId, input.accountId, 400)
+  }
+  return prisma.transaction.create({ data: { ...input, userId } })
+}
+
+async function updateTransaction(userId, id, body) {
+  const prisma = await getPrisma()
+  await getTransaction(userId, id)
+  const input = parseTransactionInput(body)
+  await ensureCategoryExists(prisma, userId, input.categoryId, 400)
+  if (input.accountId) {
+    await ensureAccountExists(prisma, userId, input.accountId, 400)
   }
   return prisma.transaction.update({ where: { id }, data: input })
 }
 
-async function deleteTransaction(id) {
+async function deleteTransaction(userId, id) {
   const prisma = await getPrisma()
-  await getTransaction(id)
+  await getTransaction(userId, id)
   await prisma.transaction.delete({ where: { id } })
   return { id: Number(id) }
 }

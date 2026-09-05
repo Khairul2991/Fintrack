@@ -3,32 +3,32 @@ const { integer } = require('../utils/validate')
 const goalService = require('../services/goalService')
 
 async function listGoals(req, res) {
-  const goals = await goalService.listGoals()
+  const goals = await goalService.listGoals(req.user.id)
   success(res, goals)
 }
 
 async function getGoal(req, res) {
-  const goal = await goalService.getGoal(integer(req.params.id, 'id'))
+  const goal = await goalService.getGoal(req.user.id, integer(req.params.id, 'id'))
   success(res, goal)
 }
 
 async function createGoal(req, res) {
-  const goal = await goalService.createGoal(req.body)
+  const goal = await goalService.createGoal(req.user.id, req.body)
   success(res, goal, 201)
 }
 
 async function updateGoal(req, res) {
-  const goal = await goalService.updateGoal(integer(req.params.id, 'id'), req.body)
+  const goal = await goalService.updateGoal(req.user.id, integer(req.params.id, 'id'), req.body)
   success(res, goal)
 }
 
 async function updateGoalProgress(req, res) {
-  const goal = await goalService.updateGoalProgress(integer(req.params.id, 'id'), req.body.currentAmount)
+  const goal = await goalService.updateGoalProgress(req.user.id, integer(req.params.id, 'id'), req.body.currentAmount)
   success(res, goal)
 }
 
 async function deleteGoal(req, res) {
-  const result = await goalService.deleteGoal(integer(req.params.id, 'id'))
+  const result = await goalService.deleteGoal(req.user.id, integer(req.params.id, 'id'))
   success(res, result)
 }
 

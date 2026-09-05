@@ -3,7 +3,7 @@ const { lastNMonthStarts, monthKey, monthRange } = require('../utils/date')
 
 const MONTH_COUNT = 12
 
-async function getMonthlySeries(prisma, count) {
+async function getMonthlySeries(prisma, userId, count) {
   const Decimal = await getDecimal()
   const starts = lastNMonthStarts(count)
   const rows = []
@@ -11,7 +11,7 @@ async function getMonthlySeries(prisma, count) {
     const end = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, 1))
     const grouped = await prisma.transaction.groupBy({
       by: ['type'],
-      where: { date: { gte: start, lt: end } },
+      where: { userId, date: { gte: start, lt: end } },
       _sum: { amount: true },
     })
     const incomeRow = grouped.find((row) => row.type === 'INCOME')
@@ -25,8 +25,8 @@ async function getMonthlySeries(prisma, count) {
   return rows
 }
 
-async function getExpenseByCategory(prisma, { take = null, month = null, year = null } = {}) {
-  const where = { type: 'EXPENSE' }
+async function getExpenseByCategory(prisma, userId, { take = null, month = null, year = null } = {}) {
+  const where = { type: 'EXPENSE', userId }
   if (month && year) {
     const range = monthRange(month, year)
     where.date = { gte: range.gte, lt: range.lt }
@@ -42,7 +42,7 @@ async function getExpenseByCategory(prisma, { take = null, month = null, year = 
     return []
   }
   const categories = await prisma.category.findMany({
-    where: { id: { in: grouped.map((row) => row.categoryId) } },
+    where: { id: { in: grouped.map((row) => row.categoryId) }, userId },
   })
   const byId = new Map(categories.map((category) => [category.id, category]))
   return grouped.map((row) => {
@@ -57,9 +57,9 @@ async function getExpenseByCategory(prisma, { take = null, month = null, year = 
   })
 }
 
-async function getMonthlyReport() {
+async function getMonthlyReport(userId) {
   const prisma = await getPrisma()
-  const months = await getMonthlySeries(prisma, MONTH_COUNT)
+  const months = await getMonthlySeries(prisma, userId, MONTH_COUNT)
   const result = months.map((month, index) => {
     const previous = months[index - 1]
     return {
@@ -71,9 +71,9 @@ async function getMonthlyReport() {
   return { months: result }
 }
 
-async function getCategoryReport() {
+async function getCategoryReport(userId) {
   const prisma = await getPrisma()
-  const categories = await getExpenseByCategory(prisma)
+  const categories = await getExpenseByCategory(prisma, userId)
   const highest = categories.length > 0 ? categories[0] : null
   return { categories, highest }
 }

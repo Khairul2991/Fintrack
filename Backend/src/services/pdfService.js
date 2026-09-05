@@ -32,19 +32,19 @@ function monthLabel(year, month, lang) {
   return `${table[month - 1]} ${year}`
 }
 
-async function buildReport() {
+async function buildReport(userId) {
   const prisma = await getPrisma()
   const Decimal = await getDecimal()
 
-  const months = await getMonthlySeries(prisma, MONTH_COUNT)
+  const months = await getMonthlySeries(prisma, userId, MONTH_COUNT)
   const totalIncome = months.reduce((sum, m) => sum.plus(m.income), new Decimal(0))
   const totalExpense = months.reduce((sum, m) => sum.plus(m.expense), new Decimal(0))
   const balance = totalIncome.minus(totalExpense)
 
-  const byCategory = await getExpenseByCategory(prisma, { take: TOP_CATEGORIES })
-  const transactionAgg = await prisma.transaction.aggregate({ _count: true, _sum: { amount: true } })
+  const byCategory = await getExpenseByCategory(prisma, userId, { take: TOP_CATEGORIES })
+  const transactionAgg = await prisma.transaction.aggregate({ where: { userId }, _count: true, _sum: { amount: true } })
   const expenseAgg = await prisma.transaction.aggregate({
-    where: { type: 'EXPENSE' },
+    where: { type: 'EXPENSE', userId },
     _count: true,
     _sum: { amount: true },
   })
@@ -157,8 +157,8 @@ function writeTransactionSummary(doc, report) {
   doc.moveDown(1)
 }
 
-async function generateReportPdf(lang = 'en') {
-  const report = await buildReport()
+async function generateReportPdf(userId, lang = 'en') {
+  const report = await buildReport(userId)
   const isId = lang === 'id'
   const start = report.period.start
   const end = report.period.end

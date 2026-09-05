@@ -71,9 +71,10 @@ async function enrichGoal(prisma, goal) {
   return serialize(goal, Decimal)
 }
 
-async function listGoals() {
+async function listGoals(userId) {
   const prisma = await getPrisma()
   const goals = await prisma.goal.findMany({
+    where: { userId },
     orderBy: [{ status: 'asc' }, { createdAt: 'desc' }],
     include: {
       category: { select: { id: true, name: true, icon: true, color: true } },
@@ -84,10 +85,10 @@ async function listGoals() {
   return Promise.all(goals.map((goal) => serialize(goal, Decimal)))
 }
 
-async function getGoal(id) {
+async function getGoal(userId, id) {
   const prisma = await getPrisma()
-  const goal = await prisma.goal.findUnique({
-    where: { id },
+  const goal = await prisma.goal.findFirst({
+    where: { id, userId },
     include: {
       category: { select: { id: true, name: true, icon: true, color: true } },
       account: { select: { id: true, name: true, type: true } },
@@ -99,19 +100,20 @@ async function getGoal(id) {
   return enrichGoal(prisma, goal)
 }
 
-async function createGoal(body) {
+async function createGoal(userId, body) {
   const prisma = await getPrisma()
   const input = parseGoalInput(body)
   validateGoalAmounts(input)
   if (input.categoryId) {
-    await ensureCategoryExists(prisma, input.categoryId, 400)
+    await ensureCategoryExists(prisma, userId, input.categoryId, 400)
   }
   if (input.accountId) {
-    await ensureAccountExists(prisma, input.accountId, 400)
+    await ensureAccountExists(prisma, userId, input.accountId, 400)
   }
   const goal = await prisma.goal.create({
     data: {
       ...input,
+      userId,
       status: deriveStatus(input.currentAmount, input.targetAmount),
     },
     include: {
@@ -122,19 +124,19 @@ async function createGoal(body) {
   return enrichGoal(prisma, goal)
 }
 
-async function updateGoal(id, body) {
+async function updateGoal(userId, id, body) {
   const prisma = await getPrisma()
-  const existing = await prisma.goal.findUnique({ where: { id } })
+  const existing = await prisma.goal.findFirst({ where: { id, userId } })
   if (!existing) {
     throw new AppError('Goal not found.', 404)
   }
   const input = parseGoalInput(body)
   validateGoalAmounts(input)
   if (input.categoryId) {
-    await ensureCategoryExists(prisma, input.categoryId, 400)
+    await ensureCategoryExists(prisma, userId, input.categoryId, 400)
   }
   if (input.accountId) {
-    await ensureAccountExists(prisma, input.accountId, 400)
+    await ensureAccountExists(prisma, userId, input.accountId, 400)
   }
   const goal = await prisma.goal.update({
     where: { id },
@@ -150,9 +152,9 @@ async function updateGoal(id, body) {
   return enrichGoal(prisma, goal)
 }
 
-async function updateGoalProgress(id, currentAmount) {
+async function updateGoalProgress(userId, id, currentAmount) {
   const prisma = await getPrisma()
-  const existing = await prisma.goal.findUnique({ where: { id } })
+  const existing = await prisma.goal.findFirst({ where: { id, userId } })
   if (!existing) {
     throw new AppError('Goal not found.', 404)
   }
@@ -174,9 +176,9 @@ async function updateGoalProgress(id, currentAmount) {
   return enrichGoal(prisma, goal)
 }
 
-async function deleteGoal(id) {
+async function deleteGoal(userId, id) {
   const prisma = await getPrisma()
-  const existing = await prisma.goal.findUnique({ where: { id } })
+  const existing = await prisma.goal.findFirst({ where: { id, userId } })
   if (!existing) {
     throw new AppError('Goal not found.', 404)
   }

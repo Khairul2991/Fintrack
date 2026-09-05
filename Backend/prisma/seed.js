@@ -1,29 +1,19 @@
 const { getPrisma } = require('../src/lib/prisma')
 
-const categories = [
-  { name: 'Food', icon: '🍜', color: '#f59e0b' },
-  { name: 'Transport', icon: '🚗', color: '#3b82f6' },
-  { name: 'Shopping', icon: '🛍️', color: '#ec4899' },
-  { name: 'Entertainment', icon: '🎬', color: '#8b5cf6' },
-  { name: 'Bills', icon: '🧾', color: '#ef4444' },
-  { name: 'Health', icon: '🏥', color: '#10b981' },
-  { name: 'Education', icon: '📚', color: '#06b6d4' },
-  { name: 'Salary', icon: '💰', color: '#22c55e' },
-  { name: 'Freelance', icon: '💻', color: '#6366f1' },
-  { name: 'Other', icon: '📦', color: '#6b7280' },
-]
-
 async function main() {
   const prisma = await getPrisma()
-  for (const category of categories) {
-    await prisma.category.upsert({
-      where: { name: category.name },
-      update: {},
-      create: category,
-    })
+
+  const legacy = await prisma.user.findUnique({
+    where: { authUserId: 'legacy-admin' },
+    select: { id: true, authUserId: true, email: true },
+  })
+
+  if (!legacy) {
+    console.log('No legacy-admin user present. New users get their default categories automatically on provisioning.')
+  } else {
+    console.log(`Legacy admin present: id=${legacy.id} authUserId=${legacy.authUserId}`)
   }
-  const count = await prisma.category.count()
-  console.log(`Seed completed. ${count} categories.`)
+
   await prisma.$disconnect()
 }
 

@@ -83,7 +83,7 @@ function parseRecurringInput(body) {
   return { description, amount, type, categoryId, accountId, frequency, startDate, endDate, note }
 }
 
-async function generateDueTransactions(prisma, item, today) {
+async function generateDueTransactions(prisma, userId, item, today) {
   let generated = 0
   let next = new Date(item.nextOccurrence)
   const owned = []
@@ -97,6 +97,7 @@ async function generateDueTransactions(prisma, item, today) {
   while (next.getTime() <= today.getTime() && generated < MAX_GENERATE_PER_RUN) {
     if (item.endDate && next.getTime() > item.endDate.getTime()) break
     owned.push({
+      userId,
       description: item.description,
       amount: item.amount,
       type: item.type,
@@ -118,10 +119,10 @@ async function generateDueTransactions(prisma, item, today) {
   return generated
 }
 
-async function runCatchUp() {
+async function runCatchUp(userId) {
   const prisma = await getPrisma()
   const items = await prisma.recurringTransaction.findMany({
-    where: { active: true },
+    where: { active: true, userId },
     select: {
       id: true,
       description: true,
@@ -136,7 +137,7 @@ async function runCatchUp() {
     },
   })
   const today = startOfToday()
-  const results = await Promise.all(items.map((item) => generateDueTransactions(prisma, item, today)))
+  const results = await Promise.all(items.map((item) => generateDueTransactions(prisma, userId, item, today)))
   const generated = results.reduce((sum, count) => sum + count, 0)
   return { generated, processed: items.length }
 }
@@ -151,10 +152,11 @@ function serialize(item) {
   }
 }
 
-async function listRecurringTransactions() {
+async function listRecurringTransactions(userId) {
   const prisma = await getPrisma()
-  const result = await runCatchUp()
+  const result = await runCatchUp(userId)
   const items = await prisma.recurringTransaction.findMany({
+    where: { userId },
     orderBy: { nextOccurrence: 'asc' },
     include: {
       category: { select: { id: true, name: true, icon: true, color: true } },
@@ -164,10 +166,10 @@ async function listRecurringTransactions() {
   return { data: items.map(serialize), catchUp: result }
 }
 
-async function getRecurringTransaction(id) {
+async function getRecurringTransaction(userId, id) {
   const prisma = await getPrisma()
-  const item = await prisma.recurringTransaction.findUnique({
-    where: { id },
+  const item = await prisma.recurringTransaction.findFirst({
+    where: { id, userId },
     include: {
       category: { select: { id: true, name: true, icon: true, color: true } },
       account: { select: { id: true, name: true, type: true } },
@@ -179,12 +181,12 @@ async function getRecurringTransaction(id) {
   return serialize(item)
 }
 
-async function createRecurringTransaction(body, { active } = {}) {
+async function createRecurringTransaction(userId, body, { active } = {}) {
   const prisma = await getPrisma()
   const input = parseRecurringInput(body)
-  await ensureCategoryExists(prisma, input.categoryId, 400)
+  await ensureCategoryExists(prisma, userId, input.categoryId, 400)
   if (input.accountId) {
-    await ensureAccountExists(prisma, input.accountId, 400)
+    await ensureAccountExists(prisma, userId, input.accountId, 400)
   }
   let next = firstOccurrenceOnOrAfter(input.startDate)
   if (input.endDate && next.getTime() > input.endDate.getTime()) {
@@ -192,23 +194,24 @@ async function createRecurringTransaction(body, { active } = {}) {
   }
   const data = {
     ...input,
+    userId,
     nextOccurrence: next,
     active: active === undefined ? true : Boolean(active),
   }
   const item = await prisma.recurringTransaction.create({ data })
-  return getRecurringTransaction(item.id)
+  return getRecurringTransaction(userId, item.id)
 }
 
-async function updateRecurringTransaction(id, body) {
+async function updateRecurringTransaction(userId, id, body) {
   const prisma = await getPrisma()
-  const existing = await prisma.recurringTransaction.findUnique({ where: { id } })
+  const existing = await prisma.recurringTransaction.findFirst({ where: { id, userId } })
   if (!existing) {
     throw new AppError('Recurring transaction not found.', 404)
   }
   const input = parseRecurringInput(body)
-  await ensureCategoryExists(prisma, input.categoryId, 400)
+  await ensureCategoryExists(prisma, userId, input.categoryId, 400)
   if (input.accountId) {
-    await ensureAccountExists(prisma, input.accountId, 400)
+    await ensureAccountExists(prisma, userId, input.accountId, 400)
   }
   const merge = { ...existing, ...input }
   let next = firstOccurrenceOnOrAfter(input.startDate)
@@ -219,12 +222,12 @@ async function updateRecurringTransaction(id, body) {
     where: { id },
     data: { ...input, nextOccurrence: next },
   })
-  return getRecurringTransaction(item.id)
+  return getRecurringTransaction(userId, item.id)
 }
 
-async function setActive(id, active) {
+async function setActive(userId, id, active) {
   const prisma = await getPrisma()
-  const existing = await prisma.recurringTransaction.findUnique({ where: { id } })
+  const existing = await prisma.recurringTransaction.findFirst({ where: { id, userId } })
   if (!existing) {
     throw new AppError('Recurring transaction not found.', 404)
   }
@@ -232,12 +235,12 @@ async function setActive(id, active) {
     where: { id },
     data: { active: Boolean(active), lastRunAt: null },
   })
-  return getRecurringTransaction(item.id)
+  return getRecurringTransaction(userId, item.id)
 }
 
-async function deleteRecurringTransaction(id) {
+async function deleteRecurringTransaction(userId, id) {
   const prisma = await getPrisma()
-  const existing = await prisma.recurringTransaction.findUnique({ where: { id } })
+  const existing = await prisma.recurringTransaction.findFirst({ where: { id, userId } })
   if (!existing) {
     throw new AppError('Recurring transaction not found.', 404)
   }

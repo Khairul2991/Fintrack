@@ -12,6 +12,9 @@ function errorHandler(err, req, res, next) {
   if (err && typeof err.code === 'string' && err.code.startsWith('P')) {
     if (err.code === 'P2002') {
       const target = Array.isArray(err.meta && err.meta.target) ? err.meta.target : [err.meta && err.meta.target]
+      if (target.includes('authUserId') || target.includes('email')) {
+        return res.status(409).json({ success: false, message: 'A user with this email already exists.' })
+      }
       if (target.includes('name')) {
         return res.status(409).json({ success: false, message: 'Category name already exists.' })
       }

@@ -35,9 +35,25 @@ List endpoints add a `meta` object for pagination:
 | 200 | OK (read, update, delete) |
 | 201 | Created (POST) |
 | 400 | Validation or malformed JSON body |
+| 401 | Authentication required, or invalid/expired session token |
+| 403 | Authenticated, but no local user is linked to this session |
 | 404 | Resource not found (or referenced category not found) |
 | 409 | Conflict: duplicate record or category still in use |
 | 500 | Unexpected server error |
+
+### Authentication
+
+All endpoints except `GET /api/health`, `POST /api/auth/provision`, and `GET /api/auth/me` require authentication.
+
+- Clients send the Supabase session access token as:
+
+  ```
+  Authorization: Bearer <Supabase access token>
+  ```
+
+- The backend verifies the token with `supabase.auth.getUser()` (server-side, against Supabase Auth) and maps the Supabase Auth UUID to the local `User.authUserId`.
+- **Ownership is always derived from the authenticated identity** (`req.user.id`). Any `userId` supplied in the request body or query is ignored — a client cannot act on another user's data.
+- Missing/invalid token → **401**; valid token with no linked local user → **403**.
 
 ### Amounts and dates
 
@@ -58,6 +74,31 @@ Liveness check.
 ```json
 { "success": true, "data": { "status": "ok" } }
 ```
+
+---
+
+## Authentication
+
+### `GET /api/auth/me`
+
+Resolve the current authenticated identity to a local FinTrack user.
+
+- Requires `Authorization: Bearer <Supabase access token>`.
+- If the Auth UUID already maps to a local `User`, returns it unchanged.
+- If it does not yet map, **provisions** a new local user (with default categories) and returns it.
+- **403** if the token is valid but the caller is using a test identity that cannot provision through this route.
+
+**Example response**
+
+```json
+{ "success": true, "data": { "id": 1, "authUserId": "00000000-0000-0000-0000-000000000000", "email": "user@example.com", "name": "Alex" } }
+```
+
+(Above is illustrative — real responses contain the actual Supabase Auth UUID.)
+
+### `POST /api/auth/provision`
+
+Same identity-resolution/provisioning behavior as `/api/auth/me`, returning `201` when a new local user is created. Idempotent for an already-linked Auth UUID.
 
 ---
 

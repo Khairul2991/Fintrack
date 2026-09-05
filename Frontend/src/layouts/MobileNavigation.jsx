@@ -1,9 +1,13 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Brand, BrandMark, SidebarNav } from './Sidebar'
+import { useAuth } from '../context/AuthContext'
 import { useLanguage } from '../context/LanguageContext'
 
 function MobileNavigation() {
   const { t } = useLanguage()
+  const { user, logout } = useAuth()
+  const navigate = useNavigate()
   const [open, setOpen] = useState(false)
 
   useEffect(() => {
@@ -88,6 +92,28 @@ function MobileNavigation() {
         </div>
         <div className="flex-1 overflow-y-auto px-2">
           <SidebarNav onNavigate={() => setOpen(false)} />
+        </div>
+        <div className="border-t border-base-200 px-4 py-3">
+          {user && (
+            <div className="flex items-center gap-2 mb-2">
+              <div className="avatar placeholder">
+                <div className="bg-primary text-primary-content rounded-full w-8">
+                  <span className="text-xs">{(user.email || '?')[0].toUpperCase()}</span>
+                </div>
+              </div>
+              <span className="truncate text-xs text-base-content/60">{user.email}</span>
+            </div>
+          )}
+          <button
+            className="btn btn-ghost btn-xs w-full justify-start text-error/80 hover:text-error"
+            onClick={async () => {
+              setOpen(false)
+              await logout()
+              navigate('/login')
+            }}
+          >
+            {t('auth.logoutButton')}
+          </button>
         </div>
       </nav>
     </>

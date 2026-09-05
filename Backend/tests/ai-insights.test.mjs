@@ -1,7 +1,7 @@
 import { describe, it, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { createRequire } from 'node:module'
-import { startApp, stopApp, request, getCategories, isoDate, currentKeys } from './helpers.mjs'
+import { startApp, stopApp, request, getCategories, isoDate, currentKeys, SEED_CATEGORIES } from './helpers.mjs'
 
 const require = createRequire(import.meta.url)
 const { getPrisma } = require('../src/lib/prisma')
@@ -22,13 +22,13 @@ async function clearDerived() {
 }
 
 async function seedAccountIfNeeded() {
-  const accounts = (await request(state.base, 'GET', '/accounts')).data.data
+  const accounts = (await request(state.base, 'GET', '/accounts', undefined, { userId: state.testUserId })).data.data
   if (accounts.length === 0) {
     const res = await request(state.base, 'POST', '/accounts', {
       name: 'AI Test Bank',
       type: 'BANK',
       initialBalance: '100000',
-    })
+    }, { userId: state.testUserId })
     accountId = res.data.data.id
   } else {
     accountId = accounts[0].id
@@ -36,7 +36,7 @@ async function seedAccountIfNeeded() {
 }
 
 async function categoryIdByName(name) {
-  const categories = await getCategories(state.base)
+  const categories = await getCategories(state.base, state.testUserId)
   return categories.find((c) => c.name === name).id
 }
 
@@ -48,7 +48,7 @@ async function addTransaction(description, amount, type, category, year, month, 
     categoryId: await categoryIdByName(category),
     accountId,
     date: isoDate(year, month, day),
-  })
+  }, { userId: state.testUserId })
 }
 
 async function reset() {
@@ -58,7 +58,7 @@ async function reset() {
 
 async function getAi({ month, year, lang }) {
   const langQuery = lang ? `&lang=${lang}` : ''
-  return request(state.base, 'GET', `/ai-insights?month=${month}&year=${year}${langQuery}`)
+  return request(state.base, 'GET', `/ai-insights?month=${month}&year=${year}${langQuery}`, undefined, { userId: state.testUserId })
 }
 
 function hasInsight(result, { type, severity }) {
@@ -118,6 +118,12 @@ function validAiPayload() {
 before(async () => {
   state = await startApp()
   await clearDerived()
+  const existing = await getCategories(state.base, state.testUserId)
+  if (existing.length === 0) {
+    for (const seed of SEED_CATEGORIES) {
+      await request(state.base, 'POST', '/categories', seed, { userId: state.testUserId })
+    }
+  }
   await seedAccountIfNeeded()
   delete process.env.AI_PROVIDER
   delete process.env.AI_API_KEY
@@ -132,15 +138,15 @@ after(async () => {
 
 describe('AI Insights API - validation', () => {
   it('rejects a request without month or year', async () => {
-    const missing = await request(state.base, 'GET', '/ai-insights')
+    const missing = await request(state.base, 'GET', '/ai-insights', undefined, { userId: state.testUserId })
     assert.equal(missing.status, 400)
     assert.equal(missing.data.message, 'month and year are required.')
   })
 
   it('rejects an out-of-range month or year', async () => {
-    const badMonth = await request(state.base, 'GET', '/ai-insights?month=13&year=2026')
+    const badMonth = await request(state.base, 'GET', '/ai-insights?month=13&year=2026', undefined, { userId: state.testUserId })
     assert.equal(badMonth.status, 400)
-    const badYear = await request(state.base, 'GET', '/ai-insights?month=6&year=1999')
+    const badYear = await request(state.base, 'GET', '/ai-insights?month=6&year=1999', undefined, { userId: state.testUserId })
     assert.equal(badYear.status, 400)
   })
 })
@@ -232,7 +238,7 @@ describe('AI Insights API - deterministic fallback', () => {
       month: curM,
       year: curY,
       amount: '1000000',
-    })
+    }, { userId: state.testUserId })
     await addTransaction('lunch', '950000', 'EXPENSE', 'Food', curY, curM, 9)
     const res = await getAi({ month: curM, year: curY })
     const budget = res.data.data.metrics.budgetStatus.find((b) => b.category === 'Food')
@@ -249,7 +255,7 @@ describe('AI Insights API - deterministic fallback', () => {
       month: curM,
       year: curY,
       amount: '500000',
-    })
+    }, { userId: state.testUserId })
     await addTransaction('lunch', '600000', 'EXPENSE', 'Food', curY, curM, 10)
     const res = await getAi({ month: curM, year: curY })
     const budget = res.data.data.metrics.budgetStatus.find((b) => b.category === 'Food')
@@ -265,7 +271,7 @@ describe('AI Insights API - deterministic fallback', () => {
       name: 'Emergency fund',
       targetAmount: '1000000',
       currentAmount: '50000',
-    })
+    }, { userId: state.testUserId })
     const res = await getAi({ month: curM, year: curY })
     const goal = res.data.data.metrics.goals.find((g) => g.name === 'Emergency fund')
     assert.equal(goal.progress, 5)
@@ -279,7 +285,7 @@ describe('AI Insights API - deterministic fallback', () => {
       name: 'Vacation',
       targetAmount: '1000000',
       currentAmount: '500000',
-    })
+    }, { userId: state.testUserId })
     const res = await getAi({ month: curM, year: curY })
     assert.ok(!hasType(res, 'goal'))
   })
@@ -342,7 +348,7 @@ describe('AI Insights API - deterministic fallback', () => {
       name: 'Slow fund',
       targetAmount: '1000000',
       currentAmount: '100000',
-    })
+    }, { userId: state.testUserId })
     const res = await getAi({ month: curM, year: curY })
     const goal = res.data.data.metrics.goals.find((g) => g.name === 'Slow fund')
     assert.equal(goal.progress, 10)
@@ -377,6 +383,7 @@ describe('AI Insights API - provider handling', () => {
     process.env.AI_API_KEY = 'test-key'
     process.env.AI_MODEL = 'test-model'
     const result = await aiInsightService.getAiInsights(
+      state.testUserId,
       { month: curM, year: curY },
       'en',
       async () => {
@@ -395,6 +402,7 @@ describe('AI Insights API - provider handling', () => {
     process.env.AI_PROVIDER = 'https://fake-provider.example'
     process.env.AI_API_KEY = 'test-key'
     const result = await aiInsightService.getAiInsights(
+      state.testUserId,
       { month: curM, year: curY },
       'en',
       fakeFetch('this is not json at all'),
@@ -409,6 +417,7 @@ describe('AI Insights API - provider handling', () => {
     process.env.AI_PROVIDER = 'https://fake-provider.example'
     process.env.AI_API_KEY = 'test-key'
     const result = await aiInsightService.getAiInsights(
+      state.testUserId,
       { month: curM, year: curY },
       'en',
       fakeFetch(validAiPayload()),
@@ -429,6 +438,7 @@ describe('AI Insights API - provider handling', () => {
     process.env.AI_PROVIDER = 'https://fake-provider.example'
     process.env.AI_API_KEY = 'test-key'
     const result = await aiInsightService.getAiInsights(
+      state.testUserId,
       { month: curM, year: curY },
       'en',
       fakeFetch(validAiPayload()),
@@ -479,9 +489,10 @@ describe('AI Insights API - provider handling', () => {
       ],
     })
     const result = await aiInsightService.getAiInsights(
+      state.testUserId,
       { month: curM, year: curY },
       'en',
-      fakeFetch(aiPayload),
+      fakeFetch(validAiPayload()),
     )
     delete process.env.AI_PROVIDER
     delete process.env.AI_API_KEY

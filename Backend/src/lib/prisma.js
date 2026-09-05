@@ -1,6 +1,6 @@
 require('dotenv').config()
 
-const { PrismaBetterSqlite3 } = require('@prisma/adapter-better-sqlite3')
+const { PrismaPg } = require('@prisma/adapter-pg')
 
 let prismaPromise = null
 let decimalPromise = null
@@ -14,10 +14,20 @@ function getDecimal() {
   return decimalPromise
 }
 
+function schemaFromUrl(url) {
+  if (!url || typeof url !== 'string') return undefined
+  const qIndex = url.indexOf('?')
+  if (qIndex === -1) return undefined
+  return new URLSearchParams(url.slice(qIndex + 1)).get('schema') || undefined
+}
+
 function getPrisma() {
   if (!prismaPromise) {
     prismaPromise = import('../generated/prisma/client.mts').then(({ PrismaClient }) => {
-      const adapter = new PrismaBetterSqlite3({ url: process.env.DATABASE_URL })
+      const schema = schemaFromUrl(process.env.DATABASE_URL)
+      const adapter = schema
+        ? new PrismaPg(process.env.DATABASE_URL, { schema })
+        : new PrismaPg(process.env.DATABASE_URL)
       return new PrismaClient({ adapter })
     })
   }

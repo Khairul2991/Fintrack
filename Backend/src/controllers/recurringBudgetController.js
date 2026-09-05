@@ -3,22 +3,23 @@ const { integer } = require('../utils/validate')
 const recurringBudgetService = require('../services/recurringBudgetService')
 
 async function listRecurringBudgets(req, res) {
-  const data = await recurringBudgetService.listRecurringBudgets()
+  const data = await recurringBudgetService.listRecurringBudgets(req.user.id)
   success(res, data)
 }
 
 async function getRecurringBudget(req, res) {
-  const item = await recurringBudgetService.getRecurringBudget(integer(req.params.id, 'id'))
+  const item = await recurringBudgetService.getRecurringBudget(req.user.id, integer(req.params.id, 'id'))
   success(res, item)
 }
 
 async function createRecurringBudget(req, res) {
-  const item = await recurringBudgetService.createRecurringBudget(req.body)
+  const item = await recurringBudgetService.createRecurringBudget(req.user.id, req.body)
   success(res, item, 201)
 }
 
 async function updateRecurringBudget(req, res) {
   const item = await recurringBudgetService.updateRecurringBudget(
+    req.user.id,
     integer(req.params.id, 'id'),
     req.body,
   )
@@ -27,6 +28,7 @@ async function updateRecurringBudget(req, res) {
 
 async function setActive(req, res) {
   const item = await recurringBudgetService.setActive(
+    req.user.id,
     integer(req.params.id, 'id'),
     Boolean(req.body.active),
   )
@@ -34,7 +36,7 @@ async function setActive(req, res) {
 }
 
 async function deleteRecurringBudget(req, res) {
-  const result = await recurringBudgetService.deleteRecurringBudget(integer(req.params.id, 'id'))
+  const result = await recurringBudgetService.deleteRecurringBudget(req.user.id, integer(req.params.id, 'id'))
   success(res, result)
 }
 

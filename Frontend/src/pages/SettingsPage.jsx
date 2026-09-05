@@ -1,4 +1,6 @@
+import { useNavigate } from 'react-router-dom'
 import PageHeader from '../components/layout/PageHeader'
+import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
 import { useTheme } from '../hooks/useTheme'
 import { useLanguage } from '../context/LanguageContext'
@@ -13,6 +15,8 @@ const THEME_OPTIONS = [
 function SettingsPage() {
   const toast = useToast()
   const { t, lang, setLang } = useLanguage()
+  const { logout } = useAuth()
+  const navigate = useNavigate()
   const [theme, changeTheme] = useTheme()
 
   function handleThemeChange(value) {
@@ -89,6 +93,22 @@ function SettingsPage() {
           <h2 className="card-title text-base font-semibold">{t('set.currency')}</h2>
           <p className="text-sm text-base-content/60">{t('set.currencyDesc')}</p>
           <p className="text-sm font-semibold tabular-nums">{t('set.currencyExample')}</p>
+        </div>
+      </div>
+
+      <div className="card surface card-border">
+        <div className="card-body">
+          <h2 className="card-title text-base font-semibold">{t('auth.logoutTitle')}</h2>
+          <p className="text-sm text-base-content/60">{t('auth.logoutDesc')}</p>
+          <button
+            className="btn btn-outline btn-error mt-2"
+            onClick={async () => {
+              await logout()
+              navigate('/login')
+            }}
+          >
+            {t('auth.logoutButton')}
+          </button>
         </div>
       </div>
     </div>

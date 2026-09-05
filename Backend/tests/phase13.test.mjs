@@ -28,7 +28,7 @@ async function clearDerived() {
 
 // Seed the 10 baseline categories fresh (clearDerived wipes transactions but not categories).
 async function ensureSeedCategories() {
-  const existing = await getCategories(state.base)
+  const existing = await getCategories(state.base, state.testUserId)
   if (existing.length === 0) {
     const seeds = [
       ['Food', '🍜', '#f59e0b'],
@@ -43,7 +43,7 @@ async function ensureSeedCategories() {
       ['Other', '📦', '#6b7280'],
     ]
     for (const [name, icon, color] of seeds) {
-      await request(state.base, 'POST', '/categories', { name, icon, color })
+      await request(state.base, 'POST', '/categories', { name, icon, color }, { userId: state.testUserId })
     }
   }
 }
@@ -66,7 +66,7 @@ describe('Accounts API', () => {
       name: 'Main Bank',
       type: 'BANK',
       initialBalance: '100000',
-    })
+    }, { userId: state.testUserId })
     assert.equal(res.status, 201)
     assert.equal(res.data.data.name, 'Main Bank')
     assert.equal(res.data.data.initialBalance, '100000')
@@ -78,7 +78,7 @@ describe('Accounts API', () => {
       name: 'x',
       type: 'WALLET',
       initialBalance: '0',
-    })
+    }, { userId: state.testUserId })
     assert.equal(badType.status, 400)
     assert.equal(
       badType.data.message,
@@ -88,16 +88,16 @@ describe('Accounts API', () => {
     const noName = await request(state.base, 'POST', '/accounts', {
       name: '',
       type: 'CASH',
-    })
+    }, { userId: state.testUserId })
     assert.equal(noName.status, 400)
     assert.equal(noName.data.message, 'Name is required.')
   })
 
   it('reflects transaction income/expense into the account balance', async () => {
-    const accounts = (await request(state.base, 'GET', '/accounts')).data.data
+    const accounts = (await request(state.base, 'GET', '/accounts', undefined, { userId: state.testUserId })).data.data
     const account = accounts.find((a) => a.name === 'Main Bank')
-    const salary = (await getCategories(state.base)).find((c) => c.name === 'Salary')
-    const food = (await getCategories(state.base)).find((c) => c.name === 'Food')
+    const salary = (await getCategories(state.base, state.testUserId)).find((c) => c.name === 'Salary')
+    const food = (await getCategories(state.base, state.testUserId)).find((c) => c.name === 'Food')
 
     await request(state.base, 'POST', '/transactions', {
       description: 'payday',
@@ -106,7 +106,7 @@ describe('Accounts API', () => {
       categoryId: salary.id,
       accountId: account.id,
       date: isoDate(2026, 9, 1),
-    })
+    }, { userId: state.testUserId })
     await request(state.base, 'POST', '/transactions', {
       description: 'groceries',
       amount: '200000',
@@ -114,22 +114,22 @@ describe('Accounts API', () => {
       categoryId: food.id,
       accountId: account.id,
       date: isoDate(2026, 9, 5),
-    })
+    }, { userId: state.testUserId })
 
-    const updated = (await request(state.base, 'GET', `/accounts/${account.id}`)).data.data
+    const updated = (await request(state.base, 'GET', `/accounts/${account.id}`, undefined, { userId: state.testUserId })).data.data
     assert.equal(Number(updated.income), 1000000)
     assert.equal(Number(updated.expense), 200000)
     assert.equal(Number(updated.balance), 900000)
   })
 
   it('returns 404 for a nonexistent account and protects an in-use account from deletion', async () => {
-    const missing = await request(state.base, 'GET', '/accounts/999999')
+    const missing = await request(state.base, 'GET', '/accounts/999999', undefined, { userId: state.testUserId })
     assert.equal(missing.status, 404)
     assert.equal(missing.data.message, 'Account not found.')
 
-    const accounts = (await request(state.base, 'GET', '/accounts')).data.data
+    const accounts = (await request(state.base, 'GET', '/accounts', undefined, { userId: state.testUserId })).data.data
     const inUse = accounts.find((a) => a.name === 'Main Bank')
-    const blocked = await request(state.base, 'DELETE', `/accounts/${inUse.id}`)
+    const blocked = await request(state.base, 'DELETE', `/accounts/${inUse.id}`, undefined, { userId: state.testUserId })
     assert.equal(blocked.status, 409)
     assert.equal(blocked.data.message, 'This account cannot be deleted because it is currently in use.')
   })
@@ -137,7 +137,7 @@ describe('Accounts API', () => {
 
 describe('Recurring Transactions API', () => {
   it('creates a recurring transaction and reports the correct next occurrence', async () => {
-    const food = (await getCategories(state.base)).find((c) => c.name === 'Food')
+    const food = (await getCategories(state.base, state.testUserId)).find((c) => c.name === 'Food')
     const res = await request(state.base, 'POST', '/recurring-transactions', {
       description: 'Monthly rent',
       amount: '1500000',
@@ -145,7 +145,7 @@ describe('Recurring Transactions API', () => {
       categoryId: food.id,
       frequency: 'MONTHLY',
       startDate: isoDate(2026, 9, 1),
-    })
+    }, { userId: state.testUserId })
     assert.equal(res.status, 201)
     assert.equal(res.data.data.description, 'Monthly rent')
     assert.equal(res.data.data.nextOccurrence, '2026-09-01')
@@ -153,7 +153,7 @@ describe('Recurring Transactions API', () => {
   })
 
   it('rejects an invalid frequency and an end date before the start date', async () => {
-    const food = (await getCategories(state.base)).find((c) => c.name === 'Food')
+    const food = (await getCategories(state.base, state.testUserId)).find((c) => c.name === 'Food')
     const badFreq = await request(state.base, 'POST', '/recurring-transactions', {
       description: 'x',
       amount: '100',
@@ -161,7 +161,7 @@ describe('Recurring Transactions API', () => {
       categoryId: food.id,
       frequency: 'ANNUALLY',
       startDate: isoDate(2026, 9, 1),
-    })
+    }, { userId: state.testUserId })
     assert.equal(badFreq.status, 400)
     assert.equal(
       badFreq.data.message,
@@ -176,13 +176,13 @@ describe('Recurring Transactions API', () => {
       frequency: 'MONTHLY',
       startDate: isoDate(2026, 9, 10),
       endDate: isoDate(2026, 9, 1),
-    })
+    }, { userId: state.testUserId })
     assert.equal(badEnd.status, 400)
     assert.equal(badEnd.data.message, 'End date must be on or after the start date.')
   })
 
   it('runs a deterministic catch-up generating due transactions and then idempotently stops', async () => {
-    const salary = (await getCategories(state.base)).find((c) => c.name === 'Salary')
+    const salary = (await getCategories(state.base, state.testUserId)).find((c) => c.name === 'Salary')
     const created = await request(state.base, 'POST', '/recurring-transactions', {
       description: 'Monthly salary',
       amount: '5000000',
@@ -190,22 +190,22 @@ describe('Recurring Transactions API', () => {
       categoryId: salary.id,
       frequency: 'MONTHLY',
       startDate: isoDate(2026, 1, 1),
-    })
+    }, { userId: state.testUserId })
     const id = created.data.data.id
 
-    const listRes = await request(state.base, 'GET', '/recurring-transactions')
-    const once = (await request(state.base, 'GET', '/transactions?type=INCOME')).data.data
+    const listRes = await request(state.base, 'GET', '/recurring-transactions', undefined, { userId: state.testUserId })
+    const once = (await request(state.base, 'GET', '/transactions?type=INCOME', undefined, { userId: state.testUserId })).data.data
     assert.ok(listRes.data.data.items.length >= 1)
     assert.ok(once.length >= 1)
 
     // Later than the most recent catch-up, rerunning must not duplicate.
-    const twice = (await request(state.base, 'GET', '/transactions?type=INCOME')).data.data
+    const twice = (await request(state.base, 'GET', '/transactions?type=INCOME', undefined, { userId: state.testUserId })).data.data
     assert.equal(twice.length, once.length)
     assert.equal(Number(id), Number(id))
   })
 
   it('pauses and resumes a recurring transaction', async () => {
-    const food = (await getCategories(state.base)).find((c) => c.name === 'Food')
+    const food = (await getCategories(state.base, state.testUserId)).find((c) => c.name === 'Food')
     const created = await request(state.base, 'POST', '/recurring-transactions', {
       description: 'Gym',
       amount: '250000',
@@ -213,23 +213,23 @@ describe('Recurring Transactions API', () => {
       categoryId: food.id,
       frequency: 'MONTHLY',
       startDate: isoDate(2026, 9, 1),
-    })
+    }, { userId: state.testUserId })
     const id = created.data.data.id
 
     const paused = await request(state.base, 'PATCH', `/recurring-transactions/${id}/active`, {
       active: false,
-    })
+    }, { userId: state.testUserId })
     assert.equal(paused.status, 200)
     assert.equal(paused.data.data.active, false)
 
     const resumed = await request(state.base, 'PATCH', `/recurring-transactions/${id}/active`, {
       active: true,
-    })
+    }, { userId: state.testUserId })
     assert.equal(resumed.data.data.active, true)
   })
 
   it('deletes a recurring transaction and returns 404 for a nonexistent one', async () => {
-    const food = (await getCategories(state.base)).find((c) => c.name === 'Food')
+    const food = (await getCategories(state.base, state.testUserId)).find((c) => c.name === 'Food')
     const created = await request(state.base, 'POST', '/recurring-transactions', {
       description: 'Temp',
       amount: '100',
@@ -237,13 +237,13 @@ describe('Recurring Transactions API', () => {
       categoryId: food.id,
       frequency: 'WEEKLY',
       startDate: isoDate(2026, 9, 1),
-    })
+    }, { userId: state.testUserId })
     const id = created.data.data.id
-    const deleted = await request(state.base, 'DELETE', `/recurring-transactions/${id}`)
+    const deleted = await request(state.base, 'DELETE', `/recurring-transactions/${id}`, undefined, { userId: state.testUserId })
     assert.equal(deleted.status, 200)
     assert.equal(deleted.data.data.id, id)
 
-    const missing = await request(state.base, 'GET', `/recurring-transactions/${id}`)
+    const missing = await request(state.base, 'GET', `/recurring-transactions/${id}`, undefined, { userId: state.testUserId })
     assert.equal(missing.status, 404)
   })
 })
@@ -252,95 +252,95 @@ describe('Recurring Budgets API', () => {
   const { curY, curM } = currentKeys()
 
   it('creates a recurring budget and rolls it into a concrete monthly budget', async () => {
-    const transport = (await getCategories(state.base)).find((c) => c.name === 'Transport')
+    const transport = (await getCategories(state.base, state.testUserId)).find((c) => c.name === 'Transport')
     const res = await request(state.base, 'POST', '/recurring-budgets', {
       categoryId: transport.id,
       amount: '300000',
       frequency: 'MONTHLY',
       startMonth: curM,
       startYear: curY,
-    })
+    }, { userId: state.testUserId })
     assert.equal(res.status, 201)
     assert.equal(res.data.data.next, `${curY}-${String(curM).padStart(2, '0')}`)
 
     // Listing triggers rollover; the current month budget must then exist.
-    await request(state.base, 'GET', '/recurring-budgets')
-    const budgets = (await request(state.base, 'GET', `/budgets?month=${curM}&year=${curY}`)).data.data
+    await request(state.base, 'GET', '/recurring-budgets', undefined, { userId: state.testUserId })
+    const budgets = (await request(state.base, 'GET', `/budgets?month=${curM}&year=${curY}`, undefined, { userId: state.testUserId })).data.data
     assert.ok(budgets.some((b) => Number(b.amount) === 300000 && b.category.name === 'Transport'))
   })
 
   it('rejects an invalid frequency', async () => {
-    const food = (await getCategories(state.base)).find((c) => c.name === 'Food')
+    const food = (await getCategories(state.base, state.testUserId)).find((c) => c.name === 'Food')
     const res = await request(state.base, 'POST', '/recurring-budgets', {
       categoryId: food.id,
       amount: '100',
       frequency: 'WEEKLY',
       startMonth: 1,
       startYear: 2026,
-    })
+    }, { userId: state.testUserId })
     assert.equal(res.status, 400)
     assert.equal(res.data.message, 'Frequency must be MONTHLY or YEARLY.')
   })
 
   it('pauses and deletes a recurring budget', async () => {
-    const health = (await getCategories(state.base)).find((c) => c.name === 'Health')
+    const health = (await getCategories(state.base, state.testUserId)).find((c) => c.name === 'Health')
     const created = await request(state.base, 'POST', '/recurring-budgets', {
       categoryId: health.id,
       amount: '50000',
       frequency: 'MONTHLY',
       startMonth: curM,
       startYear: curY,
-    })
+    }, { userId: state.testUserId })
     const id = created.data.data.id
 
     const paused = await request(state.base, 'PATCH', `/recurring-budgets/${id}/active`, {
       active: false,
-    })
+    }, { userId: state.testUserId })
     assert.equal(paused.status, 200)
     assert.equal(paused.data.data.active, false)
 
-    const deleted = await request(state.base, 'DELETE', `/recurring-budgets/${id}`)
+    const deleted = await request(state.base, 'DELETE', `/recurring-budgets/${id}`, undefined, { userId: state.testUserId })
     assert.equal(deleted.status, 200)
     assert.equal(deleted.data.data.id, id)
   })
 
   it('does not duplicate a budget for a category/period that already exists', async () => {
-    const shopping = (await getCategories(state.base)).find((c) => c.name === 'Shopping')
+    const shopping = (await getCategories(state.base, state.testUserId)).find((c) => c.name === 'Shopping')
     const created = await request(state.base, 'POST', '/recurring-budgets', {
       categoryId: shopping.id,
       amount: '200000',
       frequency: 'MONTHLY',
       startMonth: curM,
       startYear: curY,
-    })
+    }, { userId: state.testUserId })
     const id = created.data.data.id
 
     // Trigger rollover once; the Shopping/curM budget must exist exactly once.
-    await request(state.base, 'GET', '/recurring-budgets')
-    const budgets = (await request(state.base, 'GET', `/budgets?month=${curM}&year=${curY}`)).data.data
+    await request(state.base, 'GET', '/recurring-budgets', undefined, { userId: state.testUserId })
+    const budgets = (await request(state.base, 'GET', `/budgets?month=${curM}&year=${curY}`, undefined, { userId: state.testUserId })).data.data
     const matches = budgets.filter((b) => b.category.name === 'Shopping' && Number(b.amount) === 200000)
     assert.equal(matches.length, 1)
 
     // Rerolling must not create a duplicate for the same category/period.
-    await request(state.base, 'GET', '/recurring-budgets')
-    const again = (await request(state.base, 'GET', `/budgets?month=${curM}&year=${curY}`)).data.data
+    await request(state.base, 'GET', '/recurring-budgets', undefined, { userId: state.testUserId })
+    const again = (await request(state.base, 'GET', `/budgets?month=${curM}&year=${curY}`, undefined, { userId: state.testUserId })).data.data
     const againMatches = again.filter((b) => b.category.name === 'Shopping' && Number(b.amount) === 200000)
     assert.equal(againMatches.length, 1)
 
-    await request(state.base, 'DELETE', `/recurring-budgets/${id}`)
+    await request(state.base, 'DELETE', `/recurring-budgets/${id}`, undefined, { userId: state.testUserId })
   })
 })
 
 describe('Goals API', () => {
   it('creates a goal with progress, remaining, and IN_PROGRESS status', async () => {
-    const education = (await getCategories(state.base)).find((c) => c.name === 'Education')
+    const education = (await getCategories(state.base, state.testUserId)).find((c) => c.name === 'Education')
     const res = await request(state.base, 'POST', '/goals', {
       name: 'New laptop',
       targetAmount: '10000000',
       currentAmount: '2500000',
       targetDate: isoDate(2027, 1, 1),
       categoryId: education.id,
-    })
+    }, { userId: state.testUserId })
     assert.equal(res.status, 201)
     assert.equal(res.data.data.name, 'New laptop')
     assert.equal(res.data.data.status, 'IN_PROGRESS')
@@ -353,18 +353,18 @@ describe('Goals API', () => {
       name: 'Bad goal',
       targetAmount: '1000',
       currentAmount: '5000',
-    })
+    }, { userId: state.testUserId })
     assert.equal(res.status, 400)
     assert.equal(res.data.message, 'Current amount cannot exceed the target amount.')
   })
 
   it('updates goal progress and flips to COMPLETED when the target is reached', async () => {
-    const goals = (await request(state.base, 'GET', '/goals')).data.data
+    const goals = (await request(state.base, 'GET', '/goals', undefined, { userId: state.testUserId })).data.data
     const goal = goals.find((g) => g.name === 'New laptop')
 
     const updated = await request(state.base, 'PATCH', `/goals/${goal.id}/progress`, {
       currentAmount: '10000000',
-    })
+    }, { userId: state.testUserId })
     assert.equal(updated.status, 200)
     assert.equal(updated.data.data.status, 'COMPLETED')
     assert.equal(Number(updated.data.data.progress), 100)
@@ -372,7 +372,7 @@ describe('Goals API', () => {
 
     const over = await request(state.base, 'PATCH', `/goals/${goal.id}/progress`, {
       currentAmount: '11000000',
-    })
+    }, { userId: state.testUserId })
     assert.equal(over.status, 400)
   })
 
@@ -380,20 +380,20 @@ describe('Goals API', () => {
     const created = await request(state.base, 'POST', '/goals', {
       name: 'Temp goal',
       targetAmount: '5000',
-    })
+    }, { userId: state.testUserId })
     const id = created.data.data.id
-    const deleted = await request(state.base, 'DELETE', `/goals/${id}`)
+    const deleted = await request(state.base, 'DELETE', `/goals/${id}`, undefined, { userId: state.testUserId })
     assert.equal(deleted.status, 200)
     assert.equal(deleted.data.data.id, id)
 
-    const missing = await request(state.base, 'GET', `/goals/${id}`)
+    const missing = await request(state.base, 'GET', `/goals/${id}`, undefined, { userId: state.testUserId })
     assert.equal(missing.status, 404)
   })
 })
 
 describe('Analytics API', () => {
   it('returns totals, cash flow, savings rate, and a 12-month trend', async () => {
-    const res = await request(state.base, 'GET', '/analytics/summary')
+    const res = await request(state.base, 'GET', '/analytics/summary', undefined, { userId: state.testUserId })
     assert.equal(res.status, 200)
     const a = res.data.data
     assert.ok(a.monthlyTrend.length >= 12)
@@ -407,7 +407,7 @@ describe('Analytics API', () => {
 
 describe('Export API', () => {
   it('exports all matching transactions as rows', async () => {
-    const res = await request(state.base, 'GET', '/export/transactions?type=INCOME')
+    const res = await request(state.base, 'GET', '/export/transactions?type=INCOME', undefined, { userId: state.testUserId })
     assert.equal(res.status, 200)
     assert.ok(Array.isArray(res.data.data))
     assert.ok(res.data.data.length >= 1)
@@ -419,24 +419,24 @@ describe('Export API', () => {
 describe('Notification generation', () => {
   it('generates notifications without error and lists them', async () => {
     const { curY, curM } = currentKeys()
-    const food = (await getCategories(state.base)).find((c) => c.name === 'Food')
+    const food = (await getCategories(state.base, state.testUserId)).find((c) => c.name === 'Food')
     await request(state.base, 'POST', '/budgets', {
       categoryId: food.id,
       month: curM,
       year: curY,
       amount: '1',
-    })
-    const gen = await request(state.base, 'POST', '/notifications/generate')
+    }, { userId: state.testUserId })
+    const gen = await request(state.base, 'POST', '/notifications/generate', undefined, { userId: state.testUserId })
     assert.equal(gen.status, 200)
     assert.ok(gen.data.data.unread >= 0)
 
-    const list = await request(state.base, 'GET', '/notifications')
+    const list = await request(state.base, 'GET', '/notifications', undefined, { userId: state.testUserId })
     assert.equal(list.status, 200)
     assert.ok(Array.isArray(list.data.data.items))
 
-    const markAll = await request(state.base, 'POST', '/notifications/read-all')
+    const markAll = await request(state.base, 'POST', '/notifications/read-all', undefined, { userId: state.testUserId })
     assert.equal(markAll.status, 200)
-    const after = (await request(state.base, 'GET', '/notifications')).data.data
+    const after = (await request(state.base, 'GET', '/notifications', undefined, { userId: state.testUserId })).data.data
     assert.ok(after.items.every((n) => n.read === true))
   })
 })
@@ -444,7 +444,9 @@ describe('Notification generation', () => {
 describe('PDF report', () => {
   it('serves a valid PDF for both en and id', async () => {
     for (const lang of ['en', 'id']) {
-      const res = await fetch(`${state.base}/reports/pdf?lang=${lang}`)
+      const res = await fetch(`${state.base}/reports/pdf?lang=${lang}`, {
+        headers: { 'x-test-user-id': String(state.testUserId) },
+      })
       const buf = Buffer.from(await res.arrayBuffer())
       assert.equal(res.status, 200)
       assert.equal(res.headers.get('content-type'), 'application/pdf')

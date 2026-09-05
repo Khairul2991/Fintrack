@@ -21,9 +21,9 @@ function parseAccountInput(body) {
   return { name, type, initialBalance }
 }
 
-async function ensureAccountExists(prisma, accountId, status = 404) {
-  const found = await prisma.account.findUnique({
-    where: { id: accountId },
+async function ensureAccountExists(prisma, userId, accountId, status = 404) {
+  const found = await prisma.account.findFirst({
+    where: { id: accountId, userId },
     select: { id: true },
   })
   if (!found) {
@@ -32,11 +32,11 @@ async function ensureAccountExists(prisma, accountId, status = 404) {
   return found
 }
 
-async function enrichBalance(prisma, account) {
+async function enrichBalance(prisma, userId, account) {
   const Decimal = await getDecimal()
   const totals = await prisma.transaction.groupBy({
     by: ['type'],
-    where: { accountId: account.id },
+    where: { accountId: account.id, userId },
     _sum: { amount: true },
   })
   let income = new Decimal(0)
@@ -49,41 +49,41 @@ async function enrichBalance(prisma, account) {
   return { ...account, income, expense, balance }
 }
 
-async function listAccounts() {
+async function listAccounts(userId) {
   const prisma = await getPrisma()
-  const accounts = await prisma.account.findMany({ orderBy: { name: 'asc' } })
-  return Promise.all(accounts.map((account) => enrichBalance(prisma, account)))
+  const accounts = await prisma.account.findMany({ where: { userId }, orderBy: { name: 'asc' } })
+  return Promise.all(accounts.map((account) => enrichBalance(prisma, userId, account)))
 }
 
-async function getAccount(id) {
+async function getAccount(userId, id) {
   const prisma = await getPrisma()
-  const account = await prisma.account.findUnique({ where: { id } })
+  const account = await prisma.account.findFirst({ where: { id, userId } })
   if (!account) {
     throw new AppError('Account not found.', 404)
   }
-  return enrichBalance(prisma, account)
+  return enrichBalance(prisma, userId, account)
 }
 
-async function createAccount(body) {
+async function createAccount(userId, body) {
   const prisma = await getPrisma()
-  const account = await prisma.account.create({ data: parseAccountInput(body) })
-  return enrichBalance(prisma, account)
+  const account = await prisma.account.create({ data: { ...parseAccountInput(body), userId } })
+  return enrichBalance(prisma, userId, account)
 }
 
-async function updateAccount(id, body) {
+async function updateAccount(userId, id, body) {
   const prisma = await getPrisma()
-  await ensureAccountExists(prisma, id)
+  await ensureAccountExists(prisma, userId, id)
   const account = await prisma.account.update({ where: { id }, data: parseAccountInput(body) })
-  return enrichBalance(prisma, account)
+  return enrichBalance(prisma, userId, account)
 }
 
-async function deleteAccount(id) {
+async function deleteAccount(userId, id) {
   const prisma = await getPrisma()
-  await ensureAccountExists(prisma, id)
+  await ensureAccountExists(prisma, userId, id)
   const usedCount =
-    (await prisma.transaction.count({ where: { accountId: id } })) +
-    (await prisma.recurringTransaction.count({ where: { accountId: id } })) +
-    (await prisma.goal.count({ where: { accountId: id } }))
+    (await prisma.transaction.count({ where: { accountId: id, userId } })) +
+    (await prisma.recurringTransaction.count({ where: { accountId: id, userId } })) +
+    (await prisma.goal.count({ where: { accountId: id, userId } }))
   if (usedCount > 0) {
     throw new AppError('This account cannot be deleted because it is currently in use.', 409)
   }

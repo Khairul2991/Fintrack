@@ -142,22 +142,22 @@ function round(n) {
   return Math.round(value * 100) / 100
 }
 
-async function buildContext(month, year) {
+async function buildContext(userId, month, year) {
   const prisma = await getPrisma()
   const Decimal = await getDecimal()
   const range = monthRange(month, year)
   const prevRange = monthRange(month - 1 === 0 ? 12 : month - 1, month - 1 === 0 ? year - 1 : year)
 
   const incomeAgg = await prisma.transaction.aggregate({
-    where: { type: 'INCOME', date: { gte: range.gte, lt: range.lt } },
+    where: { userId, type: 'INCOME', date: { gte: range.gte, lt: range.lt } },
     _sum: { amount: true },
   })
   const expenseAgg = await prisma.transaction.aggregate({
-    where: { type: 'EXPENSE', date: { gte: range.gte, lt: range.lt } },
+    where: { userId, type: 'EXPENSE', date: { gte: range.gte, lt: range.lt } },
     _sum: { amount: true },
   })
   const prevExpenseAgg = await prisma.transaction.aggregate({
-    where: { type: 'EXPENSE', date: { gte: prevRange.gte, lt: prevRange.lt } },
+    where: { userId, type: 'EXPENSE', date: { gte: prevRange.gte, lt: prevRange.lt } },
     _sum: { amount: true },
   })
 
@@ -167,19 +167,19 @@ async function buildContext(month, year) {
   const net = income.sub(expense)
 
   const transactionCount = await prisma.transaction.count({
-    where: { date: { gte: range.gte, lt: range.lt } },
+    where: { userId, date: { gte: range.gte, lt: range.lt } },
   })
 
-  const topCategories = await getExpenseByCategory(prisma, { take: 5, month, year })
+  const topCategories = await getExpenseByCategory(prisma, userId, { take: 5, month, year })
 
   const budgets = await prisma.budget.findMany({
-    where: { month, year },
+    where: { userId, month, year },
     include: { category: { select: { id: true, name: true, icon: true, color: true } } },
   })
   const budgetStatus = []
   for (const budget of budgets) {
     const spentAgg = await prisma.transaction.aggregate({
-      where: { type: 'EXPENSE', categoryId: budget.categoryId, date: { gte: range.gte, lt: range.lt } },
+      where: { userId, type: 'EXPENSE', categoryId: budget.categoryId, date: { gte: range.gte, lt: range.lt } },
       _sum: { amount: true },
     })
     const spent = spentAgg._sum.amount ?? new Decimal(0)
@@ -199,7 +199,7 @@ async function buildContext(month, year) {
     })
   }
 
-  const goals = await listGoals()
+  const goals = await listGoals(userId)
   const goalSummary = goals.map((goal) => ({
     name: goal.name,
     progress: round(goal.progress),
@@ -207,7 +207,7 @@ async function buildContext(month, year) {
   }))
 
   const largestTransactions = await prisma.transaction.findMany({
-    where: { date: { gte: range.gte, lt: range.lt } },
+    where: { userId, date: { gte: range.gte, lt: range.lt } },
     orderBy: { amount: 'desc' },
     take: 3,
     select: {
@@ -542,7 +542,7 @@ function nonEmptyMonthContext(context) {
   return Number(context.income) > 0 || Number(context.expense) > 0
 }
 
-async function getAiInsights(query, lang = 'en', fetchFn = global.fetch) {
+async function getAiInsights(userId, query, lang = 'en', fetchFn = global.fetch) {
   const { month, year } = parseMonthYear(query)
   const resolvedMonth = month
   const resolvedYear = year
@@ -551,7 +551,7 @@ async function getAiInsights(query, lang = 'en', fetchFn = global.fetch) {
     throw new AppError('month and year are required.', 400)
   }
 
-  const context = await buildContext(resolvedMonth, resolvedYear)
+  const context = await buildContext(userId, resolvedMonth, resolvedYear)
 
   const s = LANG_STRINGS[lang] || LANG_STRINGS.en
 

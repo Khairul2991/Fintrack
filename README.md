@@ -1,6 +1,6 @@
 # FinTrack
 
-FinTrack is a responsive personal finance management web application built with React, Node.js, Express, Prisma, and SQLite. It enables users to manage income and expenses, organize transactions by category, create monthly budgets, visualize financial data, and analyze spending patterns through an interactive dashboard and reports.
+FinTrack is a responsive, authenticated personal finance management web application built with React, Node.js, Express, Prisma, and Supabase (Auth + PostgreSQL). It enables users to manage income and expenses, organize transactions by category, create monthly budgets, visualize financial data, and analyze spending patterns through an interactive dashboard and reports.
 
 ## Features
 
@@ -26,7 +26,9 @@ FinTrack is a responsive personal finance management web application built with 
 | Area | Technology |
 | --- | --- |
 | Frontend | React 19, JavaScript (JSX), Vite 8, React Router 7, Tailwind CSS 4, DaisyUI 5, Recharts 3 |
-| Backend | Node.js, Express 5, Prisma ORM 7, SQLite |
+| Backend | Node.js, Express 5, Prisma ORM 7 |
+| Authentication | Supabase Auth (email/password) |
+| Database | Supabase PostgreSQL (SQLite retained as legacy migration/dev source only) |
 | Testing | Node.js built-in test runner (`node --test`) |
 
 ## Repository Structure
@@ -39,7 +41,7 @@ Fintrack/
 │   ├── src/            # Express app: routes, controllers, services, middleware, utils
 │   ├── prisma/         # schema.prisma, migrations, seed
 │   ├── tests/          # API + business logic test suites (node:test)
-│   ├── database/       # SQLite databases (gitignored)
+│   ├── database/       # SQLite legacy dev/migration database (gitignored)
 │   ├── .env.example    # environment template
 │   └── package.json
 ├── Frontend/
@@ -65,14 +67,15 @@ Fintrack/
 cd Backend
 npm install
 
-# create the environment file
+# create the environment file and fill in the values
 cp .env.example .env
+#   - DATABASE_URL:       Supabase PostgreSQL connection string (no ?schema= for production)
+#   - SUPABASE_URL:       Supabase project URL
+#   - SUPABASE_SECRET_KEY: Supabase service-role key (server-side only; never in the frontend)
 
-# create the SQLite database and apply migrations
-npm run prisma:migrate
-
-# seed the default categories (idempotent)
-npm run prisma:seed
+# generate the Prisma client and apply the baseline migration
+npm run prisma:generate
+npx prisma migrate deploy
 
 # start the API server on http://localhost:3000
 npm run dev
@@ -85,6 +88,9 @@ The backend runs on **http://localhost:3000**. In dev mode it uses `node --watch
 ```sh
 cd Frontend
 npm install
+
+# create the environment file with Supabase Auth values (anon/publishable key, not the secret key)
+cp .env.example .env
 
 # start the Vite dev server on http://localhost:5173
 npm run dev
@@ -127,27 +133,22 @@ No keys are committed; keep `AI_API_KEY` in local `.env` only.
 | `npm test` | Backend | Run the 92 backend API + business logic tests |
 | `npm test` | Frontend | Run the 54 frontend UI-layer tests |
 | `npm run prisma:generate` | Backend | Generate the Prisma client |
-| `npm run prisma:migrate` | Backend | Apply schema migrations |
-| `npm run prisma:seed` | Backend | Seed idempotent default categories |
+| `npm run prisma:migrate` | Backend | Apply schema migrations (dev) |
+| `npm run prisma:seed` | Backend | Idempotent legacy-user status check (default categories are provisioned per user) |
 
 ## Testing
 
 Both test suites use the Node.js built-in test runner — **no test dependencies are required**.
 
-- **Backend** (`Backend/tests/`): runs the real Express app in-process against an isolated SQLite database (`Backend/database/test.db`) to avoid touching development data.
-- **Frontend** (`Frontend/tests/`): imports the real service modules and talks to a spawned backend instance (port 3101, isolated `test-fe.db` database).
+- **Backend** (`Backend/tests/`): runs the real Express app in-process against an isolated PostgreSQL schema (`fintrack_test`) to avoid touching production/application tables.
+- **Frontend** (`Frontend/tests/`): imports the real service modules and talks to a spawned backend instance (port 3101, isolated `fintrack_test_fe` schema).
 
 ```sh
 cd Backend && npm test   # 92 tests
 cd Frontend && npm test  # 54 tests
 ```
 
-Before running the frontend suite, create its test database schema:
-
-```sh
-cd Backend
-$env:DATABASE_URL="file:./database/test-fe.db"; npx prisma migrate deploy; $env:DATABASE_URL="file:./database/test.db"; npx prisma migrate deploy
-```
+Both suites automatically reset their isolated schema by loading `Backend/.env`, so `DATABASE_URL` must point at the shared PostgreSQL instance.
 
 ## Documentation
 
@@ -172,16 +173,19 @@ The earlier future-improvements roadmap is now largely implemented:
 7. ✅ Notifications (in-app + optional browser)
 8. ✅ EN/ID localization and UI/UX polish
 9. ✅ AI financial insights (deterministic metrics + optional AI interpretation with rule-based fallback)
+10. ✅ Authentication & multi-user ownership — Supabase Auth (email/password), every API request authorized from the authenticated identity
+11. ✅ PostgreSQL & cloud deployment — production database is Supabase PostgreSQL (migrated from SQLite; SQLite retained as legacy migration source)
+
+Google OAuth remains **planned, not implemented** in the current build.
 
 These remain **out of scope** in this build (deferred — see `PRD.md` §47):
 
-1. Authentication & multi-user
-2. PostgreSQL and cloud deployment
-3. Bank integration / automatic transaction import
-4. PWA / offline support
+1. Google OAuth sign-in
+2. Bank integration / automatic transaction import
+3. PWA / offline support
 
-All data stays in a local SQLite database (Prisma + SQLite are retained; no destructive migration), and the full suite remains green: backend **92/92**, frontend **54/54**, lint + build clean.
+Authentication is handled by Supabase Auth and every data route is protected (`Authorization: Bearer <access token>`; ownership derived from the authenticated identity, never from client-supplied `userId`). Production data lives in Supabase PostgreSQL; the full suite remains green: backend **92/92**, frontend **54/54**, lint + build clean.
 
 ## Portfolio
 
-Built to demonstrate full-stack development: React component architecture, modern JavaScript, React Router, Express REST API, Prisma ORM, SQLite relational database, CRUD operations, data aggregation, form validation, error handling, search/filter/sort/pagination, data visualization, and responsive UI.
+Built to demonstrate full-stack development: React component architecture, modern JavaScript, React Router, Express REST API, Prisma ORM, Supabase PostgreSQL database, authentication & multi-user ownership, CRUD operations, data aggregation, form validation, error handling, search/filter/sort/pagination, data visualization, and responsive UI.

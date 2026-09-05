@@ -11,20 +11,20 @@ function safePct(numerator, denominator) {
   return (num / den) * 100
 }
 
-async function getAnalytics() {
+async function getAnalytics(userId) {
   const prisma = await getPrisma()
   const Decimal = await getDecimal()
 
   const starts = lastNMonthStarts(MONTH_COUNT)
-  const months = await getMonthlySeries(prisma, MONTH_COUNT)
+  const months = await getMonthlySeries(prisma, userId, MONTH_COUNT)
   const withNet = months.map((month) => ({
     ...month,
     net: month.income.minus(month.expense),
   }))
 
-  const transactions = await prisma.transaction.findMany({ select: { amount: true } })
+  const transactions = await prisma.transaction.findMany({ where: { userId }, select: { amount: true } })
   const expenseTransactions = await prisma.transaction.findMany({
-    where: { type: 'EXPENSE' },
+    where: { type: 'EXPENSE', userId },
     select: { amount: true },
   })
 
@@ -42,7 +42,7 @@ async function getAnalytics() {
   const txnTotal = transactions.reduce((sum, t) => sum.plus(t.amount), new Decimal(0))
   const avgTransactionAmount = txnCount > 0 ? txnTotal.div(txnCount) : new Decimal(0)
 
-  const expenseByCategory = await getExpenseByCategory(prisma, { take: 5 })
+  const expenseByCategory = await getExpenseByCategory(prisma, userId, { take: 5 })
   const highest = expenseByCategory.length > 0 ? expenseByCategory[0] : null
   const spendingConcentration = highest ? safePct(highest.total, totalExpense) : 0
 
@@ -60,6 +60,7 @@ async function getAnalytics() {
 
   let largestTransaction = null
   const largest = await prisma.transaction.findFirst({
+    where: { userId },
     orderBy: { amount: 'desc' },
     include: {
       category: { select: { id: true, name: true, icon: true, color: true } },
@@ -78,12 +79,12 @@ async function getAnalytics() {
   }
 
   const { month: curMonth, year: curYear } = currentMonthYear()
-  const budgets = await prisma.budget.findMany({ where: { month: curMonth, year: curYear } })
+  const budgets = await prisma.budget.findMany({ where: { month: curMonth, year: curYear, userId } })
   const budgetUtilization = []
   for (const budget of budgets) {
     const range = monthRange(curMonth, curYear)
     const agg = await prisma.transaction.aggregate({
-      where: { type: 'EXPENSE', categoryId: budget.categoryId, date: { gte: range.gte, lt: range.lt } },
+      where: { userId, type: 'EXPENSE', categoryId: budget.categoryId, date: { gte: range.gte, lt: range.lt } },
       _sum: { amount: true },
     })
     const spent = agg._sum.amount ?? new Decimal(0)

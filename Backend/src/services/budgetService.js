@@ -4,11 +4,11 @@ const { AppError } = require('../utils/appError')
 const { monthRange, MIN_YEAR, MAX_YEAR } = require('../utils/date')
 const { ensureCategoryExists } = require('./categoryService')
 
-async function getBudgetSpent(prisma, categoryId, month, year) {
+async function getBudgetSpent(prisma, userId, categoryId, month, year) {
   const Decimal = await getDecimal()
   const range = monthRange(month, year)
   const agg = await prisma.transaction.aggregate({
-    where: { type: 'EXPENSE', categoryId, date: { gte: range.gte, lt: range.lt } },
+    where: { userId, type: 'EXPENSE', categoryId, date: { gte: range.gte, lt: range.lt } },
     _sum: { amount: true },
   })
   return agg._sum.amount ?? new Decimal(0)
@@ -22,9 +22,9 @@ function parseBudgetInput(body) {
   return { categoryId, month, year, amount }
 }
 
-async function enrichBudget(prisma, budget) {
+async function enrichBudget(prisma, userId, budget) {
   const Decimal = await getDecimal()
-  const spent = await getBudgetSpent(prisma, budget.categoryId, budget.month, budget.year)
+  const spent = await getBudgetSpent(prisma, userId, budget.categoryId, budget.month, budget.year)
   const remaining = budget.amount.minus(spent)
   const progress = budget.amount.gt(0) ? spent.div(budget.amount).mul(100) : new Decimal(0)
   let status = 'On Track'
@@ -36,9 +36,9 @@ async function enrichBudget(prisma, budget) {
   return { ...budget, spent, remaining, progress, status }
 }
 
-async function listBudgets(query) {
+async function listBudgets(userId, query) {
   const prisma = await getPrisma()
-  const where = {}
+  const where = { userId }
   if (query.month) {
     where.month = integer(query.month, 'month', { min: 1, max: 12 })
   }
@@ -50,42 +50,42 @@ async function listBudgets(query) {
     orderBy: [{ year: 'desc' }, { month: 'desc' }],
     include: { category: { select: { id: true, name: true, icon: true, color: true } } },
   })
-  return Promise.all(budgets.map((budget) => enrichBudget(prisma, budget)))
+  return Promise.all(budgets.map((budget) => enrichBudget(prisma, userId, budget)))
 }
 
-async function getBudget(id) {
+async function getBudget(userId, id) {
   const prisma = await getPrisma()
-  const budget = await prisma.budget.findUnique({
-    where: { id },
+  const budget = await prisma.budget.findFirst({
+    where: { id, userId },
     include: { category: { select: { id: true, name: true, icon: true, color: true } } },
   })
   if (!budget) {
     throw new AppError('Budget not found.', 404)
   }
-  return enrichBudget(prisma, budget)
+  return enrichBudget(prisma, userId, budget)
 }
 
-async function createBudget(body) {
+async function createBudget(userId, body) {
   const prisma = await getPrisma()
   const input = parseBudgetInput(body)
-  await ensureCategoryExists(prisma, input.categoryId, 400)
-  return prisma.budget.create({ data: input })
+  await ensureCategoryExists(prisma, userId, input.categoryId, 400)
+  return prisma.budget.create({ data: { ...input, userId } })
 }
 
-async function updateBudget(id, body) {
+async function updateBudget(userId, id, body) {
   const prisma = await getPrisma()
-  const existing = await prisma.budget.findUnique({ where: { id }, select: { id: true } })
+  const existing = await prisma.budget.findFirst({ where: { id, userId }, select: { id: true } })
   if (!existing) {
     throw new AppError('Budget not found.', 404)
   }
   const input = parseBudgetInput(body)
-  await ensureCategoryExists(prisma, input.categoryId, 400)
+  await ensureCategoryExists(prisma, userId, input.categoryId, 400)
   return prisma.budget.update({ where: { id }, data: input })
 }
 
-async function deleteBudget(id) {
+async function deleteBudget(userId, id) {
   const prisma = await getPrisma()
-  const existing = await prisma.budget.findUnique({ where: { id }, select: { id: true } })
+  const existing = await prisma.budget.findFirst({ where: { id, userId }, select: { id: true } })
   if (!existing) {
     throw new AppError('Budget not found.', 404)
   }

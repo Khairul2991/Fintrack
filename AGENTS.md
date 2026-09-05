@@ -17,7 +17,9 @@ Backend (`Backend/`):
 - `npm start` — `node --env-file=.env server.js`
 - `npm run prisma:generate` / `prisma:migrate` / `prisma:seed`
 
-Test command exists in `Backend/package.json` but is only a placeholder (`echo "Error: no test specified"`).
+Tests are real and use the Node.js built-in runner (no test dependencies):
+- Backend `npm test` — 92 tests against the isolated `fintrack_test` schema.
+- Frontend `npm test` — 54 tests against the isolated `fintrack_test_fe` schema.
 
 ## Development Server and Runtime Verification Rules
 - Development servers are long-running processes and MUST NOT be treated as commands that are expected to exit.
@@ -81,12 +83,13 @@ Only the second case requires startup troubleshooting.
 - **Prisma 7** (pinned `7.10.0` for both `prisma` and `@prisma/client`; `latest` for `prisma` is an 8.0 RC — do NOT let them mismatch).
   - Uses `prisma-client` generator (NOT deprecated `prisma-client-js`): `output = "../src/generated/prisma"`, ESM output (`.mts`).
   - Generated client must be consumed from the CommonJS backend via dynamic `import()` (see `src/lib/prisma.js`). Plain `require` fails — the `.cts`/`.js` outputs are not directly require-able under Node's CJS loader.
-  - SQLite requires a driver adapter: `@prisma/adapter-better-sqlite3`. `PrismaClient` is instantiated with `new PrismaBetterSqlite3({ url: process.env.DATABASE_URL })`.
+  - PostgreSQL driver adapter: `@prisma/adapter-pg`. `PrismaClient` is instantiated with `new PrismaPg(process.env.DATABASE_URL, { schema })` when the URL carries a `?schema=` param (test schemas), otherwise without it (production `public`).
   - Config lives in `prisma.config.ts` (datasource url, migration path, seed command) — the schema datasource block has no `url` field.
   - `.env` is NOT auto-loaded at runtime; scripts use `--env-file=.env`, and `src/lib/prisma.js` calls `dotenv.config()`.
-  - Seeding is explicit only: `npx prisma db seed` (migrate dev no longer auto-seeds). Seed is idempotent (upsert by category name).
-  - `DATABASE_URL="file:./database/dev.db"` → `Backend/database/dev.db`.
-- No tests, no git repo, no CI, no root-level config. Don't assume a shared toolchain.
+  - Seeding is explicit only: `npx prisma db seed`. Seed is idempotent (legacy-user status check; new users get default categories on provisioning).
+  - Production `DATABASE_URL` is the Supabase PostgreSQL connection string. Backend tests append `?schema=fintrack_test`; frontend tests append `?schema=fintrack_test_fe`. SQLite (`Backend/database/dev.db`) is retained only as a legacy migration source and is never opened at runtime.
+- Auth: Supabase Auth (email/password). Backend verifies `Authorization: Bearer <access token>` via `supabase.auth.getUser()` (`src/lib/supabase.js`) and maps the Auth UUID → local `User.authUserId` (`requireAuth`). Ownership is always derived from `req.user.id`; client-supplied `userId` is ignored.
+- This is a git repo (no CI, no root-level npm config).
 
 
 # FinTrack Agent Instructions
@@ -111,7 +114,7 @@ the user explicitly requests them.
 - Use Vite.
 - Use Express.js.
 - Use Prisma ORM.
-- Use SQLite.
+- Use Supabase PostgreSQL as the production database (SQLite is retained only as the legacy migration source).
 - Use Tailwind CSS.
 - Use DaisyUI.
 - Use Recharts.

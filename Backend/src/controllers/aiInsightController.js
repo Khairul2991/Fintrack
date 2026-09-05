@@ -3,7 +3,7 @@ const aiInsightService = require('../services/aiInsightService')
 
 async function getAiInsights(req, res) {
   const lang = req.query.lang === 'id' ? 'id' : 'en'
-  const result = await aiInsightService.getAiInsights(req.query, lang)
+  const result = await aiInsightService.getAiInsights(req.user.id, req.query, lang)
   success(res, result)
 }
 

@@ -3,7 +3,7 @@ const { listTransactions } = require('./transactionService')
 const PAGE_SIZE = 100
 
 // Export surfaces every matching transaction by paging through the standard list.
-async function exportTransactions(query) {
+async function exportTransactions(userId, query) {
   let page = 1
   let collected = []
   const params = { ...query }
@@ -12,7 +12,7 @@ async function exportTransactions(query) {
 
   // eslint-disable-next-line no-constant-condition
   for (;;) {
-    const { data, meta } = await listTransactions({ ...params, page, limit: PAGE_SIZE })
+    const { data, meta } = await listTransactions(userId, { ...params, page, limit: PAGE_SIZE })
     collected = collected.concat(data)
     if (page >= meta.totalPages) break
     page += 1

@@ -3,27 +3,27 @@ const { integer } = require('../utils/validate')
 const transactionService = require('../services/transactionService')
 
 async function listTransactions(req, res) {
-  const { data, meta } = await transactionService.listTransactions(req.query)
+  const { data, meta } = await transactionService.listTransactions(req.user.id, req.query)
   successList(res, data, meta)
 }
 
 async function getTransaction(req, res) {
-  const transaction = await transactionService.getTransaction(integer(req.params.id, 'id'))
+  const transaction = await transactionService.getTransaction(req.user.id, integer(req.params.id, 'id'))
   success(res, transaction)
 }
 
 async function createTransaction(req, res) {
-  const transaction = await transactionService.createTransaction(req.body)
+  const transaction = await transactionService.createTransaction(req.user.id, req.body)
   success(res, transaction, 201)
 }
 
 async function updateTransaction(req, res) {
-  const transaction = await transactionService.updateTransaction(integer(req.params.id, 'id'), req.body)
+  const transaction = await transactionService.updateTransaction(req.user.id, integer(req.params.id, 'id'), req.body)
   success(res, transaction)
 }
 
 async function deleteTransaction(req, res) {
-  const result = await transactionService.deleteTransaction(integer(req.params.id, 'id'))
+  const result = await transactionService.deleteTransaction(req.user.id, integer(req.params.id, 'id'))
   success(res, result)
 }
 

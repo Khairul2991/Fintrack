@@ -1,5 +1,6 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, useNavigate } from 'react-router-dom'
 import { NAV_ITEMS } from '../constants/navigation'
+import { useAuth } from '../context/AuthContext'
 import { useLanguage } from '../context/LanguageContext'
 
 export function BrandMark({ className = 'h-6 w-6' }) {
@@ -60,6 +61,8 @@ function Brand() {
 
 function Sidebar() {
   const { t } = useLanguage()
+  const { user, logout } = useAuth()
+  const navigate = useNavigate()
   return (
     <aside className="surface fixed inset-y-0 left-0 z-20 hidden w-64 flex-col rounded-none border-r border-base-200 lg:flex">
       <div className="border-b border-base-200">
@@ -68,8 +71,23 @@ function Sidebar() {
       <nav className="flex-1 overflow-y-auto px-3 py-3" aria-label={t('app.mainNavAria')}>
         <SidebarNav />
       </nav>
-      <div className="border-t border-base-200 px-6 py-4">
-        <p className="text-xs leading-relaxed text-base-content/50">{t('app.tagline')}</p>
+      <div className="border-t border-base-200 px-4 py-3">
+        {user && (
+          <div className="flex items-center gap-2 mb-2">
+            <div className="avatar placeholder">
+              <div className="bg-primary text-primary-content rounded-full w-8">
+                <span className="text-xs">{(user.email || '?')[0].toUpperCase()}</span>
+              </div>
+            </div>
+            <span className="truncate text-xs text-base-content/60">{user.email}</span>
+          </div>
+        )}
+        <button
+          className="btn btn-ghost btn-xs w-full justify-start text-error/80 hover:text-error"
+          onClick={async () => { await logout(); navigate('/login') }}
+        >
+          {t('auth.logoutButton')}
+        </button>
       </div>
     </aside>
   )

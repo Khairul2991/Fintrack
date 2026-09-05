@@ -1,5 +1,11 @@
 const API_BASE = '/api'
 
+let getTokenFn = null
+
+export function setTokenProvider(fn) {
+  getTokenFn = fn
+}
+
 export class ApiError extends Error {
   constructor(message, status) {
     super(message)
@@ -17,16 +23,32 @@ async function parseJson(response) {
 }
 
 async function request(path, options = {}) {
-  const { body, ...rest } = options
+  const { body, headers: customHeaders, ...rest } = options
+
+  const headers = { ...customHeaders }
+  if (body) {
+    headers['Content-Type'] = 'application/json'
+  }
+  if (getTokenFn) {
+    const token = await getTokenFn()
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`
+    }
+  }
+
   let response
   try {
     response = await fetch(`${API_BASE}${path}`, {
-      headers: body ? { 'Content-Type': 'application/json' } : undefined,
+      headers,
       body: body ? JSON.stringify(body) : undefined,
       ...rest,
     })
   } catch {
     throw new ApiError('Unable to reach the server. Is the backend running?', 0)
+  }
+
+  if (response.status === 401) {
+    throw new ApiError('Session expired. Please log in again.', 401)
   }
 
   const data = await parseJson(response)

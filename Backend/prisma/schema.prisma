@@ -7,7 +7,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
 }
 
 enum TransactionType {
@@ -46,21 +46,42 @@ enum NotificationType {
   GOAL_DEADLINE
 }
 
+model User {
+  id                     Int                    @id @default(autoincrement())
+  authUserId             String                 @unique
+  email                  String                 @unique
+  name                   String?
+  createdAt              DateTime               @default(now())
+  categories             Category[]
+  transactions           Transaction[]
+  budgets                Budget[]
+  accounts               Account[]
+  recurringTransactions  RecurringTransaction[]
+  recurringBudgets       RecurringBudget[]
+  goals                  Goal[]
+  notifications          Notification[]
+}
+
 model Category {
   id                    Int                    @id @default(autoincrement())
-  name                  String                 @unique
+  userId                Int
+  name                  String
   icon                  String
   color                 String
   createdAt             DateTime               @default(now())
+  user                  User                   @relation(fields: [userId], references: [id])
   transactions          Transaction[]
   budgets               Budget[]
   recurringTransactions RecurringTransaction[]
   recurringBudgets      RecurringBudget[]
   goals                 Goal[]
+
+  @@unique([userId, name])
 }
 
 model Transaction {
   id          Int             @id @default(autoincrement())
+  userId      Int
   description String
   amount      Decimal
   type        TransactionType
@@ -69,9 +90,11 @@ model Transaction {
   date        DateTime
   note        String?
   createdAt   DateTime        @default(now())
+  user        User            @relation(fields: [userId], references: [id])
   category    Category        @relation(fields: [categoryId], references: [id])
   account     Account?        @relation(fields: [accountId], references: [id])
 
+  @@index([userId])
   @@index([categoryId])
   @@index([accountId])
   @@index([date])
@@ -80,30 +103,38 @@ model Transaction {
 
 model Budget {
   id         Int      @id @default(autoincrement())
+  userId     Int
   categoryId Int
   month      Int
   year       Int
   amount     Decimal
   createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id])
   category   Category @relation(fields: [categoryId], references: [id])
 
-  @@unique([categoryId, month, year])
+  @@unique([userId, categoryId, month, year])
+  @@index([userId])
   @@index([categoryId])
 }
 
 model Account {
   id                    Int                    @id @default(autoincrement())
-  name                  String                 @unique
+  userId                Int
+  name                  String
   type                  AccountType
   initialBalance        Decimal                @default(0)
   createdAt             DateTime               @default(now())
+  user                  User                   @relation(fields: [userId], references: [id])
   transactions          Transaction[]
   recurringTransactions RecurringTransaction[]
   goals                 Goal[]
+
+  @@unique([userId, name])
 }
 
 model RecurringTransaction {
   id             Int             @id @default(autoincrement())
+  userId         Int
   description    String
   amount         Decimal
   type           TransactionType
@@ -117,15 +148,18 @@ model RecurringTransaction {
   lastRunAt      DateTime?
   nextOccurrence DateTime
   createdAt      DateTime        @default(now())
+  user           User            @relation(fields: [userId], references: [id])
   category       Category        @relation(fields: [categoryId], references: [id])
   account        Account?        @relation(fields: [accountId], references: [id])
 
+  @@index([userId])
   @@index([categoryId])
   @@index([accountId])
 }
 
 model RecurringBudget {
   id         Int             @id @default(autoincrement())
+  userId     Int
   categoryId Int
   amount     Decimal
   frequency  BudgetFrequency
@@ -135,13 +169,16 @@ model RecurringBudget {
   nextYear   Int
   active     Boolean         @default(true)
   createdAt  DateTime        @default(now())
+  user       User            @relation(fields: [userId], references: [id])
   category   Category        @relation(fields: [categoryId], references: [id])
 
+  @@index([userId])
   @@index([categoryId])
 }
 
 model Goal {
   id            Int        @id @default(autoincrement())
+  userId        Int
   name          String
   description   String?
   targetAmount  Decimal
@@ -151,18 +188,24 @@ model Goal {
   accountId     Int?
   status        GoalStatus @default(IN_PROGRESS)
   createdAt     DateTime   @default(now())
+  user          User       @relation(fields: [userId], references: [id])
   category      Category?  @relation(fields: [categoryId], references: [id])
   account       Account?   @relation(fields: [accountId], references: [id])
 
+  @@index([userId])
   @@index([categoryId])
   @@index([accountId])
 }
 
 model Notification {
   id        Int              @id @default(autoincrement())
+  userId    Int
   type      NotificationType
   title     String
   message   String
   read      Boolean          @default(false)
   createdAt DateTime         @default(now())
+  user      User             @relation(fields: [userId], references: [id])
+
+  @@index([userId])
 }

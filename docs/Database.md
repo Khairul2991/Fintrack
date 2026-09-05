@@ -1,110 +1,71 @@
 # Database Schema
 
-SQLite database via Prisma 7. Schema definition: `Backend/prisma/schema.prisma`.
+Production database is **Supabase PostgreSQL** via Prisma 7. Schema definition: `Backend/prisma/schema.prisma`.
 
-## ER diagram
+SQLite (`Backend/database/dev.db`) is retained **only as the legacy migration/dev source** — it is never opened at runtime, and its historical migrations are preserved under `Backend/prisma/migrations_sqlite_backup/`.
 
-```text
-┌────────────┐        ┌─────────────────┐        ┌───────────┐
-│  Category  │ 1 ──── n │  Transaction     │ n ──── 1 │  Budget   │
-│            │        │                  │        └───────────┘
-└────────────┘        └─────────────────┘
-```
+## Environments
 
-- A `Category` has many `Transaction`s and many `Budget`s.
-- Every `Transaction` and `Budget` belongs to exactly one `Category`.
-- `Budget` is unique per `(categoryId, month, year)`.
+| Environment | Target | Purpose |
+| --- | --- | --- |
+| Production | Supabase PostgreSQL, schema `public` | Application data (9 tables, 23 rows for the adopted legacy account) |
+| Backend tests | `fintrack_test` schema (same Supabase DB) | Reset + recreated on demand via `prisma migrate deploy` with `DATABASE_URL` + `?schema=fintrack_test` |
+| Frontend tests | `fintrack_test_fe` schema (same Supabase DB) | Reset + recreated on demand via `prisma migrate deploy` with `DATABASE_URL` + `?schema=fintrack_test_fe` |
+| Legacy dev | `Backend/database/dev.db` (SQLite, gitignored) | Migration source / historical reference only; not read at runtime |
 
 ## Models
 
-### Category
+Nine application models/tables:
 
-| Field | Type | Notes |
-| --- | --- | --- |
-| `id` | Integer | PK, autoincrement |
-| `name` | String | **Unique** |
-| `icon` | String | Emoji rendered by the UI |
-| `color` | String | Hex color for charts |
-| `createdAt` | DateTime | Defaults to `now()` |
+| Model | Notes |
+| --- | --- |
+| `User` | `id Int` (autoincrement PK), `authUserId String @unique` (Supabase Auth UUID), `email String @unique`, `name String?` |
+| `Category` | `@@unique([userId, name])`; every category belongs to a `User` |
+| `Transaction` | Owned via `userId`; links to `Category` and optionally an `Account` |
+| `Budget` | `@@unique([userId, categoryId, month, year])`; per-user per-category monthly limit |
+| `Account` | `@@unique([userId, name])`; wallet/bank/e-wallet with `initialBalance` |
+| `RecurringTransaction` | Owned via `userId`; optionally linked to an `Account` |
+| `RecurringBudget` | Owned via `userId`; rolls into a concrete monthly `Budget` |
+| `Goal` | Owned via `userId`; optionally linked to an `Account` and `Category` |
+| `Notification` | Owned via `userId` |
 
-### Transaction
+### Ownership
 
-| Field | Type | Notes |
-| --- | --- | --- |
-| `id` | Integer | PK, autoincrement |
-| `description` | String | Required, user-facing label |
-| `amount` | Decimal | Always positive; direction determined by `type` |
-| `type` | Enum `TransactionType` | `INCOME` or `EXPENSE` |
-| `categoryId` | Integer | FK → `Category.id` (required) |
-| `date` | DateTime | Transaction date |
-| `note` | String? | Optional free-text note |
-| `createdAt` | DateTime | Defaults to `now()` |
-
-Indexes: `categoryId`, `date`, `type`.
-
-### Budget
-
-| Field | Type | Notes |
-| --- | --- | --- |
-| `id` | Integer | PK, autoincrement |
-| `categoryId` | Integer | FK → `Category.id` |
-| `month` | Integer | 1–12 |
-| `year` | Integer | e.g. 2026 |
-| `amount` | Decimal | Monthly budget limit |
-| `createdAt` | DateTime | Defaults to `now()` |
-
-Uniqueness constraint: `@@unique([categoryId, month, year])` — at most one budget per category per month. Index on `categoryId`.
+- Every financial row carries a `userId` FK → `User.id`.
+- The client never supplies `userId` with authority: ownership is always derived server-side from the authenticated identity (see [Architecture](Architecture.md)).
+- `User.authUserId` uniquely maps the local user to a **Supabase Auth UUID**; `User.email` is unique.
 
 ## Enums
 
-```prisma
-enum TransactionType {
-  INCOME
-  EXPENSE
-}
+Six enums are created in PostgreSQL:
+
+```text
+AccountType      = CASH, BANK, SAVINGS, EWALLET, OTHER
+BudgetFrequency  = MONTHLY, YEARLY
+Frequency        = DAILY, WEEKLY, MONTHLY, YEARLY
+GoalStatus       = IN_PROGRESS, COMPLETED
+NotificationType = RECURRING_DUE, BUDGET_LIMIT, GOAL_DEADLINE
+TransactionType  = INCOME, EXPENSE
 ```
 
-## Seed data
+## Schema shape
 
-The seed (`Backend/prisma/seed.js`) is **explicit and idempotent** (upsert by category name). It inserts the default categories:
-
-| Name | Icon | Color |
-| --- | --- | --- |
-| Food | 🍔 | #F97316 |
-| Transport | 🚗 | #3B82F6 |
-| Shopping | 🛍️ | #EC4899 |
-| Entertainment | 🎮 | #8B5CF6 |
-| Bills | 📄 | #EF4444 |
-| Health | 💊 | #10B981 |
-| Education | 📚 | #06B6D4 |
-| Salary | 💵 | #22C55E |
-| Freelance | 💼 | #F59E0B |
-| Other | 📦 | #6B7280 |
-
-Run it explicitly when needed:
-
-```sh
-cd Backend
-npm run prisma:seed
-```
+- **9 application tables** (`User, Category, Transaction, Budget, Account, RecurringTransaction, RecurringBudget, Goal, Notification`) + Prisma's `_prisma_migrations`.
+- **6 enums** and **16 foreign keys** (every `userId`/`categoryId`/`accountId` reference is enforced).
 
 ## Migrations
 
-- `prisma/migrations/20260901084639_init`: initial schema (all tables above), applied to both the development database and the isolated test databases.
+- Baseline migration: `20260905073013_init_postgres` — applied to production `public` (and, via `prisma migrate deploy`, to the isolated test schemas).
+- SQLite migration history is preserved under `Backend/prisma/migrations_sqlite_backup/` for audit/history only.
 
-## Databases used in this repo
+## Legacy account adoption
 
-| Database | Path | Purpose |
-| --- | --- | --- |
-| Development | `Backend/database/dev.db` | Local dev; baseline is **0 transactions / 0 budgets / 10 categories** after seed |
-| Backend tests | `Backend/database/test.db` | Created on demand via `prisma migrate deploy` with `DATABASE_URL="file:./database/test.db"` |
-| Frontend tests | `Backend/database/test-fe.db` | Created on demand via `prisma migrate deploy` with `DATABASE_URL="file:./database/test-fe.db"` |
-
-Databases live under `Backend/database/` (gitignored). The `DATABASE_URL` used by the app is `file:./database/dev.db`, resolved relative to the `Backend/` folder.
+The legacy User #1 was safely adopted to a real Supabase Auth identity by updating **only** `User #1.authUserId` to the verified Auth UUID (keeping `id = 1`, `email`, and `name` unchanged). No primary keys, ownership, or financial record values were changed. Total application rows: **23** (User 1, Category 10, Transaction 4, Budget 1, Account 5, Goal 2, Recurring* 0, Notification 0).
 
 ## Config notes
 
-- The schema datasource block has **no `url` field**; the URL comes from `DATABASE_URL` in the environment and is wired through `prisma.config.ts`.
+- The schema datasource block has **no `url` field**; the URL comes from `DATABASE_URL` (see `prisma.config.ts`).
 - `prisma.config.ts` holds the datasource url, migration path, and seed command.
-- SQLite requires the better-sqlite3 driver adapter; the Prisma client is constructed with `new PrismaBetterSqlite3({ url: process.env.DATABASE_URL })` in `src/lib/prisma.js`.
+- Runtime driver adapter is `@prisma/adapter-pg`. `src/lib/prisma.js` instantiates `new PrismaPg(DATABASE_URL, { schema })` when the URL has a `?schema=` param (test schemas), otherwise without it (production `public`).
 - `.env` is not auto-loaded: dev scripts use `--env-file=.env`, and `src/lib/prisma.js` calls `dotenv.config()`.
+- Seeding is explicit only (`npx prisma db seed`, idempotent): it reports the legacy-user status; new users receive the default categories automatically on provisioning.
