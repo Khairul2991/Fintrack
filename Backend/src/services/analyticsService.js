@@ -1,6 +1,5 @@
 const { getPrisma, getDecimal } = require('../lib/prisma')
 const { lastNMonthStarts, monthKey, monthRange, currentMonthYear } = require('../utils/date')
-const { getMonthlySeries, getExpenseByCategory } = require('./reportService')
 
 const MONTH_COUNT = 12
 
@@ -16,17 +15,61 @@ async function getAnalytics(userId) {
   const Decimal = await getDecimal()
 
   const starts = lastNMonthStarts(MONTH_COUNT)
-  const months = await getMonthlySeries(prisma, userId, MONTH_COUNT)
+  const { month: curMonth, year: curYear } = currentMonthYear()
+  const currentRange = monthRange(curMonth, curYear)
+
+  const [transactions, budgets] = await Promise.all([
+    prisma.transaction.findMany({
+      where: { userId },
+      select: { id: true, description: true, date: true, type: true, amount: true, categoryId: true },
+    }),
+    prisma.budget.findMany({ where: { month: curMonth, year: curYear, userId } }),
+  ])
+
+  const byMonth = new Map()
+  const spentByCategory = new Map()
+  const spentByCategoryForMonth = new Map()
+
+  let txnTotal = new Decimal(0)
+  let largest = null
+
+  for (const transaction of transactions) {
+    txnTotal = txnTotal.plus(transaction.amount)
+
+    if (!largest || transaction.amount.gt(largest.amount)) {
+      largest = transaction
+    }
+
+    const typeKey = transaction.type === 'INCOME' ? 'income' : 'expense'
+    const key = monthKey(transaction.date)
+    const bucket = byMonth.get(key) || { income: new Decimal(0), expense: new Decimal(0) }
+    bucket[typeKey] = bucket[typeKey].plus(transaction.amount)
+    byMonth.set(key, bucket)
+
+    if (transaction.type === 'EXPENSE') {
+      const currentTotal = spentByCategory.get(transaction.categoryId)
+      spentByCategory.set(transaction.categoryId, currentTotal ? currentTotal.plus(transaction.amount) : new Decimal(transaction.amount))
+      if (transaction.date >= currentRange.gte && transaction.date < currentRange.lt) {
+        const monthTotal = spentByCategoryForMonth.get(transaction.categoryId)
+        spentByCategoryForMonth.set(transaction.categoryId, monthTotal ? monthTotal.plus(transaction.amount) : new Decimal(transaction.amount))
+      }
+    }
+  }
+
+  const months = starts.map((start) => {
+    const bucket = byMonth.get(monthKey(start))
+    return {
+      month: monthKey(start),
+      income: bucket ? bucket.income : new Decimal(0),
+      expense: bucket ? bucket.expense : new Decimal(0),
+    }
+  })
   const withNet = months.map((month) => ({
     ...month,
     net: month.income.minus(month.expense),
   }))
 
-  const transactions = await prisma.transaction.findMany({ where: { userId }, select: { amount: true } })
-  const expenseTransactions = await prisma.transaction.findMany({
-    where: { type: 'EXPENSE', userId },
-    select: { amount: true },
-  })
+  const expenseTransactions = transactions.filter((row) => row.type === 'EXPENSE')
 
   const totalIncome = months.reduce((sum, m) => sum.plus(m.income), new Decimal(0))
   const totalExpense = months.reduce((sum, m) => sum.plus(m.expense), new Decimal(0))
@@ -39,10 +82,34 @@ async function getAnalytics(userId) {
       : new Decimal(0)
 
   const txnCount = transactions.length
-  const txnTotal = transactions.reduce((sum, t) => sum.plus(t.amount), new Decimal(0))
   const avgTransactionAmount = txnCount > 0 ? txnTotal.div(txnCount) : new Decimal(0)
 
-  const expenseByCategory = await getExpenseByCategory(prisma, userId, { take: 5 })
+  const topCategories = [...spentByCategory.entries()]
+    .sort((a, b) => b[1].cmp(a[1]))
+    .slice(0, 5)
+    .map(([categoryId, total]) => ({ categoryId, total }))
+
+  const categoryIds = [
+    ...new Set([
+      ...topCategories.map((entry) => entry.categoryId),
+      ...(largest ? [largest.categoryId] : []),
+    ].filter((id) => id !== null)),
+  ]
+  const categories = categoryIds.length > 0
+    ? await prisma.category.findMany({ where: { userId, id: { in: categoryIds } } })
+    : []
+  const categoriesById = new Map(categories.map((category) => [category.id, category]))
+
+  const expenseByCategory = topCategories.map((entry) => {
+    const category = categoriesById.get(entry.categoryId)
+    return {
+      categoryId: entry.categoryId,
+      name: category ? category.name : '',
+      icon: category ? category.icon : '',
+      color: category ? category.color : '',
+      total: entry.total,
+    }
+  })
   const highest = expenseByCategory.length > 0 ? expenseByCategory[0] : null
   const spendingConcentration = highest ? safePct(highest.total, totalExpense) : 0
 
@@ -59,42 +126,27 @@ async function getAnalytics(userId) {
       : null
 
   let largestTransaction = null
-  const largest = await prisma.transaction.findFirst({
-    where: { userId },
-    orderBy: { amount: 'desc' },
-    include: {
-      category: { select: { id: true, name: true, icon: true, color: true } },
-      account: { select: { id: true, name: true, type: true } },
-    },
-  })
   if (largest) {
+    const largestCategory = largest.categoryId !== null ? categoriesById.get(largest.categoryId) : null
     largestTransaction = {
       id: largest.id,
       description: largest.description,
       amount: largest.amount,
       type: largest.type,
       date: largest.date.toISOString().slice(0, 10),
-      category: largest.category,
+      category: largestCategory || null,
     }
   }
 
-  const { month: curMonth, year: curYear } = currentMonthYear()
-  const budgets = await prisma.budget.findMany({ where: { month: curMonth, year: curYear, userId } })
-  const budgetUtilization = []
-  for (const budget of budgets) {
-    const range = monthRange(curMonth, curYear)
-    const agg = await prisma.transaction.aggregate({
-      where: { userId, type: 'EXPENSE', categoryId: budget.categoryId, date: { gte: range.gte, lt: range.lt } },
-      _sum: { amount: true },
-    })
-    const spent = agg._sum.amount ?? new Decimal(0)
-    budgetUtilization.push({
+  const budgetUtilization = budgets.map((budget) => {
+    const spent = spentByCategoryForMonth.get(budget.categoryId) ?? new Decimal(0)
+    return {
       categoryId: budget.categoryId,
       amount: budget.amount,
       spent,
       utilization: Number(budget.amount) > 0 ? Number(spent) / Number(budget.amount) : 0,
-    })
-  }
+    }
+  })
   const avgBudgetUtilization =
     budgetUtilization.length > 0
       ? budgetUtilization.reduce((sum, b) => sum + b.utilization, 0) / budgetUtilization.length

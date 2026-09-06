@@ -3,7 +3,6 @@ const { monthRange, MIN_YEAR, MAX_YEAR } = require('../utils/date')
 const { integer } = require('../utils/validate')
 const { AppError } = require('../utils/appError')
 const { aiConfig, AI_MAX_INSIGHTS, AI_MIN_INSIGHTS } = require('../utils/aiConfig')
-const { getExpenseByCategory } = require('./reportService')
 const { listGoals } = require('./goalService')
 
 const AI_TYPES = ['spending', 'budget', 'cashflow', 'goal', 'behavior', 'recommendation']
@@ -148,41 +147,70 @@ async function buildContext(userId, month, year) {
   const range = monthRange(month, year)
   const prevRange = monthRange(month - 1 === 0 ? 12 : month - 1, month - 1 === 0 ? year - 1 : year)
 
-  const incomeAgg = await prisma.transaction.aggregate({
-    where: { userId, type: 'INCOME', date: { gte: range.gte, lt: range.lt } },
-    _sum: { amount: true },
-  })
-  const expenseAgg = await prisma.transaction.aggregate({
-    where: { userId, type: 'EXPENSE', date: { gte: range.gte, lt: range.lt } },
-    _sum: { amount: true },
-  })
-  const prevExpenseAgg = await prisma.transaction.aggregate({
-    where: { userId, type: 'EXPENSE', date: { gte: prevRange.gte, lt: prevRange.lt } },
-    _sum: { amount: true },
-  })
-
-  const income = incomeAgg._sum.amount ?? new Decimal(0)
-  const expense = expenseAgg._sum.amount ?? new Decimal(0)
+  const [transactions, prevExpenseAgg, budgets, goals] = await Promise.all([
+    prisma.transaction.findMany({
+      where: { userId, date: { gte: range.gte, lt: range.lt } },
+      select: { amount: true, description: true, type: true, categoryId: true },
+    }),
+    prisma.transaction.aggregate({
+      where: { userId, type: 'EXPENSE', date: { gte: prevRange.gte, lt: prevRange.lt } },
+      _sum: { amount: true },
+    }),
+    prisma.budget.findMany({
+      where: { userId, month, year },
+      include: { category: { select: { id: true, name: true, icon: true, color: true } } },
+    }),
+    listGoals(userId),
+  ])
   const prevExpense = prevExpenseAgg._sum.amount ?? new Decimal(0)
+
+  let income = new Decimal(0)
+  let expense = new Decimal(0)
+  const spentByCategory = new Map()
+  for (const transaction of transactions) {
+    if (transaction.type === 'INCOME') {
+      income = income.plus(transaction.amount)
+    } else {
+      expense = expense.plus(transaction.amount)
+      const currentTotal = spentByCategory.get(transaction.categoryId)
+      spentByCategory.set(transaction.categoryId, currentTotal ? currentTotal.plus(transaction.amount) : new Decimal(transaction.amount))
+    }
+  }
   const net = income.sub(expense)
 
-  const transactionCount = await prisma.transaction.count({
-    where: { userId, date: { gte: range.gte, lt: range.lt } },
+  const transactionCount = transactions.length
+
+  const largestTransactions = [...transactions]
+    .sort((a, b) => b.amount.cmp(a.amount))
+    .slice(0, 3)
+
+  const topCategoryIds = [...spentByCategory.entries()]
+    .sort((a, b) => b[1].cmp(a[1]))
+    .slice(0, 5)
+    .map(([categoryId]) => categoryId)
+
+  const categoryIds = [
+    ...new Set([
+      ...topCategoryIds,
+      ...largestTransactions.map((transaction) => transaction.categoryId),
+    ].filter((id) => id !== null)),
+  ]
+  const categories = categoryIds.length > 0
+    ? await prisma.category.findMany({ where: { userId, id: { in: categoryIds } } })
+    : []
+  const categoriesById = new Map(categories.map((category) => [category.id, category]))
+
+  const topCategories = topCategoryIds.map((categoryId) => {
+    const category = categoriesById.get(categoryId)
+    return {
+      name: category ? category.name : '',
+      total: spentByCategory.get(categoryId),
+    }
   })
 
-  const topCategories = await getExpenseByCategory(prisma, userId, { take: 5, month, year })
-
-  const budgets = await prisma.budget.findMany({
-    where: { userId, month, year },
-    include: { category: { select: { id: true, name: true, icon: true, color: true } } },
-  })
   const budgetStatus = []
   for (const budget of budgets) {
-    const spentAgg = await prisma.transaction.aggregate({
-      where: { userId, type: 'EXPENSE', categoryId: budget.categoryId, date: { gte: range.gte, lt: range.lt } },
-      _sum: { amount: true },
-    })
-    const spent = spentAgg._sum.amount ?? new Decimal(0)
+    const spent = spentByCategory.get(budget.categoryId) ?? new Decimal(0)
     const utilization = Number(budget.amount) > 0 ? Number(spent) / Number(budget.amount) : 0
     let status = 'On Track'
     if (Number(spent) >= Number(budget.amount)) {
@@ -199,24 +227,11 @@ async function buildContext(userId, month, year) {
     })
   }
 
-  const goals = await listGoals(userId)
   const goalSummary = goals.map((goal) => ({
     name: goal.name,
     progress: round(goal.progress),
     status: goal.status,
   }))
-
-  const largestTransactions = await prisma.transaction.findMany({
-    where: { userId, date: { gte: range.gte, lt: range.lt } },
-    orderBy: { amount: 'desc' },
-    take: 3,
-    select: {
-      amount: true,
-      type: true,
-      description: true,
-      category: { select: { name: true } },
-    },
-  })
 
   const expenseChangePercent =
     Number(prevExpense) > 0
@@ -247,7 +262,7 @@ async function buildContext(userId, month, year) {
       description: transaction.description,
       amount: transaction.amount,
       type: transaction.type,
-      category: transaction.category ? transaction.category.name : '',
+      category: transaction.categoryId !== null ? categoriesById.get(transaction.categoryId)?.name || '' : '',
     })),
   }
 }

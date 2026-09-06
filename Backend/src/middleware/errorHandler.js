@@ -31,7 +31,11 @@ function errorHandler(err, req, res, next) {
     }
   }
 
-  console.error(err)
+  if (process.env.NODE_ENV === 'production') {
+    console.error(`[${err.name || 'Error'}] ${err.message}`)
+  } else {
+    console.error(err)
+  }
   res.status(500).json({ success: false, message: 'Unable to process request.' })
 }
 

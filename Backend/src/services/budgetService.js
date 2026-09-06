@@ -36,6 +36,20 @@ async function enrichBudget(prisma, userId, budget) {
   return { ...budget, spent, remaining, progress, status }
 }
 
+async function enrichBudgetWithSpent(budget, spentRaw) {
+  const Decimal = await getDecimal()
+  const spent = spentRaw ?? new Decimal(0)
+  const remaining = budget.amount.minus(spent)
+  const progress = budget.amount.gt(0) ? spent.div(budget.amount).mul(100) : new Decimal(0)
+  let status = 'On Track'
+  if (spent.gte(budget.amount)) {
+    status = 'Over Budget'
+  } else if (progress.gte(80)) {
+    status = 'Near Limit'
+  }
+  return { ...budget, spent, remaining, progress, status }
+}
+
 async function listBudgets(userId, query) {
   const prisma = await getPrisma()
   const where = { userId }
@@ -50,7 +64,35 @@ async function listBudgets(userId, query) {
     orderBy: [{ year: 'desc' }, { month: 'desc' }],
     include: { category: { select: { id: true, name: true, icon: true, color: true } } },
   })
-  return Promise.all(budgets.map((budget) => enrichBudget(prisma, userId, budget)))
+  if (budgets.length === 0) {
+    return []
+  }
+  const minMonth = Math.min(...budgets.map((budget) => budget.month))
+  const minYear = Math.min(...budgets.filter((budget) => budget.month === minMonth).map((budget) => budget.year))
+  const maxMonth = Math.max(...budgets.map((budget) => budget.month))
+  const maxYear = Math.max(...budgets.filter((budget) => budget.month === maxMonth).map((budget) => budget.year))
+  const rangeStart = new Date(Date.UTC(minYear, minMonth - 1, 1))
+  const rangeEnd = new Date(Date.UTC(maxYear, maxMonth, 1))
+  const spentRows = await prisma.transaction.findMany({
+    where: {
+      userId,
+      type: 'EXPENSE',
+      categoryId: { in: [...new Set(budgets.map((budget) => budget.categoryId))] },
+      date: { gte: rangeStart, lt: rangeEnd },
+    },
+    select: { categoryId: true, date: true, amount: true },
+  })
+  const spentByKey = new Map()
+  for (const row of spentRows) {
+    const key = `${row.date.getUTCFullYear()}-${row.date.getUTCMonth() + 1}-${row.categoryId}`
+    const previous = spentByKey.get(key)
+    spentByKey.set(key, previous ? previous.plus(row.amount) : row.amount)
+  }
+  return Promise.all(
+    budgets.map((budget) =>
+      enrichBudgetWithSpent(budget, spentByKey.get(`${budget.year}-${budget.month}-${budget.categoryId}`)),
+    ),
+  )
 }
 
 async function getBudget(userId, id) {

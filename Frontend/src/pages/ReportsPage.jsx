@@ -6,8 +6,7 @@ import CategoryReportChart from '../components/reports/CategoryReportChart'
 import MonthlyComparison from '../components/reports/MonthlyComparison'
 import HighestCategory from '../components/reports/HighestCategory'
 import AnalyticsSection from '../components/analytics/AnalyticsSection'
-import { getCategoryReport, getMonthlyReport } from '../services/reportsApi'
-import { listCategories } from '../services/categoryApi'
+import { getReportOverview } from '../services/reportsApi'
 import { fetchReportPdf, downloadBlob } from '../services/exportApi'
 import { useLanguage } from '../context/LanguageContext'
 
@@ -24,14 +23,14 @@ function ReportsPage() {
 
   useEffect(() => {
     let active = true
-    Promise.all([getMonthlyReport(), getCategoryReport(), listCategories()])
-      .then(([monthly, categoryReport, allCategories]) => {
+    getReportOverview()
+      .then((overview) => {
         if (!active) return
-        setMonths(monthly.data.months)
-        setCategories(categoryReport.data.categories)
-        setHighest(categoryReport.data.highest)
+        setMonths(overview.data.monthly.months)
+        setCategories(overview.data.categoryReport.categories)
+        setHighest(overview.data.categoryReport.highest)
         setCategoryById(
-          Object.fromEntries(allCategories.data.map((category) => [category.id, category])),
+          Object.fromEntries(overview.data.categories.map((category) => [category.id, category])),
         )
         setLoadError('')
         setStatus('ready')

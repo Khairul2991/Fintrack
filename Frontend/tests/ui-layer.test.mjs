@@ -22,7 +22,8 @@ import {
   deleteBudget,
 } from '../src/services/budgetApi.js'
 import { getDashboardSummary } from '../src/services/dashboardApi.js'
-import { getMonthlyReport, getCategoryReport } from '../src/services/reportsApi.js'
+import { getMonthlyReport, getCategoryReport, getReportOverview } from '../src/services/reportsApi.js'
+import { getGoalsOverview } from '../src/services/goalApi.js'
 
 before(async () => {
   await startBackend()
@@ -351,6 +352,28 @@ describe('UI layer - reports', () => {
     assert.equal(res.data.categories[0].name, 'Food')
     assert.equal(res.data.highest.name, 'Food')
     assert.equal(Number(res.data.highest.total), 380000)
+  })
+
+  it('batches monthly report, category report, and categories into one overview call', async () => {
+    const overview = await getReportOverview()
+    assert.equal(overview.data.monthly.months.length, 12)
+    assert.equal(overview.data.monthly.months[11].month, isoDate(currentKeys().curY, currentKeys().curM).slice(0, 7))
+    assert.equal(overview.data.categoryReport.categories.length, 2)
+    assert.equal(overview.data.categoryReport.highest.name, 'Food')
+    assert.equal(overview.data.categories.length, 10)
+  })
+})
+
+describe('UI layer - goals overview', () => {
+  before(async () => {
+    await resetDb()
+  })
+
+  it('batches goals, categories, and accounts into one call', async () => {
+    const overview = await getGoalsOverview()
+    assert.ok(Array.isArray(overview.data.goals))
+    assert.equal(overview.data.categories.length, 10)
+    assert.ok(Array.isArray(overview.data.accounts))
   })
 })
 

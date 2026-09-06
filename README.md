@@ -121,6 +121,52 @@ Behavior and privacy:
 
 No keys are committed; keep `AI_API_KEY` in local `.env` only.
 
+## Production Configuration (Phase 17)
+
+The application is **configured** for production but **not deployed**. Environment variables are supplied by the hosting platform; nothing is hardcoded to a deployment domain.
+
+### Backend production variables (`Backend/.env` / host environment)
+
+| Variable | Purpose | Secret | Required |
+| --- | --- | --- | --- |
+| `DATABASE_URL` | Supabase PostgreSQL connection string (no `?schema=` for production) | Yes | Yes |
+| `SUPABASE_URL` | Supabase project URL (server-side) | No | Yes |
+| `SUPABASE_SECRET_KEY` | Supabase service-role key — server-side only, never in the frontend | Yes | Yes |
+| `PORT` | API port (default `3000`) | No | No |
+| `NODE_ENV` | `production` enables strict CORS and guarded error logging | No | Yes |
+| `FRONTEND_URL` | Comma-separated allowed frontend origins for CORS | No | Yes* |
+| `AI_PROVIDER` | OpenAI-compatible `.../chat/completions` base URL | No | No |
+| `AI_API_KEY` | AI provider bearer token | Yes | No |
+| `AI_MODEL` | AI model name (default `gpt-4o-mini`) | No | No |
+
+\* `FRONTEND_URL` must be set in production whenever the frontend and API are on different origins; if unset, only same-origin requests are allowed.
+
+### Frontend production variables (`Frontend/.env` at **build time**)
+
+| Variable | Purpose | Public | Where it must be configured |
+| --- | --- | --- | --- |
+| `VITE_SUPABASE_URL` | Supabase project URL used by `supabase-js` | Yes | Build env (hosted platform) |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | Supabase anon/publishable key for the browser client | Yes | Build env (hosted platform) |
+| `VITE_API_URL` | Backend API base URL. Unset → `/api` (dev proxy or same-origin) | Yes | Build env when the API is on another origin |
+
+Only public values are allowed in frontend `VITE_*` variables. Backend-only secrets (`SUPABASE_SECRET_KEY`, `AI_API_KEY`, database credentials) must never appear in the frontend bundle. Build with `import.meta.env` values only (they are inlined into the static bundle by Vite).
+
+### Supabase manual production settings
+
+These require the Supabase Dashboard (not source code) and are **pending** until deployment:
+
+- Set the Auth **Site URL** and **Redirect URLs** to the deployed frontend origin.
+- Confirm the app uses the **anon/publishable key** in the frontend and the **service-role key** only in `Backend/.env`.
+- Review the configured email sender so sign-up/verification emails use the production URL and sender identity.
+- When Google OAuth is added (planned, not yet implemented), enable the Google provider and register the redirect URL in the Dashboard.
+
+### Deployment prerequisites (Phase 18)
+
+- Host the backend (Node/Express) and expose it over HTTPS; set all required backend variables.
+- Build the frontend and serve the static bundle; set `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, and `VITE_API_URL` (if cross-origin) at build time.
+- Point `FRONTEND_URL` at the deployed frontend origin and proxy `/api` (or use `VITE_API_URL`) so browser requests reach the API.
+- Apply any pending Supabase Dashboard settings above before production user sign-up.
+
 ## Project Scripts
 
 | Command | Folder | Description |

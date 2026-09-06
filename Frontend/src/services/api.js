@@ -1,4 +1,4 @@
-const API_BASE = '/api'
+const API_BASE = (import.meta.env?.VITE_API_URL || '/api').replace(/\/+$/, '')
 
 let getTokenFn = null
 
@@ -12,6 +12,37 @@ export class ApiError extends Error {
     this.name = 'ApiError'
     this.status = status
   }
+}
+
+const DEFAULT_GET_TTL = 120000
+const LONG_GET_TTL = 300000
+const cache = new Map()
+const inflight = new Map()
+const epochs = new Map()
+
+function getTtl(path) {
+  if (path === '/categories' || path === '/accounts') return LONG_GET_TTL
+  return DEFAULT_GET_TTL
+}
+
+function bucketFor(token) {
+  return token ? token : ''
+}
+
+function invalidateBucket(bucket) {
+  if (!bucket) return
+  epochs.set(bucket, (epochs.get(bucket) || 0) + 1)
+  const prefix = `${bucket}::`
+  for (const key of cache.keys()) {
+    if (key.startsWith(prefix)) cache.delete(key)
+  }
+  for (const key of inflight.keys()) {
+    if (key.startsWith(prefix)) inflight.delete(key)
+  }
+}
+
+function cacheKey(token, path) {
+  return `${bucketFor(token)}::GET:${path}`
 }
 
 async function parseJson(response) {
@@ -29,36 +60,82 @@ async function request(path, options = {}) {
   if (body) {
     headers['Content-Type'] = 'application/json'
   }
+  let token = null
   if (getTokenFn) {
-    const token = await getTokenFn()
+    token = await getTokenFn()
     if (token) {
       headers['Authorization'] = `Bearer ${token}`
     }
   }
 
-  let response
-  try {
-    response = await fetch(`${API_BASE}${path}`, {
-      headers,
-      body: body ? JSON.stringify(body) : undefined,
-      ...rest,
-    })
-  } catch {
-    throw new ApiError('Unable to reach the server. Is the backend running?', 0)
+  const isGet = !rest.method || rest.method === 'GET'
+  const key = isGet && token ? cacheKey(token, path) : null
+
+  if (key) {
+    const hit = cache.get(key)
+    if (hit && hit.expiresAt > Date.now()) {
+      return structuredClone(hit.value)
+    }
+    const pending = inflight.get(key)
+    if (pending) {
+      return pending
+    }
   }
 
-  if (response.status === 401) {
-    throw new ApiError('Session expired. Please log in again.', 401)
+  const serialize = async () => {
+    let response
+    try {
+      response = await fetch(`${API_BASE}${path}`, {
+        headers,
+        body: body ? JSON.stringify(body) : undefined,
+        ...rest,
+      })
+    } catch {
+      throw new ApiError('Unable to reach the server. Is the backend running?', 0)
+    }
+
+    if (response.status === 401) {
+      throw new ApiError('Session expired. Please log in again.', 401)
+    }
+
+    const data = await parseJson(response)
+
+    if (!response.ok) {
+      const message = data && typeof data.message === 'string' ? data.message : 'Something went wrong.'
+      throw new ApiError(message, response.status)
+    }
+
+    if (token) {
+      if (isGet) {
+        cache.set(key, {
+          value: structuredClone(data || {}),
+          expiresAt: Date.now() + getTtl(path),
+        })
+      } else {
+        invalidateBucket(bucketFor(token))
+      }
+    }
+
+    return data || {}
   }
 
-  const data = await parseJson(response)
-
-  if (!response.ok) {
-    const message = data && typeof data.message === 'string' ? data.message : 'Something went wrong.'
-    throw new ApiError(message, response.status)
+  if (key) {
+    const started = epochs.get(bucketFor(token)) || 0
+    const promise = serialize()
+      .then((value) => {
+        if ((epochs.get(bucketFor(token)) || 0) !== started) {
+          cache.delete(key)
+        }
+        return value
+      })
+      .finally(() => {
+        inflight.delete(key)
+      })
+    inflight.set(key, promise)
+    return promise
   }
 
-  return data || {}
+  return serialize()
 }
 
 export function get(path, params) {

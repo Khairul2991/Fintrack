@@ -389,6 +389,15 @@ describe('Goals API', () => {
     const missing = await request(state.base, 'GET', `/goals/${id}`, undefined, { userId: state.testUserId })
     assert.equal(missing.status, 404)
   })
+
+  it('serves an overview that batches goals, categories, and accounts', async () => {
+    const res = await request(state.base, 'GET', '/goals/overview', undefined, { userId: state.testUserId })
+    assert.equal(res.status, 200)
+    assert.ok(Array.isArray(res.data.data.goals))
+    assert.ok(res.data.data.goals.length >= 1)
+    assert.equal(res.data.data.categories.length, 10)
+    assert.ok(Array.isArray(res.data.data.accounts))
+  })
 })
 
 describe('Analytics API', () => {

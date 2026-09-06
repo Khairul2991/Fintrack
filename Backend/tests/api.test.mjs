@@ -632,6 +632,16 @@ describe('Reports API', () => {
     assert.equal(res.data.data.highest.name, 'Food')
     assert.equal(Number(res.data.data.highest.total), 530000)
   })
+
+  it('serves an overview that batches monthly report, categories report, and category list', async () => {
+    const res = await request(state.base, 'GET', '/reports/overview', undefined, { userId: state.testUserId })
+    assert.equal(res.status, 200)
+    assert.equal(res.data.data.monthly.months.length, 12)
+    assert.equal(res.data.data.categoryReport.categories.length, 2)
+    assert.equal(res.data.data.categoryReport.highest.name, 'Food')
+    assert.ok(Array.isArray(res.data.data.categories))
+    assert.equal(res.data.data.categories.length, 10)
+  })
 })
 
 function SEED_PAYLOAD(name) {

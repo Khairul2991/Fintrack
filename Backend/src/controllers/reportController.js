@@ -1,6 +1,17 @@
 const { success } = require('../utils/apiResponse')
 const reportService = require('../services/reportService')
+const { listCategories } = require('../services/categoryService')
 const { generateReportPdf } = require('../services/pdfService')
+
+async function getReportOverview(req, res) {
+  const userId = req.user.id
+  const [monthly, categoryReport, categories] = await Promise.all([
+    reportService.getMonthlyReport(userId),
+    reportService.getCategoryReport(userId),
+    listCategories(userId),
+  ])
+  success(res, { monthly, categoryReport, categories })
+}
 
 async function getMonthlyReport(req, res) {
   success(res, await reportService.getMonthlyReport(req.user.id))
@@ -19,4 +30,4 @@ async function downloadPdf(req, res) {
   res.send(pdf)
 }
 
-module.exports = { getMonthlyReport, getCategoryReport, downloadPdf }
+module.exports = { getReportOverview, getMonthlyReport, getCategoryReport, downloadPdf }

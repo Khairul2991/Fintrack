@@ -100,17 +100,19 @@ async function listTransactions(userId, query) {
   const page = query.page ? integer(query.page, 'page', { min: 1 }) : 1
   const limit = query.limit ? integer(query.limit, 'limit', { min: 1, max: 100 }) : 10
 
-  const total = await prisma.transaction.count({ where })
-  const data = await prisma.transaction.findMany({
-    where,
-    orderBy: { [sortBy]: sortOrder },
-    skip: (page - 1) * limit,
-    take: limit,
-    include: {
-      category: { select: { id: true, name: true, icon: true, color: true } },
-      account: { select: { id: true, name: true, type: true } },
-    },
-  })
+  const [total, data] = await Promise.all([
+    prisma.transaction.count({ where }),
+    prisma.transaction.findMany({
+      where,
+      orderBy: { [sortBy]: sortOrder },
+      skip: (page - 1) * limit,
+      take: limit,
+      include: {
+        category: { select: { id: true, name: true, icon: true, color: true } },
+        account: { select: { id: true, name: true, type: true } },
+      },
+    }),
+  ])
 
   return { data, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } }
 }

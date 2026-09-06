@@ -52,7 +52,30 @@ async function enrichBalance(prisma, userId, account) {
 async function listAccounts(userId) {
   const prisma = await getPrisma()
   const accounts = await prisma.account.findMany({ where: { userId }, orderBy: { name: 'asc' } })
-  return Promise.all(accounts.map((account) => enrichBalance(prisma, userId, account)))
+  if (accounts.length === 0) {
+    return []
+  }
+  const Decimal = await getDecimal()
+  const totals = await prisma.transaction.groupBy({
+    by: ['accountId', 'type'],
+    where: { userId, accountId: { in: accounts.map((account) => account.id) } },
+    _sum: { amount: true },
+  })
+  const byAccount = new Map()
+  for (const row of totals) {
+    const entry = byAccount.get(row.accountId) || { income: new Decimal(0), expense: new Decimal(0) }
+    if (row.type === 'INCOME') {
+      entry.income = row._sum.amount ?? new Decimal(0)
+    } else {
+      entry.expense = row._sum.amount ?? new Decimal(0)
+    }
+    byAccount.set(row.accountId, entry)
+  }
+  return accounts.map((account) => {
+    const totalsFor = byAccount.get(account.id) || { income: new Decimal(0), expense: new Decimal(0) }
+    const balance = new Decimal(account.initialBalance).plus(totalsFor.income).minus(totalsFor.expense)
+    return { ...account, income: totalsFor.income, expense: totalsFor.expense, balance }
+  })
 }
 
 async function getAccount(userId, id) {

@@ -3,6 +3,7 @@ const reportController = require('../controllers/reportController')
 
 const router = Router()
 
+router.get('/overview', reportController.getReportOverview)
 router.get('/monthly', reportController.getMonthlyReport)
 router.get('/categories', reportController.getCategoryReport)
 router.get('/pdf', reportController.downloadPdf)

@@ -4,6 +4,10 @@ export function listGoals() {
   return get('/goals')
 }
 
+export function getGoalsOverview() {
+  return get('/goals/overview')
+}
+
 export function getGoal(id) {
   return get(`/goals/${id}`)
 }

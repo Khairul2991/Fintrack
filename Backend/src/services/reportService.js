@@ -6,23 +6,34 @@ const MONTH_COUNT = 12
 async function getMonthlySeries(prisma, userId, count) {
   const Decimal = await getDecimal()
   const starts = lastNMonthStarts(count)
-  const rows = []
-  for (const start of starts) {
-    const end = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, 1))
-    const grouped = await prisma.transaction.groupBy({
-      by: ['type'],
-      where: { userId, date: { gte: start, lt: end } },
-      _sum: { amount: true },
-    })
-    const incomeRow = grouped.find((row) => row.type === 'INCOME')
-    const expenseRow = grouped.find((row) => row.type === 'EXPENSE')
-    rows.push({
-      month: monthKey(start),
-      income: incomeRow ? incomeRow._sum.amount : new Decimal(0),
-      expense: expenseRow ? expenseRow._sum.amount : new Decimal(0),
-    })
+  const rangeEnd = new Date(Date.UTC(
+    starts[starts.length - 1].getUTCFullYear(),
+    starts[starts.length - 1].getUTCMonth() + 1,
+    1,
+  ))
+  const transactions = await prisma.transaction.findMany({
+    where: { userId, date: { gte: starts[0], lt: rangeEnd } },
+    select: { date: true, type: true, amount: true },
+  })
+  const buckets = new Map()
+  for (const row of transactions) {
+    const key = `${row.date.getUTCFullYear()}-${String(row.date.getUTCMonth() + 1).padStart(2, '0')}`
+    const bucket = buckets.get(key) || { income: new Decimal(0), expense: new Decimal(0) }
+    if (row.type === 'INCOME') {
+      bucket.income = bucket.income.plus(row.amount)
+    } else {
+      bucket.expense = bucket.expense.plus(row.amount)
+    }
+    buckets.set(key, bucket)
   }
-  return rows
+  return starts.map((start) => {
+    const bucket = buckets.get(monthKey(start))
+    return {
+      month: monthKey(start),
+      income: bucket ? bucket.income : new Decimal(0),
+      expense: bucket ? bucket.expense : new Decimal(0),
+    }
+  })
 }
 
 async function getExpenseByCategory(prisma, userId, { take = null, month = null, year = null } = {}) {

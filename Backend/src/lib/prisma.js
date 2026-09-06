@@ -21,13 +21,25 @@ function schemaFromUrl(url) {
   return new URLSearchParams(url.slice(qIndex + 1)).get('schema') || undefined
 }
 
+const POOL_CONFIG = {
+  max: 5,
+  idleTimeoutMillis: 60000,
+  connectionTimeoutMillis: 10000,
+  keepAlive: true,
+}
+
+function buildPoolConfig(url) {
+  return { ...POOL_CONFIG, connectionString: url }
+}
+
 function getPrisma() {
   if (!prismaPromise) {
     prismaPromise = import('../generated/prisma/client.mts').then(({ PrismaClient }) => {
       const schema = schemaFromUrl(process.env.DATABASE_URL)
+      const poolConfig = buildPoolConfig(process.env.DATABASE_URL)
       const adapter = schema
-        ? new PrismaPg(process.env.DATABASE_URL, { schema })
-        : new PrismaPg(process.env.DATABASE_URL)
+        ? new PrismaPg(poolConfig, { schema })
+        : new PrismaPg(poolConfig)
       return new PrismaClient({ adapter })
     })
   }

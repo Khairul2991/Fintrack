@@ -7,12 +7,10 @@ import MoneyInput from '../components/common/MoneyInput'
 import GoalForm from '../components/goals/GoalForm'
 import { useToast } from '../context/ToastContext'
 import { useLanguage } from '../context/LanguageContext'
-import { listCategories } from '../services/categoryApi'
-import { listAccounts } from '../services/accountApi'
 import {
   createGoal,
   deleteGoal,
-  listGoals,
+  getGoalsOverview,
   updateGoal,
   updateGoalProgress,
 } from '../services/goalApi'
@@ -151,39 +149,13 @@ function GoalsPage() {
   const [deleting, setDeleting] = useState(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
 
-  useEffect(() => {
-    let active = true
-    listCategories()
-      .then((response) => {
-        if (active) setCategories(response.data)
-      })
-      .catch(() => {
-        if (active) setCategories([])
-      })
-    return () => {
-      active = false
-    }
-  }, [])
-
-  useEffect(() => {
-    let active = true
-    listAccounts()
-      .then((response) => {
-        if (active) setAccounts(response.data)
-      })
-      .catch(() => {
-        if (active) setAccounts([])
-      })
-    return () => {
-      active = false
-    }
-  }, [])
-
   const loadGoals = useCallback(() => {
-    listGoals()
+    getGoalsOverview()
       .then((response) => {
         setLoadError('')
-        setGoals(response.data)
+        setGoals(response.data.goals)
+        setCategories(response.data.categories)
+        setAccounts(response.data.accounts)
         setStatus('ready')
       })
       .catch((error) => {

@@ -1,6 +1,18 @@
 const { success } = require('../utils/apiResponse')
 const { integer } = require('../utils/validate')
 const goalService = require('../services/goalService')
+const { listCategories } = require('../services/categoryService')
+const { listAccounts } = require('../services/accountService')
+
+async function getGoalsOverview(req, res) {
+  const userId = req.user.id
+  const [goals, categories, accounts] = await Promise.all([
+    goalService.listGoals(userId),
+    listCategories(userId),
+    listAccounts(userId),
+  ])
+  success(res, { goals, categories, accounts })
+}
 
 async function listGoals(req, res) {
   const goals = await goalService.listGoals(req.user.id)
@@ -33,6 +45,7 @@ async function deleteGoal(req, res) {
 }
 
 module.exports = {
+  getGoalsOverview,
   listGoals,
   getGoal,
   createGoal,

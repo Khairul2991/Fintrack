@@ -17,9 +17,11 @@ const notificationRoutes = require('./routes/notifications')
 const { requireAuth } = require('./middleware/requireAuth')
 const { notFound } = require('./middleware/notFound')
 const { errorHandler } = require('./middleware/errorHandler')
+const { corsMiddleware } = require('./middleware/cors')
 
 const app = express()
 
+app.use(corsMiddleware)
 app.use(express.json())
 
 app.use('/api', apiRoutes)
