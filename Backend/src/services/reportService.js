@@ -53,7 +53,7 @@ async function getExpenseByCategory(prisma, userId, { take = null, month = null,
     return []
   }
   const categories = await prisma.category.findMany({
-    where: { id: { in: grouped.map((row) => row.categoryId) }, userId },
+    where: { id: { in: grouped.map((row) => row.categoryId) }, OR: [{ isSystem: true }, { userId }] },
   })
   const byId = new Map(categories.map((category) => [category.id, category]))
   return grouped.map((row) => {

@@ -427,6 +427,7 @@ function TransactionsPage() {
           <>
             <TransactionTable
               transactions={transactions}
+              accounts={accounts}
               onEdit={openEdit}
               onDelete={setDeleting}
             />

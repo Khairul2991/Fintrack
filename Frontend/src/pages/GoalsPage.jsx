@@ -16,6 +16,7 @@ import {
 } from '../services/goalApi'
 import { formatCurrency, formatDate } from '../utils/format'
 import { isAmountOverLimit } from '../utils/numberFormat'
+import { accountDisplayName } from '../utils/accountDisplay'
 
 function EditIcon() {
   return (
@@ -58,7 +59,7 @@ function TrashIcon() {
 }
 
 function GoalProgressDialog({ goal, onCancel, onSave }) {
-  const { t } = useLanguage()
+  const { t, translateError } = useLanguage()
   const [value, setValue] = useState(goal.currentAmount)
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -83,7 +84,7 @@ function GoalProgressDialog({ goal, onCancel, onSave }) {
     try {
       await onSave(value)
     } catch (err) {
-      setError(err.message || t('common.genericError'))
+      setError(translateError(err.message) || t('common.genericError'))
       setSubmitting(false)
     }
   }
@@ -276,7 +277,7 @@ function GoalsPage() {
                       <p className="text-xs text-base-content/50">
                         {goal.category ? localizeCategory(goal.category) : ''}
                         {goal.category && goal.account ? ' · ' : ''}
-                        {goal.account ? goal.account.name : ''}
+                        {goal.account ? accountDisplayName(goal.account, t) : ''}
                       </p>
                     </div>
                     {completed ? (

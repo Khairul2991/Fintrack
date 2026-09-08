@@ -1,9 +1,10 @@
-import { useEffect } from 'react'
-import { Navigate, Outlet, Routes, Route } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { Navigate, Outlet, Routes, Route, useNavigate } from 'react-router-dom'
 import AppLayout from './layouts/AppLayout'
 import LanguageProvider from './components/common/LanguageProvider'
 import ToastProvider from './components/common/ToastProvider'
 import { AuthProvider, useAuth } from './context/AuthContext'
+import { useLanguage } from './context/LanguageContext'
 import { setTokenProvider } from './services/api'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
@@ -30,7 +31,25 @@ function TokenBridge() {
 }
 
 function ProtectedRoute() {
-  const { user, loading } = useAuth()
+  const { user, loading, authFailed, logout, retryProvision } = useAuth()
+  const { t } = useLanguage()
+  const navigate = useNavigate()
+  const [exiting, setExiting] = useState(false)
+  const exitingRef = useRef(false)
+
+  const handleExit = async () => {
+    if (exitingRef.current) return
+    exitingRef.current = true
+    setExiting(true)
+    try {
+      await logout()
+    } catch {
+      // local state/cache already cleared by logout(); ignore signOut failure
+    }
+    navigate('/login', { replace: true })
+    setExiting(false)
+  }
+
   if (loading) {
     return (
       <div className="flex min-h-dvh items-center justify-center">
@@ -38,7 +57,29 @@ function ProtectedRoute() {
       </div>
     )
   }
-  return user ? <Outlet /> : <Navigate to="/login" replace />
+  if (!user) return <Navigate to="/login" replace />
+  if (authFailed) {
+    return (
+      <div className="flex min-h-dvh items-center justify-center px-4">
+        <div className="card w-full max-w-sm bg-base-100 shadow-md">
+          <div className="card-body">
+            <div role="alert" className="alert alert-error">
+              <span>{t('auth.initError')}</span>
+            </div>
+            <div className="mt-2 flex flex-col gap-2">
+              <button type="button" className="btn btn-primary" disabled={exiting} onClick={retryProvision}>
+                {t('common.retry')}
+              </button>
+              <button type="button" className="btn btn-outline btn-error" disabled={exiting} onClick={handleExit}>
+                {t('common.exit')}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+  return <Outlet />
 }
 
 function PublicRoute() {

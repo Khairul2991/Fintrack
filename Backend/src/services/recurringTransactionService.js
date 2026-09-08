@@ -3,7 +3,7 @@ const { getPrisma } = require('../lib/prisma')
 const { requireText, amountString, integer } = require('../utils/validate')
 const { parseDateOnly } = require('../utils/date')
 const { ensureCategoryExists } = require('./categoryService')
-const { ensureAccountExists } = require('./accountService')
+const { ensureAccountExists, ensureCashAccount } = require('./accountService')
 
 const DESCRIPTION_MAX = 200
 const NOTE_MAX = 500
@@ -86,6 +86,11 @@ function parseRecurringInput(body) {
 async function generateDueTransactions(prisma, userId, item, today) {
   let generated = 0
   let next = new Date(item.nextOccurrence)
+  let accountId = item.accountId
+  if (!accountId) {
+    const cash = await ensureCashAccount(prisma, userId)
+    accountId = cash.id
+  }
   const owned = []
   if (item.endDate && next.getTime() > item.endDate.getTime()) {
     await prisma.recurringTransaction.update({
@@ -102,9 +107,10 @@ async function generateDueTransactions(prisma, userId, item, today) {
       amount: item.amount,
       type: item.type,
       categoryId: item.categoryId,
-      accountId: item.accountId,
+      accountId,
       date: next,
       note: item.note,
+      recurringTransactionId: item.id,
     })
     next = addFrequency(next, item.frequency)
     generated += 1
@@ -185,9 +191,11 @@ async function createRecurringTransaction(userId, body, { active } = {}) {
   const prisma = await getPrisma()
   const input = parseRecurringInput(body)
   await ensureCategoryExists(prisma, userId, input.categoryId, 400)
-  if (input.accountId) {
-    await ensureAccountExists(prisma, userId, input.accountId, 400)
+  if (!input.accountId) {
+    const cash = await ensureCashAccount(prisma, userId)
+    input.accountId = cash.id
   }
+  await ensureAccountExists(prisma, userId, input.accountId, 400)
   let next = firstOccurrenceOnOrAfter(input.startDate)
   if (input.endDate && next.getTime() > input.endDate.getTime()) {
     throw new AppError('Start date must be before the end date.', 400)
@@ -210,18 +218,28 @@ async function updateRecurringTransaction(userId, id, body) {
   }
   const input = parseRecurringInput(body)
   await ensureCategoryExists(prisma, userId, input.categoryId, 400)
-  if (input.accountId) {
-    await ensureAccountExists(prisma, userId, input.accountId, 400)
+  if (!input.accountId) {
+    const cash = await ensureCashAccount(prisma, userId)
+    input.accountId = cash.id
   }
+  await ensureAccountExists(prisma, userId, input.accountId, 400)
   const merge = { ...existing, ...input }
-  let next = firstOccurrenceOnOrAfter(input.startDate)
-  if (merge.endDate && next.getTime() > merge.endDate.getTime()) {
+  const candidate = firstOccurrenceOnOrAfter(input.startDate)
+  if (merge.endDate && candidate.getTime() > merge.endDate.getTime()) {
     throw new AppError('Start date must be before the end date.', 400)
   }
+  const currentNext = new Date(existing.nextOccurrence)
+  const next = candidate.getTime() > currentNext.getTime() ? candidate : currentNext
   const item = await prisma.recurringTransaction.update({
     where: { id },
     data: { ...input, nextOccurrence: next },
   })
+  if (String(existing.amount) !== input.amount) {
+    await prisma.transaction.updateMany({
+      where: { userId, recurringTransactionId: id },
+      data: { amount: input.amount },
+    })
+  }
   return getRecurringTransaction(userId, item.id)
 }
 

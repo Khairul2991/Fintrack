@@ -3,7 +3,7 @@ const { getPrisma } = require('../lib/prisma')
 const { requireText, integer, amountString } = require('../utils/validate')
 const { parseDateOnly } = require('../utils/date')
 const { ensureCategoryExists } = require('./categoryService')
-const { ensureAccountExists } = require('./accountService')
+const { ensureAccountExists, ensureCashAccount } = require('./accountService')
 
 const DESCRIPTION_MAX = 200
 const NOTE_MAX = 500
@@ -136,17 +136,36 @@ async function ensureCategoryOwnedBy(prisma, userId, categoryId) {
   await ensureCategoryExists(prisma, userId, categoryId, 400)
 }
 
+async function ensureCategoryTypeMatches(prisma, categoryId, type) {
+  const category = await prisma.category.findUnique({
+    where: { id: categoryId },
+    select: { id: true, type: true },
+  })
+  if (category && category.type !== type) {
+    throw new AppError('Category type must match the transaction type.', 400)
+  }
+}
+
 async function ensureAccountOwnedBy(prisma, userId, accountId) {
   await ensureAccountExists(prisma, userId, accountId, 400)
+}
+
+async function resolveAccountId(prisma, userId, accountId) {
+  let resolved = accountId
+  if (!resolved) {
+    const cash = await ensureCashAccount(prisma, userId)
+    resolved = cash.id
+  }
+  await ensureAccountExists(prisma, userId, resolved, 400)
+  return resolved
 }
 
 async function createTransaction(userId, body) {
   const prisma = await getPrisma()
   const input = parseTransactionInput(body)
   await ensureCategoryExists(prisma, userId, input.categoryId, 400)
-  if (input.accountId) {
-    await ensureAccountExists(prisma, userId, input.accountId, 400)
-  }
+  await ensureCategoryTypeMatches(prisma, input.categoryId, input.type)
+  input.accountId = await resolveAccountId(prisma, userId, input.accountId)
   return prisma.transaction.create({ data: { ...input, userId } })
 }
 
@@ -155,9 +174,8 @@ async function updateTransaction(userId, id, body) {
   await getTransaction(userId, id)
   const input = parseTransactionInput(body)
   await ensureCategoryExists(prisma, userId, input.categoryId, 400)
-  if (input.accountId) {
-    await ensureAccountExists(prisma, userId, input.accountId, 400)
-  }
+  await ensureCategoryTypeMatches(prisma, input.categoryId, input.type)
+  input.accountId = await resolveAccountId(prisma, userId, input.accountId)
   return prisma.transaction.update({ where: { id }, data: input })
 }
 

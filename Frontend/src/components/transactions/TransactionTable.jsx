@@ -1,5 +1,7 @@
+import { useMemo } from 'react'
 import { formatCurrency, formatDate } from '../../utils/format'
 import { useLanguage } from '../../context/LanguageContext'
+import { accountDisplayName } from '../../utils/accountDisplay'
 
 function EditIcon() {
   return (
@@ -41,8 +43,12 @@ function TrashIcon() {
   )
 }
 
-function TransactionTable({ transactions, onEdit, onDelete }) {
+function TransactionTable({ transactions, onEdit, onDelete, accounts = [] }) {
   const { t, localizeCategory } = useLanguage()
+  const accountById = useMemo(
+    () => new Map(accounts.map((account) => [account.id, account])),
+    [accounts],
+  )
   return (
     <div className="overflow-x-auto">
       <table className="table">
@@ -62,7 +68,11 @@ function TransactionTable({ transactions, onEdit, onDelete }) {
           </tr>
         </thead>
         <tbody>
-          {transactions.map((transaction) => (
+          {transactions.map((transaction) => {
+            const account = transaction.account
+              ? accountById.get(transaction.account.id) ?? transaction.account
+              : null
+            return (
             <tr key={transaction.id} className="hover">
               <td className="whitespace-nowrap text-sm text-base-content/70">
                 {formatDate(transaction.date)}
@@ -80,7 +90,7 @@ function TransactionTable({ transactions, onEdit, onDelete }) {
                 </span>
               </td>
               <td className="whitespace-nowrap text-sm text-base-content/70">
-                {transaction.account ? transaction.account.name : '—'}
+                {account ? accountDisplayName(account, t) : '—'}
               </td>
               <td>
                 <div className="font-medium text-sm">{transaction.description}</div>
@@ -128,7 +138,8 @@ function TransactionTable({ transactions, onEdit, onDelete }) {
                 </div>
               </td>
             </tr>
-          ))}
+            )
+          })}
         </tbody>
       </table>
     </div>

@@ -3,12 +3,17 @@ import { useNavigate } from 'react-router-dom'
 import { Brand, BrandMark, SidebarNav } from './Sidebar'
 import { useAuth } from '../context/AuthContext'
 import { useLanguage } from '../context/LanguageContext'
+import ConfirmDialog from '../components/common/ConfirmDialog'
+import { UserIcon, LogoutIcon } from '../components/common/Icons'
+import { clearCache } from '../services/api'
 
 function MobileNavigation() {
   const { t } = useLanguage()
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
+  const [confirmLogout, setConfirmLogout] = useState(false)
+  const [loggingOut, setLoggingOut] = useState(false)
 
   useEffect(() => {
     if (!open) return
@@ -95,27 +100,40 @@ function MobileNavigation() {
         </div>
         <div className="border-t border-base-200 px-4 py-3">
           {user && (
-            <div className="flex items-center gap-2 mb-2">
-              <div className="avatar placeholder">
-                <div className="bg-primary text-primary-content rounded-full w-8">
-                  <span className="text-xs">{(user.email || '?')[0].toUpperCase()}</span>
-                </div>
+            <div className="flex items-center gap-2 px-1 mb-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-content">
+                <UserIcon className="h-6 w-6 text-primary-content" />
               </div>
               <span className="truncate text-xs text-base-content/60">{user.email}</span>
             </div>
           )}
           <button
-            className="btn btn-ghost btn-xs w-full justify-start text-error/80 hover:text-error"
-            onClick={async () => {
+            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-error/80 transition-colors hover:bg-error/10 hover:text-error focus-visible:outline-2 focus-visible:outline-error"
+            onClick={() => {
               setOpen(false)
-              await logout()
-              navigate('/login')
+              setConfirmLogout(true)
             }}
           >
+            <LogoutIcon className="h-5 w-5 shrink-0" />
             {t('auth.logoutButton')}
           </button>
         </div>
       </nav>
+      {confirmLogout && (
+        <ConfirmDialog
+          title={t('auth.logoutTitle')}
+          message={t('auth.logoutDesc')}
+          confirmLabel={t('auth.logoutButton')}
+          loading={loggingOut}
+          onCancel={() => setConfirmLogout(false)}
+          onConfirm={async () => {
+            setLoggingOut(true)
+            await logout()
+            clearCache()
+            navigate('/login')
+          }}
+        />
+      )}
     </>
   )
 }

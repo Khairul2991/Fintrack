@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import MoneyInput from '../common/MoneyInput'
 import { useLanguage } from '../../context/LanguageContext'
 import { isAmountOverLimit } from '../../utils/numberFormat'
+import { sortCategoriesForDisplay } from '../../l10n/categories'
 
 const MIN_YEAR = 2000
 const MAX_YEAR = 2100
@@ -21,7 +22,8 @@ function initialForm(budget) {
 }
 
 function BudgetForm({ budget, categories, onCancel, onSave }) {
-  const { t, localizeCategory } = useLanguage()
+  const { t, localizeCategory, translateError } = useLanguage()
+  const sortedCategories = sortCategoriesForDisplay(categories, localizeCategory)
   const [form, setForm] = useState(() => initialForm(budget))
   const [errors, setErrors] = useState({})
   const [submitError, setSubmitError] = useState('')
@@ -92,7 +94,7 @@ function BudgetForm({ budget, categories, onCancel, onSave }) {
         amount: form.amount,
       })
     } catch (error) {
-      setSubmitError(error.message || t('common.genericError'))
+      setSubmitError(translateError(error.message) || t('common.genericError'))
       setSubmitting(false)
     }
   }
@@ -125,7 +127,7 @@ function BudgetForm({ budget, categories, onCancel, onSave }) {
               autoFocus
             >
               <option value="">{t('budf.selectCategory')}</option>
-              {categories.map((category) => (
+              {sortedCategories.map((category) => (
                 <option key={category.id} value={category.id}>
                   {category.icon} {localizeCategory(category)}
                 </option>

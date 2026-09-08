@@ -2508,7 +2508,7 @@ Implemented:
 
 # 50. Next Development Roadmap
 
-## Phase 14 — Authentication Foundation
+## Phase 14 — Authentication Foundation — COMPLETED
 
 Goals:
 
@@ -2527,7 +2527,7 @@ Database ownership design must be finalized before implementation.
 
 ---
 
-## Phase 15 — Multi-user & Authorization
+## Phase 15 — Multi-user & Authorization — COMPLETED
 
 Goals:
 
@@ -2547,7 +2547,7 @@ This phase is security-critical.
 
 ---
 
-## Phase 16 — PostgreSQL Migration
+## Phase 16 — PostgreSQL Migration — COMPLETED
 
 Goals:
 
@@ -2564,7 +2564,7 @@ SQLite must not remain the production multi-user database.
 
 ---
 
-## Phase 17 — Production Configuration
+## Phase 17 — Production Configuration — COMPLETED
 
 Goals:
 

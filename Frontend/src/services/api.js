@@ -6,6 +6,12 @@ export function setTokenProvider(fn) {
   getTokenFn = fn
 }
 
+export function clearCache() {
+  cache.clear()
+  inflight.clear()
+  epochs.clear()
+}
+
 export class ApiError extends Error {
   constructor(message, status) {
     super(message)

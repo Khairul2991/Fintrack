@@ -108,7 +108,7 @@ async function getSummary(userId) {
     ].filter((id) => id !== null)),
   ]
   const categories = categoryIds.length > 0
-    ? await prisma.category.findMany({ where: { userId, id: { in: categoryIds } } })
+    ? await prisma.category.findMany({ where: { id: { in: categoryIds }, OR: [{ isSystem: true }, { userId }] } })
     : []
   const categoriesById = new Map(categories.map((category) => [category.id, category]))
 
@@ -155,8 +155,10 @@ async function getSummary(userId) {
     return { ...account, income: totals.income, expense: totals.expense, balance }
   })
 
+  const balance = accountList.reduce((sum, account) => sum.plus(account.balance), new Decimal(0))
+
   return {
-    summary: { balance: income.minus(expense), income, expense },
+    summary: { balance, income, expense },
     accounts: accountList,
     recentTransactions: recentWithCategory,
     monthlySeries,

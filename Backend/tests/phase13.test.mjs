@@ -133,6 +133,62 @@ describe('Accounts API', () => {
     assert.equal(blocked.status, 409)
     assert.equal(blocked.data.message, 'This account cannot be deleted because it is currently in use.')
   })
+
+  it('keeps account balance consistent across transaction create, edit, and delete', async () => {
+    const accounts = (await request(state.base, 'GET', '/accounts', undefined, { userId: state.testUserId })).data.data
+    const account = accounts.find((a) => a.name === 'Main Bank')
+    const salary = (await getCategories(state.base, state.testUserId)).find((c) => c.name === 'Salary')
+
+    const created = await request(state.base, 'POST', '/transactions', {
+      description: 'freelance',
+      amount: '300000',
+      type: 'INCOME',
+      categoryId: salary.id,
+      accountId: account.id,
+      date: isoDate(2026, 9, 10),
+    }, { userId: state.testUserId })
+    assert.equal(created.status, 201)
+    const txId = created.data.data.id
+
+    const afterCreate = (await request(state.base, 'GET', `/accounts/${account.id}`, undefined, { userId: state.testUserId })).data.data
+    assert.equal(Number(afterCreate.balance), 1200000)
+
+    await request(state.base, 'PUT', `/transactions/${txId}`, {
+      description: 'freelance',
+      amount: '100000',
+      type: 'INCOME',
+      categoryId: salary.id,
+      accountId: account.id,
+      date: isoDate(2026, 9, 10),
+    }, { userId: state.testUserId })
+    const afterEdit = (await request(state.base, 'GET', `/accounts/${account.id}`, undefined, { userId: state.testUserId })).data.data
+    assert.equal(Number(afterEdit.balance), 1000000)
+
+    await request(state.base, 'DELETE', `/transactions/${txId}`, undefined, { userId: state.testUserId })
+    const afterDelete = (await request(state.base, 'GET', `/accounts/${account.id}`, undefined, { userId: state.testUserId })).data.data
+    assert.equal(Number(afterDelete.balance), 900000)
+  })
+
+  it('creates an account with zero initial balance', async () => {
+    const res = await request(state.base, 'POST', '/accounts', {
+      name: 'Zero Balance',
+      type: 'CASH',
+      initialBalance: '0',
+    }, { userId: state.testUserId })
+    assert.equal(res.status, 201)
+    assert.equal(res.data.data.initialBalance, '0')
+    assert.equal(res.data.data.balance, '0')
+  })
+
+  it('rejects an account with a duplicate name for the same user', async () => {
+    const res = await request(state.base, 'POST', '/accounts', {
+      name: 'Main Bank',
+      type: 'BANK',
+      initialBalance: '5000',
+    }, { userId: state.testUserId })
+    assert.equal(res.status, 409)
+    assert.equal(res.data.message, 'An account with this name already exists.')
+  })
 })
 
 describe('Recurring Transactions API', () => {

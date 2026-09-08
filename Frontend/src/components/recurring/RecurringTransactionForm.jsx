@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import MoneyInput from '../common/MoneyInput'
 import { useLanguage } from '../../context/LanguageContext'
 import { isAmountOverLimit } from '../../utils/numberFormat'
+import { accountDisplayName, sortAccountsDefaultFirst } from '../../utils/accountDisplay'
+import { sortCategoriesForDisplay } from '../../l10n/categories'
 
 const DESCRIPTION_MAX = 200
 const NOTE_MAX = 200
@@ -12,14 +14,16 @@ function todayInput() {
   return new Date().toISOString().slice(0, 10)
 }
 
-function initialForm(recurring, categories) {
+function initialForm(recurring, categories, accounts) {
+  const cashDefault = accounts.find((account) => account.isDefault)
   if (!recurring) {
+    const expenseCategories = categories.filter((category) => category.type === 'EXPENSE')
     return {
       description: '',
       amount: '',
       type: 'EXPENSE',
-      categoryId: categories.length > 0 ? String(categories[0].id) : '',
-      accountId: '',
+      categoryId: expenseCategories.length > 0 ? String(expenseCategories[0].id) : '',
+      accountId: cashDefault ? String(cashDefault.id) : '',
       frequency: '',
       startDate: todayInput(),
       endDate: '',
@@ -46,8 +50,14 @@ function RecurringTransactionForm({
   onCancel,
   onSave,
 }) {
-  const { t, localizeCategory } = useLanguage()
-  const [form, setForm] = useState(() => initialForm(recurring, categories))
+  const { t, localizeCategory, translateError } = useLanguage()
+  const defaultAccount = accounts.find((account) => account.isDefault)
+  const sortedAccounts = sortAccountsDefaultFirst(accounts)
+  const [form, setForm] = useState(() => initialForm(recurring, categories, accounts))
+  const visibleCategories = sortCategoriesForDisplay(
+    categories.filter((category) => category.type === form.type),
+    localizeCategory,
+  )
   const [errors, setErrors] = useState({})
   const [submitError, setSubmitError] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -70,6 +80,13 @@ function RecurringTransactionForm({
   function setField(name, value) {
     setForm((current) => ({ ...current, [name]: value }))
     setErrors((current) => ({ ...current, [name]: '' }))
+  }
+
+  function handleTypeChange(value) {
+    if (value === form.type) return
+    setField('type', value)
+    const matches = categories.some((category) => category.type === value && String(category.id) === form.categoryId)
+    if (!matches) setField('categoryId', '')
   }
 
   function validate() {
@@ -142,7 +159,7 @@ function RecurringTransactionForm({
         note: form.note.trim() ? form.note.trim() : null,
       })
     } catch (error) {
-      setSubmitError(error.message || t('common.genericError'))
+      setSubmitError(translateError(error.message) || t('common.genericError'))
       setSubmitting(false)
     }
   }
@@ -202,8 +219,10 @@ function RecurringTransactionForm({
               </span>
               <div className="flex gap-2">
                 <label
-                  className={`btn btn-outline flex-1 ${
-                    form.type === 'EXPENSE' ? 'btn-error' : 'bg-base-200/40'
+                  className={`btn flex-1 transition-colors duration-200 has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 ${
+                    form.type === 'EXPENSE'
+                      ? 'btn-error'
+                      : 'btn-outline border-base-300 bg-base-200/40 hover:bg-base-200/70'
                   }`}
                 >
                   <input
@@ -212,13 +231,15 @@ function RecurringTransactionForm({
                     ref={typeRef}
                     className="sr-only"
                     checked={form.type === 'EXPENSE'}
-                    onChange={() => setField('type', 'EXPENSE')}
+                    onChange={() => handleTypeChange('EXPENSE')}
                   />
                   {t('common.expense')}
                 </label>
                 <label
-                  className={`btn btn-outline flex-1 ${
-                    form.type === 'INCOME' ? 'btn-success' : 'bg-base-200/40'
+                  className={`btn flex-1 transition-colors duration-200 has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 ${
+                    form.type === 'INCOME'
+                      ? 'btn-success'
+                      : 'btn-outline border-base-300 bg-base-200/40 hover:bg-base-200/70'
                   }`}
                 >
                   <input
@@ -226,7 +247,7 @@ function RecurringTransactionForm({
                     name="rect-type"
                     className="sr-only"
                     checked={form.type === 'INCOME'}
-                    onChange={() => setField('type', 'INCOME')}
+                    onChange={() => handleTypeChange('INCOME')}
                   />
                   {t('common.income')}
                 </label>
@@ -245,7 +266,7 @@ function RecurringTransactionForm({
                 onChange={(event) => setField('categoryId', event.target.value)}
               >
                 <option value="">{t('recTf.selectCategory')}</option>
-                {categories.map((category) => (
+                {visibleCategories.map((category) => (
                   <option key={category.id} value={category.id}>
                     {category.icon} {localizeCategory(category)}
                   </option>
@@ -265,13 +286,23 @@ function RecurringTransactionForm({
                 value={form.accountId}
                 onChange={(event) => setField('accountId', event.target.value)}
               >
-                <option value="">{t('recTf.selectAccount')}</option>
-                {accounts.map((account) => (
+                {accounts.length === 0 ? <option value="">{t('recTf.selectAccount')}</option> : null}
+                {sortedAccounts.map((account) => (
                   <option key={account.id} value={account.id}>
-                    {account.name}
+                    {accountDisplayName(account, t)}
                   </option>
                 ))}
               </select>
+              {!recurring && defaultAccount ? (
+                <div className="mt-1 flex items-start gap-2 rounded-lg border border-info/20 bg-info/10 px-3 py-2">
+                  <span className="text-xs text-base-content/80">
+                    <span className="font-bold">
+                      {t('txf.accountDefaultHint', { name: accountDisplayName(defaultAccount, t) })}
+                    </span>
+                    <span className="block text-base-content/60">{t('txf.accountDefaultBody')}</span>
+                  </span>
+                </div>
+              ) : null}
             </div>
             <div>
               <label className="label" htmlFor="rect-frequency">

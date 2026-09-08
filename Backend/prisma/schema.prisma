@@ -63,58 +63,67 @@ model User {
 }
 
 model Category {
-  id                    Int                    @id @default(autoincrement())
-  userId                Int
+  id                    Int             @id @default(autoincrement())
+  userId                Int?
+  type                  TransactionType
   name                  String
   icon                  String
   color                 String
-  createdAt             DateTime               @default(now())
-  user                  User                   @relation(fields: [userId], references: [id])
+  createdAt             DateTime        @default(now())
+  isSystem              Boolean         @default(false)
+  user                  User?           @relation(fields: [userId], references: [id], onDelete: Restrict)
   transactions          Transaction[]
   budgets               Budget[]
   recurringTransactions RecurringTransaction[]
   recurringBudgets      RecurringBudget[]
   goals                 Goal[]
 
-  @@unique([userId, name])
+  @@index([userId])
+  @@index([type])
 }
 
 model Transaction {
-  id          Int             @id @default(autoincrement())
-  userId      Int
-  description String
-  amount      Decimal
-  type        TransactionType
-  categoryId  Int
-  accountId   Int?
-  date        DateTime
-  note        String?
-  createdAt   DateTime        @default(now())
-  user        User            @relation(fields: [userId], references: [id])
-  category    Category        @relation(fields: [categoryId], references: [id])
-  account     Account?        @relation(fields: [accountId], references: [id])
+  id                    Int                  @id @default(autoincrement())
+  userId                Int
+  description           String
+  amount                Decimal              @db.Decimal(18, 4)
+  type                  TransactionType
+  categoryId            Int
+  accountId             Int?
+  date                  DateTime
+  note                  String?
+  createdAt             DateTime             @default(now())
+  recurringTransactionId Int?
+  user                  User                 @relation(fields: [userId], references: [id])
+  category              Category             @relation(fields: [categoryId], references: [id])
+  account               Account?             @relation(fields: [accountId], references: [id])
+  recurringTransaction  RecurringTransaction? @relation(fields: [recurringTransactionId], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@index([categoryId])
   @@index([accountId])
   @@index([date])
   @@index([type])
+  @@index([recurringTransactionId])
 }
 
 model Budget {
-  id         Int      @id @default(autoincrement())
-  userId     Int
-  categoryId Int
-  month      Int
-  year       Int
-  amount     Decimal
-  createdAt  DateTime @default(now())
-  user       User     @relation(fields: [userId], references: [id])
-  category   Category @relation(fields: [categoryId], references: [id])
+  id                 Int             @id @default(autoincrement())
+  userId             Int
+  categoryId         Int
+  month              Int
+  year               Int
+  amount             Decimal         @db.Decimal(18, 4)
+  recurringBudgetId  Int?
+  createdAt          DateTime        @default(now())
+  user               User            @relation(fields: [userId], references: [id])
+  category           Category        @relation(fields: [categoryId], references: [id])
+  recurringBudget    RecurringBudget? @relation(fields: [recurringBudgetId], references: [id], onDelete: SetNull)
 
   @@unique([userId, categoryId, month, year])
   @@index([userId])
   @@index([categoryId])
+  @@index([recurringBudgetId])
 }
 
 model Account {
@@ -122,7 +131,8 @@ model Account {
   userId                Int
   name                  String
   type                  AccountType
-  initialBalance        Decimal                @default(0)
+  isDefault             Boolean                @default(false)
+  initialBalance        Decimal                @default(0) @db.Decimal(18, 4)
   createdAt             DateTime               @default(now())
   user                  User                   @relation(fields: [userId], references: [id])
   transactions          Transaction[]
@@ -136,7 +146,7 @@ model RecurringTransaction {
   id             Int             @id @default(autoincrement())
   userId         Int
   description    String
-  amount         Decimal
+  amount         Decimal         @db.Decimal(18, 4)
   type           TransactionType
   categoryId     Int
   accountId      Int?
@@ -151,6 +161,7 @@ model RecurringTransaction {
   user           User            @relation(fields: [userId], references: [id])
   category       Category        @relation(fields: [categoryId], references: [id])
   account        Account?        @relation(fields: [accountId], references: [id])
+  transactions   Transaction[]
 
   @@index([userId])
   @@index([categoryId])
@@ -161,7 +172,7 @@ model RecurringBudget {
   id         Int             @id @default(autoincrement())
   userId     Int
   categoryId Int
-  amount     Decimal
+  amount     Decimal         @db.Decimal(18, 4)
   frequency  BudgetFrequency
   startMonth Int
   startYear  Int
@@ -171,6 +182,7 @@ model RecurringBudget {
   createdAt  DateTime        @default(now())
   user       User            @relation(fields: [userId], references: [id])
   category   Category        @relation(fields: [categoryId], references: [id])
+  budgets    Budget[]
 
   @@index([userId])
   @@index([categoryId])
@@ -181,8 +193,8 @@ model Goal {
   userId        Int
   name          String
   description   String?
-  targetAmount  Decimal
-  currentAmount Decimal    @default(0)
+  targetAmount  Decimal    @db.Decimal(18, 4)
+  currentAmount Decimal    @default(0) @db.Decimal(18, 4)
   targetDate    DateTime?
   categoryId    Int?
   accountId     Int?

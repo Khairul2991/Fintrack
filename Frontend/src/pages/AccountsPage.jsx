@@ -13,6 +13,7 @@ import {
   updateAccount,
 } from '../services/accountApi'
 import { formatCurrency } from '../utils/format'
+import { accountDisplayName, sortAccountsDefaultFirst } from '../utils/accountDisplay'
 
 const TYPE_KEY = {
   CASH: 'acc.typeCash',
@@ -147,33 +148,39 @@ function AccountsPage() {
             </div>
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {accounts.map((account) => (
+            {sortAccountsDefaultFirst(accounts).map((account) => (
               <div key={account.id} className="card surface card-border min-w-0">
                 <div className="card-body gap-3 p-5">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <h2 className="card-title text-base font-semibold text-base-content">
-                        {account.name}
+                        {accountDisplayName(account, t)}
                       </h2>
-                      <span className="badge badge-ghost">{t(TYPE_KEY[account.type] || 'acc.typeOther')}</span>
+                      {account.isDefault ? (
+                        <span className="badge badge-primary badge-sm border-0">{t('acc.default')}</span>
+                      ) : (
+                        <span className="badge badge-ghost">{t(TYPE_KEY[account.type] || 'acc.typeOther')}</span>
+                      )}
                     </div>
                     <div className="flex shrink-0 items-center gap-1">
                       <button
                         type="button"
                         className="btn btn-ghost btn-square btn-sm text-base-content/60 hover:text-base-content"
                         onClick={() => openEdit(account)}
-                        aria-label={t('acc.editAria', { name: account.name })}
+                        aria-label={t('acc.editAria', { name: accountDisplayName(account, t) })}
                       >
                         <EditIcon />
                       </button>
-                      <button
-                        type="button"
-                        className="btn btn-ghost btn-square btn-sm text-base-content/60 hover:text-error"
-                        onClick={() => setDeleting(account)}
-                        aria-label={t('acc.deleteAria', { name: account.name })}
-                      >
-                        <TrashIcon />
-                      </button>
+                      {!account.isDefault ? (
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-square btn-sm text-base-content/60 hover:text-error"
+                          onClick={() => setDeleting(account)}
+                          aria-label={t('acc.deleteAria', { name: accountDisplayName(account, t) })}
+                        >
+                          <TrashIcon />
+                        </button>
+                      ) : null}
                     </div>
                   </div>
                   <div>

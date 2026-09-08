@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import MoneyInput from '../common/MoneyInput'
 import { useLanguage } from '../../context/LanguageContext'
 import { isAmountOverLimit } from '../../utils/numberFormat'
+import { sortCategoriesForDisplay } from '../../l10n/categories'
 
 const MIN_YEAR = 2000
 const MAX_YEAR = 2100
@@ -32,7 +33,8 @@ function initialForm(recurring, categories) {
 }
 
 function RecurringBudgetForm({ recurring, categories = [], onCancel, onSave }) {
-  const { t, localizeCategory } = useLanguage()
+  const { t, localizeCategory, translateError } = useLanguage()
+  const sortedCategories = sortCategoriesForDisplay(categories, localizeCategory)
   const [form, setForm] = useState(() => initialForm(recurring, categories))
   const [errors, setErrors] = useState({})
   const [submitError, setSubmitError] = useState('')
@@ -109,7 +111,7 @@ function RecurringBudgetForm({ recurring, categories = [], onCancel, onSave }) {
         startYear: Number(form.startYear),
       })
     } catch (error) {
-      setSubmitError(error.message || t('common.genericError'))
+      setSubmitError(translateError(error.message) || t('common.genericError'))
       setSubmitting(false)
     }
   }
@@ -137,7 +139,7 @@ function RecurringBudgetForm({ recurring, categories = [], onCancel, onSave }) {
                 onChange={(event) => setField('categoryId', event.target.value)}
               >
                 <option value="">{t('recBf.selectCategory')}</option>
-                {categories.map((category) => (
+                {sortedCategories.map((category) => (
                   <option key={category.id} value={category.id}>
                     {category.icon} {localizeCategory(category)}
                   </option>

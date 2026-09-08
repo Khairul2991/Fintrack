@@ -26,15 +26,17 @@ function initialForm(account) {
 }
 
 function AccountForm({ account, onCancel, onSave }) {
-  const { t } = useLanguage()
+  const { t, translateError } = useLanguage()
   const [form, setForm] = useState(() => initialForm(account))
   const [errors, setErrors] = useState({})
   const [submitError, setSubmitError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const submittingRef = useRef(false)
 
   const nameRef = useRef(null)
   const typeRef = useRef(null)
   const initialRef = useRef(null)
+  const isDefault = account ? Boolean(account.isDefault) : false
 
   useEffect(() => {
     function handleKeyDown(event) {
@@ -71,6 +73,7 @@ function AccountForm({ account, onCancel, onSave }) {
 
   async function handleSubmit(event) {
     event.preventDefault()
+    if (submittingRef.current) return
     setSubmitError('')
     const next = validate()
     const order = [
@@ -83,6 +86,7 @@ function AccountForm({ account, onCancel, onSave }) {
       if (firstInvalid.ref.current) firstInvalid.ref.current.focus()
       return
     }
+    submittingRef.current = true
     setSubmitting(true)
     try {
       await onSave({
@@ -91,8 +95,9 @@ function AccountForm({ account, onCancel, onSave }) {
         initialBalance: form.initialBalance === '' ? '0' : form.initialBalance,
       })
     } catch (error) {
-      setSubmitError(error.message || t('common.genericError'))
+      setSubmitError(translateError(error.message) || t('common.genericError'))
       setSubmitting(false)
+      submittingRef.current = false
     }
   }
 
@@ -106,6 +111,9 @@ function AccountForm({ account, onCancel, onSave }) {
               <span>{submitError}</span>
             </div>
           ) : null}
+          {isDefault ? (
+            <p className="mb-2 text-xs text-base-content/50">{t('accf.defaultHint')}</p>
+          ) : null}
           <div>
             <label className="label" htmlFor="account-name">
               <span className="label-text">{t('accf.name')}</span>
@@ -117,6 +125,7 @@ function AccountForm({ account, onCancel, onSave }) {
               className={`input input-bordered w-full ${errors.name ? 'input-error' : ''}`}
               value={form.name}
               onChange={(event) => setField('name', event.target.value)}
+              disabled={isDefault}
               maxLength={NAME_MAX}
               placeholder={t('accf.namePlaceholder')}
               autoFocus
@@ -139,6 +148,7 @@ function AccountForm({ account, onCancel, onSave }) {
               className={`select select-bordered w-full ${errors.type ? 'select-error' : ''}`}
               value={form.type}
               onChange={(event) => setField('type', event.target.value)}
+              disabled={isDefault}
             >
               <option value="">{t('accf.selectType')}</option>
               {ACCOUNT_TYPES.map((type) => (

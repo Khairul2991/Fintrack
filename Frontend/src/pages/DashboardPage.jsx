@@ -14,7 +14,7 @@ import { IncomeIcon, ExpenseIcon } from '../components/common/Icons'
 import { useLanguage } from '../context/LanguageContext'
 
 function DashboardPage() {
-  const { t } = useLanguage()
+  const { t, translateError } = useLanguage()
   const [data, setData] = useState(null)
   const [status, setStatus] = useState('loading')
   const [loadError, setLoadError] = useState('')
@@ -28,10 +28,10 @@ function DashboardPage() {
         setStatus('ready')
       })
       .catch((error) => {
-        setLoadError(error.message)
+        setLoadError(translateError(error.message))
         setStatus('error')
       })
-  }, [])
+  }, [translateError])
 
   useEffect(() => {
     load()

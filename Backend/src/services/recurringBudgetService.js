@@ -60,7 +60,7 @@ async function rollPeriods(prisma, userId, item) {
     const missing = await ensureBudgetMissing(prisma, userId, item.categoryId, month, year)
     if (missing) {
       await prisma.budget.create({
-        data: { userId, categoryId: item.categoryId, month, year, amount: item.amount },
+        data: { userId, categoryId: item.categoryId, month, year, amount: item.amount, recurringBudgetId: item.id },
       })
     }
     const advanced = advancePeriod(month, year, item.frequency)
@@ -156,6 +156,12 @@ async function updateRecurringBudget(userId, id, body) {
       nextYear: input.startYear,
     },
   })
+  if (String(existing.amount) !== input.amount) {
+    await prisma.budget.updateMany({
+      where: { userId, recurringBudgetId: id },
+      data: { amount: input.amount },
+    })
+  }
   return getRecurringBudget(userId, item.id)
 }
 

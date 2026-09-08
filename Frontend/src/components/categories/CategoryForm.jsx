@@ -5,13 +5,18 @@ const HEX_COLOR = /^#[0-9a-fA-F]{6}$/
 
 function initialForm(category) {
   if (!category) {
-    return { name: '', icon: '', color: '#f59e0b' }
+    return { name: '', icon: '', color: '#f59e0b', type: 'EXPENSE' }
   }
-  return { name: category.name, icon: category.icon, color: category.color }
+  return {
+    name: category.name,
+    icon: category.icon,
+    color: category.color,
+    type: category.type || 'EXPENSE',
+  }
 }
 
 function CategoryForm({ category, onCancel, onSave }) {
-  const { t } = useLanguage()
+  const { t, translateError } = useLanguage()
   const [form, setForm] = useState(() => initialForm(category))
   const [errors, setErrors] = useState({})
   const [submitError, setSubmitError] = useState('')
@@ -37,6 +42,9 @@ function CategoryForm({ category, onCancel, onSave }) {
     } else if (form.name.trim().length > 50) {
       next.name = t('catf.errNameTooLong')
     }
+    if (form.type !== 'INCOME' && form.type !== 'EXPENSE') {
+      next.type = t('catf.errType')
+    }
     if (!form.icon.trim()) {
       next.icon = t('catf.errIcon')
     }
@@ -57,9 +65,10 @@ function CategoryForm({ category, onCancel, onSave }) {
         name: form.name.trim(),
         icon: form.icon.trim(),
         color: form.color,
+        type: form.type,
       })
     } catch (error) {
-      setSubmitError(error.message || t('common.genericError'))
+      setSubmitError(translateError(error.message) || t('common.genericError'))
       setSubmitting(false)
     }
   }
@@ -89,6 +98,21 @@ function CategoryForm({ category, onCancel, onSave }) {
               autoFocus
             />
             {errors.name ? <p className="mt-1 text-xs text-error">{errors.name}</p> : null}
+          </div>
+          <div>
+            <label className="label" htmlFor="cat-type">
+              <span className="label-text">{t('catf.type')}</span>
+            </label>
+            <select
+              id="cat-type"
+              className={`select select-bordered w-full ${errors.type ? 'select-error' : ''}`}
+              value={form.type}
+              onChange={(event) => setField('type', event.target.value)}
+            >
+              <option value="EXPENSE">{t('common.expense')}</option>
+              <option value="INCOME">{t('common.income')}</option>
+            </select>
+            {errors.type ? <p className="mt-1 text-xs text-error">{errors.type}</p> : null}
           </div>
           <div>
             <label className="label" htmlFor="cat-icon">

@@ -44,7 +44,7 @@ function formatNumber(value) {
 }
 
 function AnalyticsSection({ categoryById = {} }) {
-  const { t, localizeCategory } = useLanguage()
+  const { t, localizeCategory, lang, translateError } = useLanguage()
   const [data, setData] = useState(null)
   const [status, setStatus] = useState('loading')
   const [loadError, setLoadError] = useState('')
@@ -58,10 +58,10 @@ function AnalyticsSection({ categoryById = {} }) {
         setStatus('ready')
       })
       .catch((error) => {
-        setLoadError(error.message || t('an.loadError'))
+        setLoadError(translateError(error.message) || t('an.loadError'))
         setStatus('error')
       })
-  }, [t])
+  }, [t, translateError])
 
   useEffect(() => {
     load()
@@ -135,7 +135,7 @@ function AnalyticsSection({ categoryById = {} }) {
       />
       <MetricCard label={t('an.avgMonthlyExpense')} value={formatCurrency(data.avgMonthlyExpense)} />
       <MetricCard label={t('an.avgTransaction')} value={formatCurrency(data.avgTransactionAmount)} />
-      <MetricCard label={t('an.savingsRate')} value={formatSavings(data.savingsRate)} />
+      <MetricCard label={t('an.savingsRate')} value={formatSavings(data.savingsRate, lang)} />
 
       <div className="card surface card-border lg:col-span-2">
         <div className="card-body">
@@ -277,9 +277,15 @@ function AnalyticsSection({ categoryById = {} }) {
   )
 }
 
-function formatSavings(value) {
+function formatSavings(value, lang) {
   if (value === null || value === undefined) return '—'
-  return `${formatNumber(value)}%`
+  const amount = Number(value)
+  if (!Number.isFinite(amount)) return '—'
+  const locale = lang === 'id' ? 'id-ID' : 'en-GB'
+  return `${new Intl.NumberFormat(locale, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amount)}%`
 }
 
 export default AnalyticsSection

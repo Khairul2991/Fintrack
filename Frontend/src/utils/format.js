@@ -1,6 +1,7 @@
 const currencyFormatter = new Intl.NumberFormat('id-ID', {
   style: 'currency',
   currency: 'IDR',
+  minimumFractionDigits: 2,
   maximumFractionDigits: 2,
 })
 
@@ -13,7 +14,8 @@ const wholeCurrencyFormatter = new Intl.NumberFormat('id-ID', {
 export function formatCurrency(value) {
   const amount = Number(value)
   if (!Number.isFinite(amount)) return '—'
-  return amount % 1 === 0 ? wholeCurrencyFormatter.format(amount) : currencyFormatter.format(amount)
+  if (Math.round(amount * 100) % 100 === 0) return wholeCurrencyFormatter.format(amount)
+  return currencyFormatter.format(amount)
 }
 
 function localeFor(lang) {

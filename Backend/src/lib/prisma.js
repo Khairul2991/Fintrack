@@ -40,7 +40,10 @@ function getPrisma() {
       const adapter = schema
         ? new PrismaPg(poolConfig, { schema })
         : new PrismaPg(poolConfig)
-      return new PrismaClient({ adapter })
+      return new PrismaClient({
+        adapter,
+        transactionOptions: { maxWait: 10000, timeout: 20000 },
+      })
     })
   }
   return prismaPromise

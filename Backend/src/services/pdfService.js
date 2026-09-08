@@ -10,12 +10,12 @@ const TOP_CATEGORIES = 5
 function formatMoney(value) {
   const n = Number(value)
   if (!Number.isFinite(n)) return '—'
-  return (
-    'Rp' +
-    Math.round(n)
-      .toString()
-      .replace(/\B(?=(\d{3})+(?!\d))/g, '.')
-  )
+  const whole = Math.round(n * 100) % 100 === 0
+  const body = new Intl.NumberFormat('id-ID', {
+    minimumFractionDigits: whole ? 0 : 2,
+    maximumFractionDigits: whole ? 0 : 2,
+  }).format(n)
+  return `Rp${body}`
 }
 
 const MONTH_NAMES_EN = [

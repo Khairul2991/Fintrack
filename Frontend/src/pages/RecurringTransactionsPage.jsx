@@ -16,6 +16,7 @@ import {
   updateRecurringTransaction,
 } from '../services/recurringTransactionApi'
 import { formatCurrency, formatDate } from '../utils/format'
+import { accountDisplayName } from '../utils/accountDisplay'
 
 const FREQUENCY_LABELS = {
   DAILY: 'recT.freqDaily',
@@ -339,7 +340,7 @@ function RecurringTransactionsPage() {
                       </span>
                     </td>
                     <td className="whitespace-nowrap text-sm text-base-content/70">
-                      {item.account ? item.account.name : '—'}
+                      {item.account ? accountDisplayName(item.account, t) : '—'}
                     </td>
                     <td
                       className={`financial-value text-right font-semibold tabular-nums ${

@@ -1,5 +1,4 @@
 const { getPrisma } = require('../lib/prisma')
-const { DEFAULT_CATEGORIES } = require('../utils/defaultCategories')
 
 async function provisionLocalUser({ authUserId, email, name }) {
   const prisma = await getPrisma()
@@ -16,12 +15,8 @@ async function provisionLocalUser({ authUserId, email, name }) {
         authUserId,
         email,
         name: name || null,
-        categories: {
-          create: DEFAULT_CATEGORIES.map((category) => ({
-            name: category.name,
-            icon: category.icon,
-            color: category.color,
-          })),
+        accounts: {
+          create: { name: 'Cash', type: 'CASH', isDefault: true },
         },
       },
       select: { id: true, authUserId: true, email: true, name: true },

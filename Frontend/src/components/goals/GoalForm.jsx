@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import MoneyInput from '../common/MoneyInput'
 import { useLanguage } from '../../context/LanguageContext'
 import { isAmountOverLimit } from '../../utils/numberFormat'
+import { accountDisplayName } from '../../utils/accountDisplay'
+import { sortCategoriesForDisplay } from '../../l10n/categories'
 
 const NAME_MAX = 100
 const DESC_MAX = 500
@@ -30,7 +32,8 @@ function initialForm(goal) {
 }
 
 function GoalForm({ goal, categories = [], accounts = [], onCancel, onSave }) {
-  const { t, localizeCategory } = useLanguage()
+  const { t, localizeCategory, translateError } = useLanguage()
+  const sortedCategories = sortCategoriesForDisplay(categories, localizeCategory)
   const [form, setForm] = useState(() => initialForm(goal))
   const [errors, setErrors] = useState({})
   const [submitError, setSubmitError] = useState('')
@@ -114,7 +117,7 @@ function GoalForm({ goal, categories = [], accounts = [], onCancel, onSave }) {
         accountId: form.accountId ? Number(form.accountId) : null,
       })
     } catch (error) {
-      setSubmitError(error.message || t('common.genericError'))
+      setSubmitError(translateError(error.message) || t('common.genericError'))
       setSubmitting(false)
     }
   }
@@ -211,7 +214,7 @@ function GoalForm({ goal, categories = [], accounts = [], onCancel, onSave }) {
                 onChange={(event) => setField('categoryId', event.target.value)}
               >
                 <option value="">{t('goalf.selectCategory')}</option>
-                {categories.map((category) => (
+                {sortedCategories.map((category) => (
                   <option key={category.id} value={category.id}>
                     {category.icon} {localizeCategory(category)}
                   </option>
@@ -231,7 +234,7 @@ function GoalForm({ goal, categories = [], accounts = [], onCancel, onSave }) {
                 <option value="">{t('goalf.selectAccount')}</option>
                 {accounts.map((account) => (
                   <option key={account.id} value={account.id}>
-                    {account.name}
+                    {accountDisplayName(account, t)}
                   </option>
                 ))}
               </select>

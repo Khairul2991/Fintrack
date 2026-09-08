@@ -96,7 +96,7 @@ async function getAnalytics(userId) {
     ].filter((id) => id !== null)),
   ]
   const categories = categoryIds.length > 0
-    ? await prisma.category.findMany({ where: { userId, id: { in: categoryIds } } })
+    ? await prisma.category.findMany({ where: { id: { in: categoryIds }, OR: [{ isSystem: true }, { userId }] } })
     : []
   const categoriesById = new Map(categories.map((category) => [category.id, category]))
 

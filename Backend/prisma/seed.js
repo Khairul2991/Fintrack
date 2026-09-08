@@ -9,7 +9,7 @@ async function main() {
   })
 
   if (!legacy) {
-    console.log('No legacy-admin user present. New users get their default categories automatically on provisioning.')
+    console.log('No legacy-admin user present. System categories are global and apply to all users.')
   } else {
     console.log(`Legacy admin present: id=${legacy.id} authUserId=${legacy.authUserId}`)
   }

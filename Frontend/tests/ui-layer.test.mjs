@@ -22,6 +22,7 @@ import {
   deleteBudget,
 } from '../src/services/budgetApi.js'
 import { getDashboardSummary } from '../src/services/dashboardApi.js'
+import { createAccount } from '../src/services/accountApi.js'
 import { getMonthlyReport, getCategoryReport, getReportOverview } from '../src/services/reportsApi.js'
 import { getGoalsOverview } from '../src/services/goalApi.js'
 
@@ -266,32 +267,43 @@ describe('UI layer - dashboard', () => {
     const salary = (await listCategories()).data.find((c) => c.name === 'Salary')
     const food = (await listCategories()).data.find((c) => c.name === 'Food')
     const transport = (await listCategories()).data.find((c) => c.name === 'Transport')
+
+    await createAccount({ name: 'BCA', type: 'BANK', initialBalance: '2000000' })
+    await createAccount({ name: 'BSI', type: 'BANK', initialBalance: '6000000' })
+    await createAccount({ name: 'BNI', type: 'BANK', initialBalance: '4000000' })
+    await createAccount({ name: 'DANA', type: 'EWALLET', initialBalance: '500000' })
+    await createAccount({ name: 'Test Bank', type: 'BANK', initialBalance: '100000' })
+
     await createTransaction({
       description: 'salary',
-      amount: '8000000',
+      amount: '5000000',
       type: 'INCOME',
       categoryId: salary.id,
       date: isoDate(curY, curM, 1),
     })
     await createTransaction({
       description: 'groceries',
-      amount: '500000',
+      amount: '2000000',
       type: 'EXPENSE',
       categoryId: food.id,
       date: isoDate(curY, curM, 3),
     })
     await createTransaction({
       description: 'bus',
-      amount: '200000',
+      amount: '60000',
       type: 'EXPENSE',
       categoryId: transport.id,
       date: isoDate(curY, curM, 2),
     })
 
     const res = await getDashboardSummary()
-    assert.equal(Number(res.data.summary.income), 8000000)
-    assert.equal(Number(res.data.summary.expense), 700000)
-    assert.equal(Number(res.data.summary.balance), 7300000)
+    assert.equal(Number(res.data.summary.income), 5000000)
+    assert.equal(Number(res.data.summary.expense), 2060000)
+    assert.equal(Number(res.data.summary.balance), 12600000)
+
+    const accounts = res.data.accounts
+    assert.equal(accounts.length, 5)
+    assert.equal(accounts.reduce((sum, account) => sum + Number(account.balance), 0), 12600000)
 
     const recent = res.data.recentTransactions
     assert.equal(recent.length, 3)
@@ -300,7 +312,7 @@ describe('UI layer - dashboard', () => {
 
     const series = res.data.monthlySeries
     assert.equal(series.length, 6)
-    assert.equal(Number(series[series.length - 1].expense), 700000)
+    assert.equal(Number(series[series.length - 1].expense), 2060000)
 
     assert.equal(res.data.expenseByCategory.length, 2)
     assert.equal(res.data.expenseByCategory[0].name, 'Food')

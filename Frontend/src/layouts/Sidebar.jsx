@@ -1,7 +1,11 @@
 import { NavLink, useNavigate } from 'react-router-dom'
+import { useState } from 'react'
 import { NAV_ITEMS } from '../constants/navigation'
 import { useAuth } from '../context/AuthContext'
 import { useLanguage } from '../context/LanguageContext'
+import ConfirmDialog from '../components/common/ConfirmDialog'
+import { UserIcon, LogoutIcon } from '../components/common/Icons'
+import { clearCache } from '../services/api'
 
 export function BrandMark({ className = 'h-6 w-6' }) {
   return (
@@ -63,6 +67,8 @@ function Sidebar() {
   const { t } = useLanguage()
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+  const [confirmLogout, setConfirmLogout] = useState(false)
+  const [loggingOut, setLoggingOut] = useState(false)
   return (
     <aside className="surface fixed inset-y-0 left-0 z-20 hidden w-64 flex-col rounded-none border-r border-base-200 lg:flex">
       <div className="border-b border-base-200">
@@ -71,24 +77,38 @@ function Sidebar() {
       <nav className="flex-1 overflow-y-auto px-3 py-3" aria-label={t('app.mainNavAria')}>
         <SidebarNav />
       </nav>
-      <div className="border-t border-base-200 px-4 py-3">
+      <div className="border-t border-base-200 px-3 py-3">
         {user && (
-          <div className="flex items-center gap-2 mb-2">
-            <div className="avatar placeholder">
-              <div className="bg-primary text-primary-content rounded-full w-8">
-                <span className="text-xs">{(user.email || '?')[0].toUpperCase()}</span>
-              </div>
+          <div className="flex items-center gap-2 px-1 mb-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-primary-content">
+              <UserIcon className="h-10 w-10 text-primary-content" />
             </div>
             <span className="truncate text-xs text-base-content/60">{user.email}</span>
           </div>
         )}
         <button
-          className="btn btn-ghost btn-xs w-full justify-start text-error/80 hover:text-error"
-          onClick={async () => { await logout(); navigate('/login') }}
+          className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-error/80 transition-colors hover:bg-error/10 hover:text-error focus-visible:outline-2 focus-visible:outline-error"
+          onClick={() => setConfirmLogout(true)}
         >
+          <LogoutIcon className="h-5 w-5 shrink-0" />
           {t('auth.logoutButton')}
         </button>
       </div>
+      {confirmLogout && (
+        <ConfirmDialog
+          title={t('auth.logoutTitle')}
+          message={t('auth.logoutDesc')}
+          confirmLabel={t('auth.logoutButton')}
+          loading={loggingOut}
+          onCancel={() => setConfirmLogout(false)}
+          onConfirm={async () => {
+            setLoggingOut(true)
+            await logout()
+            clearCache()
+            navigate('/login')
+          }}
+        />
+      )}
     </aside>
   )
 }

@@ -1,9 +1,11 @@
 import { EditIcon, TrashIcon } from '../common/Icons'
 import { useLanguage } from '../../context/LanguageContext'
+import { isSystemCategory } from '../../l10n/categories'
 
 function CategoryCard({ category, onEdit, onDelete }) {
   const { t, localizeCategory } = useLanguage()
   const label = localizeCategory(category)
+  const system = isSystemCategory(category)
   return (
     <div className="card surface card-border relative overflow-hidden">
       <span
@@ -33,24 +35,26 @@ function CategoryCard({ category, onEdit, onDelete }) {
             {category.color}
           </span>
         </div>
-        <div className="flex gap-1">
-          <button
-            type="button"
-            className="btn btn-ghost btn-square btn-sm text-base-content/60 hover:text-base-content"
-            onClick={() => onEdit(category)}
-            aria-label={t('cat.editAria', { name: label })}
-          >
-            <EditIcon />
-          </button>
-          <button
-            type="button"
-            className="btn btn-ghost btn-square btn-sm text-base-content/60 hover:text-error"
-            onClick={() => onDelete(category)}
-            aria-label={t('cat.deleteAria', { name: label })}
-          >
-            <TrashIcon />
-          </button>
-        </div>
+        {system ? null : (
+          <div className="flex gap-1">
+            <button
+              type="button"
+              className="btn btn-ghost btn-square btn-sm text-base-content/60 hover:text-base-content"
+              onClick={() => onEdit(category)}
+              aria-label={t('cat.editAria', { name: label })}
+            >
+              <EditIcon />
+            </button>
+            <button
+              type="button"
+              className="btn btn-ghost btn-square btn-sm text-base-content/60 hover:text-error"
+              onClick={() => onDelete(category)}
+              aria-label={t('cat.deleteAria', { name: label })}
+            >
+              <TrashIcon />
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )

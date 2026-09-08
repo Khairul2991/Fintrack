@@ -1,6 +1,10 @@
 import { describe, it, before, after } from 'node:test'
 import assert from 'node:assert/strict'
+import { createRequire } from 'node:module'
 import { startApp, stopApp, request, resetDb, getCategories, isoDate, currentKeys } from './helpers.mjs'
+
+const require = createRequire(import.meta.url)
+const { getPrisma } = require('../src/lib/prisma')
 
 let state
 
@@ -506,38 +510,55 @@ describe('Dashboard API', () => {
     assert.ok(Array.isArray(res.data.data.insights))
   })
 
-  it('computes income, expense, and balance from stored transactions', async () => {
+  it('computes income, expense, and balance from stored transactions and accounts', async () => {
     const { curY, curM } = currentKeys()
     const salary = (await getCategories(state.base, state.testUserId)).find((c) => c.name === 'Salary')
     const food = (await getCategories(state.base, state.testUserId)).find((c) => c.name === 'Food')
     const transport = (await getCategories(state.base, state.testUserId)).find((c) => c.name === 'Transport')
 
+    const accountFixture = [
+      { name: 'BCA', type: 'BANK', initialBalance: '2000000' },
+      { name: 'BSI', type: 'BANK', initialBalance: '6000000' },
+      { name: 'BNI', type: 'BANK', initialBalance: '4000000' },
+      { name: 'DANA', type: 'EWALLET', initialBalance: '500000' },
+      { name: 'Test Bank', type: 'BANK', initialBalance: '100000' },
+    ]
+    for (const acc of accountFixture) {
+      const created = await request(state.base, 'POST', '/accounts', acc, { userId: state.testUserId })
+      assert.equal(created.status, 201)
+    }
+
     await request(state.base, 'POST', '/transactions', {
       description: 'salary',
-      amount: '8000000',
+      amount: '5000000',
       type: 'INCOME',
       categoryId: salary.id,
       date: isoDate(curY, curM, 1),
     }, { userId: state.testUserId })
     await request(state.base, 'POST', '/transactions', {
       description: 'groceries',
-      amount: '500000',
+      amount: '2000000',
       type: 'EXPENSE',
       categoryId: food.id,
       date: isoDate(curY, curM, 3),
     }, { userId: state.testUserId })
     await request(state.base, 'POST', '/transactions', {
       description: 'bus',
-      amount: '200000',
+      amount: '60000',
       type: 'EXPENSE',
       categoryId: transport.id,
       date: isoDate(curY, curM, 2),
     }, { userId: state.testUserId })
 
     const res = await request(state.base, 'GET', '/dashboard/summary', undefined, { userId: state.testUserId })
-    assert.equal(Number(res.data.data.summary.income), 8000000)
-    assert.equal(Number(res.data.data.summary.expense), 700000)
-    assert.equal(Number(res.data.data.summary.balance), 7300000)
+    assert.equal(Number(res.data.data.summary.income), 5000000)
+    assert.equal(Number(res.data.data.summary.expense), 2060000)
+    assert.equal(Number(res.data.data.summary.balance), 12600000)
+
+    const accountBalances = res.data.data.accounts
+    assert.equal(accountBalances.length, 5)
+    const sum = accountBalances.reduce((s, account) => s + Number(account.balance), 0)
+    assert.equal(sum, 12600000)
 
     const recent = res.data.data.recentTransactions
     assert.equal(recent.length, 3)
@@ -546,8 +567,8 @@ describe('Dashboard API', () => {
 
     const series = res.data.data.monthlySeries
     assert.equal(series.length, 6)
-    assert.equal(Number(series[series.length - 1].income), 8000000)
-    assert.equal(Number(series[series.length - 1].expense), 700000)
+    assert.equal(Number(series[series.length - 1].income), 5000000)
+    assert.equal(Number(series[series.length - 1].expense), 2060000)
 
     const byCategory = res.data.data.expenseByCategory
     assert.equal(byCategory.length, 2)
@@ -555,6 +576,31 @@ describe('Dashboard API', () => {
     assert.ok(
       res.data.data.insights.some((text) => text.includes('Food is your highest spending category')),
     )
+  })
+
+  it('only counts accounts owned by the authenticated user in Total Saldo', async () => {
+    const prisma = await getPrisma()
+    const other = await prisma.user.create({
+      data: {
+        authUserId: 'other-dashboard-user',
+        email: 'other-dashboard@fintrack.local',
+        name: 'Other User',
+      },
+    })
+    const otherAccount = await request(state.base, 'POST', '/accounts', {
+      name: 'Rekening Lain',
+      type: 'BANK',
+      initialBalance: '9000000',
+    }, { userId: other.id })
+    assert.equal(otherAccount.status, 201)
+
+    const theirs = await request(state.base, 'GET', '/dashboard/summary', undefined, { userId: other.id })
+    assert.equal(Number(theirs.data.data.summary.balance), 9000000)
+    assert.equal(Number(theirs.data.data.summary.income), 0)
+    assert.equal(Number(theirs.data.data.summary.expense), 0)
+
+    const mine = await request(state.base, 'GET', '/dashboard/summary', undefined, { userId: state.testUserId })
+    assert.equal(Number(mine.data.data.summary.balance), 12600000)
   })
 })
 

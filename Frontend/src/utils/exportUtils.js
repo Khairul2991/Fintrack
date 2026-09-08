@@ -7,7 +7,11 @@ const HEADERS = ['Date', 'Type', 'Category', 'Account', 'Amount', 'Note']
 function toDisplayAmount(raw) {
   const n = Number(raw)
   if (!Number.isFinite(n)) return String(raw ?? '')
-  return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+  const whole = Math.round(n * 100) % 100 === 0
+  return new Intl.NumberFormat('id-ID', {
+    minimumFractionDigits: whole ? 0 : 2,
+    maximumFractionDigits: whole ? 0 : 2,
+  }).format(n)
 }
 
 function typeLabel(type, lang) {

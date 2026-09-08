@@ -242,7 +242,7 @@ describe('Dashboard and report aggregation (business logic)', () => {
     const summary = await dashboardService.getSummary(state.testUserId)
     assert.equal(Number(summary.summary.income), 8000000)
     assert.equal(Number(summary.summary.expense), 530000)
-    assert.equal(Number(summary.summary.balance), 7470000)
+    assert.equal(Number(summary.summary.balance), 0)
     assert.equal(summary.recentTransactions.length, 4)
 
     const series = summary.monthlySeries

@@ -1,5 +1,7 @@
 import { useLanguage } from '../../context/LanguageContext'
 import { SearchIcon } from '../common/Icons'
+import { accountDisplayName } from '../../utils/accountDisplay'
+import { sortCategoriesForDisplay } from '../../l10n/categories'
 
 function ChevronIcon({ open }) {
   return (
@@ -51,6 +53,7 @@ function TransactionFilters({
   onResetFilters,
 }) {
   const { t, localizeCategory } = useLanguage()
+  const sortedCategories = sortCategoriesForDisplay(categories, localizeCategory)
   const hasQuery = searchInput !== ''
 
   const hasDateRangeError =
@@ -150,7 +153,7 @@ function TransactionFilters({
                   aria-label={t('tx.filterCatAria')}
                 >
                   <option value="">{t('tx.allCats')}</option>
-                  {categories.map((category) => (
+                  {sortedCategories.map((category) => (
                     <option key={category.id} value={category.id}>
                       {category.icon} {localizeCategory(category)}
                     </option>
@@ -170,7 +173,7 @@ function TransactionFilters({
                   <option value="">{t('tx.allAccounts')}</option>
                   {accounts.map((account) => (
                     <option key={account.id} value={account.id}>
-                      {account.name}
+                      {accountDisplayName(account, t)}
                     </option>
                   ))}
                 </select>

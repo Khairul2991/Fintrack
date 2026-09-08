@@ -2,6 +2,21 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useLanguage } from '../context/LanguageContext'
+import GoogleSignInButton from '../components/common/GoogleSignInButton'
+
+function loginErrorMessage(error, t) {
+  const message = String((error && error.message) || '').toLowerCase()
+  if (error instanceof TypeError || message.includes('failed to fetch') || message.includes('network request failed')) {
+    return t('auth.loginNetworkError')
+  }
+  if ((error && error.status === 429) || message.includes('rate limit') || message.includes('too many')) {
+    return t('auth.loginRateLimited')
+  }
+  if (message.includes('email not confirmed')) {
+    return t('auth.loginEmailNotConfirmed')
+  }
+  return t('auth.loginError')
+}
 
 function LoginPage() {
   const { login } = useAuth()
@@ -21,7 +36,7 @@ function LoginPage() {
       await login(email, password)
       navigate('/')
     } catch (err) {
-      setError(err.message || t('auth.loginError'))
+      setError(loginErrorMessage(err, t))
     } finally {
       setSubmitting(false)
     }
@@ -73,6 +88,10 @@ function LoginPage() {
               {submitting ? t('auth.loggingIn') : t('auth.loginButton')}
             </button>
           </form>
+
+          <div className="divider text-sm mt-4">{t('auth.or')}</div>
+
+          <GoogleSignInButton />
 
           <div className="divider text-sm">{t('auth.noAccount')}</div>
 
