@@ -85,7 +85,7 @@ function CategoryForm({ category, onCancel, onSave }) {
           ) : null}
           <div>
             <label className="label" htmlFor="cat-name">
-              <span className="label-text">{t('catf.name')}</span>
+              <span className="label-text">{t('catf.name')} <span className="text-error">*</span></span>
             </label>
             <input
               id="cat-name"
@@ -101,7 +101,7 @@ function CategoryForm({ category, onCancel, onSave }) {
           </div>
           <div>
             <label className="label" htmlFor="cat-type">
-              <span className="label-text">{t('catf.type')}</span>
+              <span className="label-text">{t('catf.type')} <span className="text-error">*</span></span>
             </label>
             <select
               id="cat-type"
@@ -117,7 +117,7 @@ function CategoryForm({ category, onCancel, onSave }) {
           <div>
             <label className="label" htmlFor="cat-icon">
               <span className="label-text">
-                {t('catf.icon')}{' '}
+                {t('catf.icon')} <span className="text-error">*</span>{' '}
                 <span className="ml-1 text-base-content/40">{t('catf.iconEmoji')}</span>
               </span>
             </label>
@@ -134,7 +134,7 @@ function CategoryForm({ category, onCancel, onSave }) {
           </div>
           <div>
             <span className="label">
-              <span className="label-text">{t('catf.color')}</span>
+              <span className="label-text">{t('catf.color')} <span className="text-error">*</span></span>
             </span>
             <div className="flex items-center gap-2">
               <input

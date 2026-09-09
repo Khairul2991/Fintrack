@@ -116,7 +116,7 @@ function BudgetForm({ budget, categories, onCancel, onSave }) {
           ) : null}
           <div>
             <label className="label" htmlFor="budget-category">
-              <span className="label-text">{t('budf.category')}</span>
+              <span className="label-text">{t('budf.category')} <span className="text-error">*</span></span>
             </label>
             <select
               id="budget-category"
@@ -140,7 +140,7 @@ function BudgetForm({ budget, categories, onCancel, onSave }) {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="label" htmlFor="budget-month">
-                <span className="label-text">{t('budf.month')}</span>
+                <span className="label-text">{t('budf.month')} <span className="text-error">*</span></span>
               </label>
               <select
                 id="budget-month"
@@ -162,7 +162,7 @@ function BudgetForm({ budget, categories, onCancel, onSave }) {
             </div>
             <div>
               <label className="label" htmlFor="budget-year">
-                <span className="label-text">{t('budf.year')}</span>
+                <span className="label-text">{t('budf.year')} <span className="text-error">*</span></span>
               </label>
               <select
                 id="budget-year"
@@ -182,7 +182,7 @@ function BudgetForm({ budget, categories, onCancel, onSave }) {
           </div>
           <div>
             <label className="label" htmlFor="budget-amount">
-              <span className="label-text">{t('budf.amount')}</span>
+              <span className="label-text">{t('budf.amount')} <span className="text-error">*</span></span>
             </label>
             <MoneyInput
               id="budget-amount"

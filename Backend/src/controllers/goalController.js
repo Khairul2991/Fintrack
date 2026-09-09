@@ -34,11 +34,6 @@ async function updateGoal(req, res) {
   success(res, goal)
 }
 
-async function updateGoalProgress(req, res) {
-  const goal = await goalService.updateGoalProgress(req.user.id, integer(req.params.id, 'id'), req.body.currentAmount)
-  success(res, goal)
-}
-
 async function deleteGoal(req, res) {
   const result = await goalService.deleteGoal(req.user.id, integer(req.params.id, 'id'))
   success(res, result)
@@ -50,6 +45,5 @@ module.exports = {
   getGoal,
   createGoal,
   updateGoal,
-  updateGoalProgress,
   deleteGoal,
 }

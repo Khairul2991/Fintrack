@@ -15,9 +15,11 @@ import ReportsPage from './pages/ReportsPage'
 import BudgetsPage from './pages/BudgetsPage'
 import SettingsPage from './pages/SettingsPage'
 import AccountsPage from './pages/AccountsPage'
+import AccountActivitiesPage from './pages/AccountActivitiesPage'
+import GoalsPage from './pages/GoalsPage'
+import GoalActivitiesPage from './pages/GoalActivitiesPage'
 import RecurringTransactionsPage from './pages/RecurringTransactionsPage'
 import RecurringBudgetsPage from './pages/RecurringBudgetsPage'
-import GoalsPage from './pages/GoalsPage'
 import AiInsightsPage from './pages/AiInsightsPage'
 import NotificationsPage from './pages/NotificationsPage'
 import NotFoundPage from './pages/NotFoundPage'
@@ -109,12 +111,14 @@ function App() {
               <Route element={<AppLayout />}>
                 <Route path="/" element={<DashboardPage />} />
                 <Route path="/accounts" element={<AccountsPage />} />
+                <Route path="/accounts/:id/activities" element={<AccountActivitiesPage />} />
                 <Route path="/transactions" element={<TransactionsPage />} />
                 <Route path="/recurring-transactions" element={<RecurringTransactionsPage />} />
                 <Route path="/categories" element={<CategoriesPage />} />
                 <Route path="/budgets" element={<BudgetsPage />} />
                 <Route path="/recurring-budgets" element={<RecurringBudgetsPage />} />
                 <Route path="/goals" element={<GoalsPage />} />
+                <Route path="/goals/:id/activities" element={<GoalActivitiesPage />} />
                 <Route path="/reports" element={<ReportsPage />} />
                 <Route path="/ai-insights" element={<AiInsightsPage />} />
                 <Route path="/notifications" element={<NotificationsPage />} />

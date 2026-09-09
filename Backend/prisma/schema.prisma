@@ -40,6 +40,11 @@ enum GoalStatus {
   COMPLETED
 }
 
+enum GoalActivityType {
+  CONTRIBUTION
+  WITHDRAWAL
+}
+
 enum NotificationType {
   RECURRING_DUE
   BUDGET_LIMIT
@@ -90,6 +95,7 @@ model Transaction {
   type                  TransactionType
   categoryId            Int
   accountId             Int?
+  goalId                Int?
   date                  DateTime
   note                  String?
   createdAt             DateTime             @default(now())
@@ -97,11 +103,14 @@ model Transaction {
   user                  User                 @relation(fields: [userId], references: [id])
   category              Category             @relation(fields: [categoryId], references: [id])
   account               Account?             @relation(fields: [accountId], references: [id])
+  goal                  Goal?                @relation(fields: [goalId], references: [id], onDelete: SetNull)
+  goalActivity          GoalActivity?
   recurringTransaction  RecurringTransaction? @relation(fields: [recurringTransactionId], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@index([categoryId])
   @@index([accountId])
+  @@index([goalId])
   @@index([date])
   @@index([type])
   @@index([recurringTransactionId])
@@ -138,6 +147,7 @@ model Account {
   transactions          Transaction[]
   recurringTransactions RecurringTransaction[]
   goals                 Goal[]
+  goalActivities        GoalActivity[]
 
   @@unique([userId, name])
 }
@@ -200,13 +210,37 @@ model Goal {
   accountId     Int?
   status        GoalStatus @default(IN_PROGRESS)
   createdAt     DateTime   @default(now())
-  user          User       @relation(fields: [userId], references: [id])
-  category      Category?  @relation(fields: [categoryId], references: [id])
-  account       Account?   @relation(fields: [accountId], references: [id])
+  user          User           @relation(fields: [userId], references: [id])
+  category      Category?      @relation(fields: [categoryId], references: [id])
+  account       Account?       @relation(fields: [accountId], references: [id])
+  activities    GoalActivity[]
+  transactions  Transaction[]
 
   @@index([userId])
   @@index([categoryId])
   @@index([accountId])
+}
+
+model GoalActivity {
+  id            Int              @id @default(autoincrement())
+  goalId        Int
+  accountId     Int?
+  transactionId Int?
+  amount        Decimal          @db.Decimal(18, 4)
+  type          GoalActivityType
+  date          DateTime         @default(now())
+  note          String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  goal          Goal             @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  account       Account?         @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  transaction   Transaction?     @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  @@unique([transactionId])
+  @@index([goalId])
+  @@index([accountId])
+  @@index([type])
+  @@index([date])
 }
 
 model Notification {

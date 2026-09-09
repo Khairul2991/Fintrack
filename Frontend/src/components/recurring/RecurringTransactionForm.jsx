@@ -179,7 +179,7 @@ function RecurringTransactionForm({
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="label" htmlFor="rect-description">
-                <span className="label-text">{t('recTf.description')}</span>
+                <span className="label-text">{t('recTf.description')} <span className="text-error">*</span></span>
               </label>
               <input
                 id="rect-description"
@@ -201,7 +201,7 @@ function RecurringTransactionForm({
             </div>
             <div>
               <label className="label" htmlFor="rect-amount">
-                <span className="label-text">{t('recTf.amount')}</span>
+                <span className="label-text">{t('recTf.amount')} <span className="text-error">*</span></span>
               </label>
               <MoneyInput
                 id="rect-amount"
@@ -215,7 +215,7 @@ function RecurringTransactionForm({
             </div>
             <div>
               <span className="label">
-                <span className="label-text">{t('recTf.type')}</span>
+                <span className="label-text">{t('recTf.type')} <span className="text-error">*</span></span>
               </span>
               <div className="flex gap-2">
                 <label
@@ -256,7 +256,7 @@ function RecurringTransactionForm({
             </div>
             <div>
               <label className="label" htmlFor="rect-category">
-                <span className="label-text">{t('recTf.category')}</span>
+                <span className="label-text">{t('recTf.category')} <span className="text-error">*</span></span>
               </label>
               <select
                 id="rect-category"
@@ -306,7 +306,7 @@ function RecurringTransactionForm({
             </div>
             <div>
               <label className="label" htmlFor="rect-frequency">
-                <span className="label-text">{t('recTf.frequency')}</span>
+                <span className="label-text">{t('recTf.frequency')} <span className="text-error">*</span></span>
               </label>
               <select
                 id="rect-frequency"
@@ -327,7 +327,7 @@ function RecurringTransactionForm({
             </div>
             <div>
               <label className="label" htmlFor="rect-start">
-                <span className="label-text">{t('recTf.startDate')}</span>
+                <span className="label-text">{t('recTf.startDate')} <span className="text-error">*</span></span>
               </label>
               <input
                 id="rect-start"

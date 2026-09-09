@@ -12,7 +12,7 @@ function todayInput() {
   return new Date().toISOString().slice(0, 10)
 }
 
-function initialForm(transaction, categories, accounts) {
+function initialForm(transaction, categories, accounts, goals) {
   const cashDefault = accounts.find((account) => account.isDefault)
   if (!transaction) {
     const expenseCategories = categories.filter((category) => category.type === 'EXPENSE')
@@ -22,26 +22,40 @@ function initialForm(transaction, categories, accounts) {
       type: 'EXPENSE',
       categoryId: expenseCategories.length > 0 ? String(expenseCategories[0].id) : '',
       accountId: cashDefault ? String(cashDefault.id) : '',
+      goalId: '',
       date: todayInput(),
       note: '',
     }
   }
+  const accountId = transaction.accountId != null ? String(transaction.accountId) : ''
+  const goalMatches =
+    transaction.goalId != null &&
+    goals.some(
+      (goal) =>
+        String(goal.id) === String(transaction.goalId) &&
+        goal.accountId != null &&
+        String(goal.accountId) === accountId,
+    )
   return {
     description: transaction.description,
     amount: transaction.amount,
     type: transaction.type,
     categoryId: String(transaction.categoryId),
-    accountId: transaction.accountId != null ? String(transaction.accountId) : '',
+    accountId,
+    goalId: goalMatches ? String(transaction.goalId) : '',
     date: transaction.date.slice(0, 10),
     note: transaction.note ?? '',
   }
 }
 
-function TransactionForm({ transaction, categories, accounts = [], onCancel, onSave }) {
+function TransactionForm({ transaction, categories, accounts = [], goals = [], onCancel, onSave }) {
   const { t, localizeCategory, translateError } = useLanguage()
   const defaultAccount = accounts.find((account) => account.isDefault)
   const sortedAccounts = sortAccountsDefaultFirst(accounts)
-  const [form, setForm] = useState(() => initialForm(transaction, categories, accounts))
+  const [form, setForm] = useState(() => initialForm(transaction, categories, accounts, goals))
+  const accountGoals = goals.filter(
+    (goal) => goal.accountId != null && String(goal.accountId) === form.accountId,
+  )
   const visibleCategories = sortCategoriesForDisplay(
     categories.filter((category) => category.type === form.type),
     localizeCategory,
@@ -75,6 +89,16 @@ function TransactionForm({ transaction, categories, accounts = [], onCancel, onS
     setField('type', value)
     const matches = categories.some((category) => category.type === value && String(category.id) === form.categoryId)
     if (!matches) setField('categoryId', '')
+  }
+
+  function handleAccountChange(value) {
+    setField('accountId', value)
+    if (form.goalId) {
+      const goal = goals.find((goal) => String(goal.id) === form.goalId)
+      if (goal && goal.accountId != null && String(goal.accountId) !== value) {
+        setField('goalId', '')
+      }
+    }
   }
 
   function validate() {
@@ -125,6 +149,7 @@ function TransactionForm({ transaction, categories, accounts = [], onCancel, onS
         type: form.type,
         categoryId: Number(form.categoryId),
         accountId: form.accountId ? Number(form.accountId) : null,
+        goalId: form.goalId ? Number(form.goalId) : null,
         date: form.date,
         note: form.note.trim() ? form.note.trim() : null,
       })
@@ -147,7 +172,7 @@ function TransactionForm({ transaction, categories, accounts = [], onCancel, onS
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="label" htmlFor="tx-description">
-                <span className="label-text">{t('txf.description')}</span>
+                <span className="label-text">{t('txf.description')} <span className="text-error">*</span></span>
               </label>
               <input
                 id="tx-description"
@@ -169,7 +194,7 @@ function TransactionForm({ transaction, categories, accounts = [], onCancel, onS
             </div>
             <div>
               <label className="label" htmlFor="tx-amount">
-                <span className="label-text">{t('txf.amount')}</span>
+                <span className="label-text">{t('txf.amount')} <span className="text-error">*</span></span>
               </label>
               <MoneyInput
                 id="tx-amount"
@@ -183,7 +208,7 @@ function TransactionForm({ transaction, categories, accounts = [], onCancel, onS
             </div>
             <div>
               <span className="label">
-                <span className="label-text">{t('txf.type')}</span>
+                <span className="label-text">{t('txf.type')} <span className="text-error">*</span></span>
               </span>
               <div className="flex gap-2">
                 <label
@@ -224,7 +249,7 @@ function TransactionForm({ transaction, categories, accounts = [], onCancel, onS
             </div>
             <div>
               <label className="label" htmlFor="tx-category">
-                <span className="label-text">{t('txf.category')}</span>
+                <span className="label-text">{t('txf.category')} <span className="text-error">*</span></span>
               </label>
               <select
                 id="tx-category"
@@ -253,7 +278,7 @@ function TransactionForm({ transaction, categories, accounts = [], onCancel, onS
                 ref={accountIdRef}
                 className="select select-bordered w-full"
                 value={form.accountId}
-                onChange={(event) => setField('accountId', event.target.value)}
+                onChange={(event) => handleAccountChange(event.target.value)}
               >
                 {accounts.length === 0 ? <option value="">{t('txf.selectAccount')}</option> : null}
                 {sortedAccounts.map((account) => (
@@ -274,8 +299,30 @@ function TransactionForm({ transaction, categories, accounts = [], onCancel, onS
               ) : null}
             </div>
             <div>
+              <label className="label" htmlFor="tx-goal">
+                <span className="label-text">{t('txf.goal')}</span>
+              </label>
+              <select
+                id="tx-goal"
+                className="select select-bordered w-full"
+                value={form.goalId}
+                onChange={(event) => setField('goalId', event.target.value)}
+                disabled={!form.accountId || accountGoals.length === 0}
+              >
+                <option value="">{t('txf.noGoal')}</option>
+                {accountGoals.map((goal) => (
+                  <option key={goal.id} value={goal.id}>
+                    {goal.name}
+                  </option>
+                ))}
+              </select>
+              {form.accountId && accountGoals.length === 0 ? (
+                <p className="mt-1 text-xs text-base-content/50">{t('txf.noGoalsForAccount')}</p>
+              ) : null}
+            </div>
+            <div>
               <label className="label" htmlFor="tx-date">
-                <span className="label-text">{t('txf.date')}</span>
+                <span className="label-text">{t('txf.date')} <span className="text-error">*</span></span>
               </label>
               <input
                 id="tx-date"

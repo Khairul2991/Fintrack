@@ -129,7 +129,7 @@ function RecurringBudgetForm({ recurring, categories = [], onCancel, onSave }) {
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="label" htmlFor="recb-category">
-                <span className="label-text">{t('recBf.category')}</span>
+                <span className="label-text">{t('recBf.category')} <span className="text-error">*</span></span>
               </label>
               <select
                 id="recb-category"
@@ -151,7 +151,7 @@ function RecurringBudgetForm({ recurring, categories = [], onCancel, onSave }) {
             </div>
             <div>
               <label className="label" htmlFor="recb-amount">
-                <span className="label-text">{t('recBf.amount')}</span>
+                <span className="label-text">{t('recBf.amount')} <span className="text-error">*</span></span>
               </label>
               <MoneyInput
                 id="recb-amount"
@@ -165,7 +165,7 @@ function RecurringBudgetForm({ recurring, categories = [], onCancel, onSave }) {
             </div>
             <div>
               <label className="label" htmlFor="recb-frequency">
-                <span className="label-text">{t('recBf.frequency')}</span>
+                <span className="label-text">{t('recBf.frequency')} <span className="text-error">*</span></span>
               </label>
               <select
                 id="recb-frequency"
@@ -184,7 +184,7 @@ function RecurringBudgetForm({ recurring, categories = [], onCancel, onSave }) {
             </div>
             <div>
               <label className="label" htmlFor="recb-month">
-                <span className="label-text">{t('recBf.startMonth')}</span>
+                <span className="label-text">{t('recBf.startMonth')} <span className="text-error">*</span></span>
               </label>
               <select
                 id="recb-month"
@@ -205,7 +205,7 @@ function RecurringBudgetForm({ recurring, categories = [], onCancel, onSave }) {
             </div>
             <div>
               <label className="label" htmlFor="recb-year">
-                <span className="label-text">{t('recBf.startYear')}</span>
+                <span className="label-text">{t('recBf.startYear')} <span className="text-error">*</span></span>
               </label>
               <input
                 id="recb-year"

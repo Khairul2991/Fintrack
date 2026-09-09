@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import PageHeader from '../components/layout/PageHeader'
 import EmptyState from '../components/common/EmptyState'
 import ConfirmDialog from '../components/common/ConfirmDialog'
 import AccountForm from '../components/accounts/AccountForm'
-import { PlusIcon, EditIcon, TrashIcon } from '../components/common/Icons'
+import { PlusIcon, EditIcon, TrashIcon, ArrowRightIcon } from '../components/common/Icons'
 import { useToast } from '../context/ToastContext'
 import { useLanguage } from '../context/LanguageContext'
 import {
@@ -12,6 +13,7 @@ import {
   listAccounts,
   updateAccount,
 } from '../services/accountApi'
+import { listTransactions } from '../services/transactionApi'
 import { formatCurrency } from '../utils/format'
 import { accountDisplayName, sortAccountsDefaultFirst } from '../utils/accountDisplay'
 
@@ -31,6 +33,7 @@ function AccountsPage() {
   const [status, setStatus] = useState('loading')
   const [loadError, setLoadError] = useState('')
   const [refreshKey, setRefreshKey] = useState(0)
+  const [recentByAccount, setRecentByAccount] = useState({})
 
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState(null)
@@ -53,6 +56,27 @@ function AccountsPage() {
   useEffect(() => {
     load()
   }, [load, refreshKey])
+
+  useEffect(() => {
+    if (status !== 'ready' || accounts.length === 0) return
+    let cancelled = false
+    Promise.all(
+      accounts.map((account) =>
+        listTransactions({ accountId: account.id, limit: 3 })
+          .then((response) => ({ id: account.id, items: response.data }))
+          .catch(() => ({ id: account.id, items: [] })),
+      ),
+    ).then((entries) => {
+      if (!cancelled) {
+        setRecentByAccount(
+          Object.fromEntries(entries.map((entry) => [String(entry.id), entry.items])),
+        )
+      }
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [status, accounts])
 
   function retry() {
     setStatus('loading')
@@ -192,6 +216,44 @@ function AccountsPage() {
                       {t('acc.colInitial')}: {formatCurrency(account.initialBalance)}
                     </p>
                   </div>
+                  {recentByAccount[String(account.id)] ? (
+                    <div className="border-t border-base-200 pt-3">
+                      <p className="text-xs font-medium text-base-content/60">
+                        {t('common.recentActivity')}
+                      </p>
+                      {recentByAccount[String(account.id)].length === 0 ? (
+                        <p className="mt-1 text-xs text-base-content/40">{t('accAct.noActivity')}</p>
+                      ) : (
+                        <ul className="mt-1 flex flex-col gap-1">
+                          {recentByAccount[String(account.id)].map((transaction) => {
+                            const income = transaction.type === 'INCOME'
+                            return (
+                              <li
+                                key={transaction.id}
+                                className="flex items-center justify-between gap-2 text-xs"
+                              >
+                                <span className="min-w-0 truncate text-base-content/70">
+                                  {transaction.description}
+                                </span>
+                                <span
+                                  className={`shrink-0 font-medium tabular-nums ${income ? 'text-success' : 'text-error'}`}
+                                >
+                                  {income ? '+' : '−'} {formatCurrency(transaction.amount)}
+                                </span>
+                              </li>
+                            )
+                          })}
+                        </ul>
+                      )}
+                      <Link
+                        to={`/accounts/${account.id}/activities`}
+                        className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+                      >
+                        {t('common.viewAllActivity')}
+                        <ArrowRightIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                      </Link>
+                    </div>
+                  ) : null}
                 </div>
               </div>
             ))}

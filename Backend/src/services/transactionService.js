@@ -1,5 +1,5 @@
 const { AppError } = require('../utils/appError')
-const { getPrisma } = require('../lib/prisma')
+const { getPrisma, getDecimal } = require('../lib/prisma')
 const { requireText, integer, amountString } = require('../utils/validate')
 const { parseDateOnly } = require('../utils/date')
 const { ensureCategoryExists } = require('./categoryService')
@@ -24,6 +24,10 @@ function parseTransactionInput(body) {
   if (body.accountId !== undefined && body.accountId !== null && body.accountId !== '') {
     accountId = integer(body.accountId, 'accountId')
   }
+  let goalId = null
+  if (body.goalId !== undefined && body.goalId !== null && body.goalId !== '') {
+    goalId = integer(body.goalId, 'goalId')
+  }
   const rawDate = requireText(body.date, 'Date')
   const date = parseDateOnly(rawDate)
   if (!date) {
@@ -37,7 +41,65 @@ function parseTransactionInput(body) {
     }
     if (note === '') note = null
   }
-  return { description, amount, type, categoryId, accountId, date, note }
+  return { description, amount, type, categoryId, accountId, goalId, date, note }
+}
+
+function activityTypeFor(type) {
+  return type === 'INCOME' ? 'CONTRIBUTION' : 'WITHDRAWAL'
+}
+
+async function ensureGoalOwnedAndMatching(prisma, userId, goalId, accountId) {
+  const goal = await prisma.goal.findFirst({
+    where: { id: goalId, userId },
+    select: { id: true, accountId: true },
+  })
+  if (!goal) {
+    throw new AppError('Goal not found.', 404)
+  }
+  if (!goal.accountId) {
+    throw new AppError('This goal does not have an account. Edit the goal to set an account first.', 400)
+  }
+  if (goal.accountId !== accountId) {
+    throw new AppError('Goal account must match the transaction account.', 400)
+  }
+  return goal.id
+}
+
+async function syncGoalProgress(tx, goalId) {
+  const Decimal = await getDecimal()
+  const [activities, goal] = await Promise.all([
+    tx.goalActivity.findMany({
+      where: { goalId },
+      select: { type: true, amount: true },
+    }),
+    tx.goal.findUnique({
+      where: { id: goalId },
+      select: { targetAmount: true },
+    }),
+  ])
+  if (!goal) return
+  let current = new Decimal(0)
+  for (const activity of activities) {
+    current = activity.type === 'CONTRIBUTION'
+      ? current.plus(activity.amount)
+      : current.minus(activity.amount)
+  }
+  if (current.isNegative()) current = new Decimal(0)
+  const status = Number(current) >= Number(goal.targetAmount) ? 'COMPLETED' : 'IN_PROGRESS'
+  await tx.goal.update({
+    where: { id: goalId },
+    data: { currentAmount: String(current), status },
+  })
+}
+
+function activityDataFor(input) {
+  return {
+    accountId: input.accountId,
+    type: activityTypeFor(input.type),
+    amount: input.amount,
+    date: input.date,
+    note: input.note,
+  }
 }
 
 async function listTransactions(userId, query) {
@@ -110,6 +172,7 @@ async function listTransactions(userId, query) {
       include: {
         category: { select: { id: true, name: true, icon: true, color: true } },
         account: { select: { id: true, name: true, type: true } },
+        goal: { select: { id: true, name: true } },
       },
     }),
   ])
@@ -124,6 +187,7 @@ async function getTransaction(userId, id) {
     include: {
       category: { select: { id: true, name: true, icon: true, color: true } },
       account: { select: { id: true, name: true, type: true } },
+      goal: { select: { id: true, name: true } },
     },
   })
   if (!transaction) {
@@ -166,7 +230,23 @@ async function createTransaction(userId, body) {
   await ensureCategoryExists(prisma, userId, input.categoryId, 400)
   await ensureCategoryTypeMatches(prisma, input.categoryId, input.type)
   input.accountId = await resolveAccountId(prisma, userId, input.accountId)
-  return prisma.transaction.create({ data: { ...input, userId } })
+  if (input.goalId) {
+    await ensureGoalOwnedAndMatching(prisma, userId, input.goalId, input.accountId)
+  }
+  return prisma.$transaction(async (tx) => {
+    const transaction = await tx.transaction.create({ data: { ...input, userId } })
+    if (input.goalId) {
+      await tx.goalActivity.create({
+        data: {
+          goalId: input.goalId,
+          transactionId: transaction.id,
+          ...activityDataFor(input),
+        },
+      })
+      await syncGoalProgress(tx, input.goalId)
+    }
+    return transaction
+  })
 }
 
 async function updateTransaction(userId, id, body) {
@@ -176,7 +256,51 @@ async function updateTransaction(userId, id, body) {
   await ensureCategoryExists(prisma, userId, input.categoryId, 400)
   await ensureCategoryTypeMatches(prisma, input.categoryId, input.type)
   input.accountId = await resolveAccountId(prisma, userId, input.accountId)
-  return prisma.transaction.update({ where: { id }, data: input })
+  if (input.goalId) {
+    await ensureGoalOwnedAndMatching(prisma, userId, input.goalId, input.accountId)
+  }
+  const nextGoalId = input.goalId
+  return prisma.$transaction(async (tx) => {
+    const updated = await tx.transaction.update({ where: { id }, data: input })
+    const linked = await tx.goalActivity.findFirst({
+      where: { transactionId: id },
+      select: { id: true, goalId: true },
+    })
+    if (!linked) {
+      if (nextGoalId) {
+        await tx.goalActivity.create({
+          data: {
+            goalId: nextGoalId,
+            transactionId: id,
+            ...activityDataFor(input),
+          },
+        })
+        await syncGoalProgress(tx, nextGoalId)
+      }
+      return updated
+    }
+    if (linked.goalId === nextGoalId) {
+      await tx.goalActivity.update({
+        where: { id: linked.id },
+        data: activityDataFor(input),
+      })
+      await syncGoalProgress(tx, nextGoalId)
+      return updated
+    }
+    await tx.goalActivity.delete({ where: { id: linked.id } })
+    await syncGoalProgress(tx, linked.goalId)
+    if (nextGoalId) {
+      await tx.goalActivity.create({
+        data: {
+          goalId: nextGoalId,
+          transactionId: id,
+          ...activityDataFor(input),
+        },
+      })
+      await syncGoalProgress(tx, nextGoalId)
+    }
+    return updated
+  })
 }
 
 async function deleteTransaction(userId, id) {

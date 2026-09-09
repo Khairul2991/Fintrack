@@ -8,22 +8,31 @@ const { ensureAccountExists } = require('./accountService')
 const NAME_MAX = 100
 const DESC_MAX = 500
 
+const GOAL_INCLUDE = {
+  category: { select: { id: true, name: true, icon: true, color: true } },
+  account: { select: { id: true, name: true, type: true } },
+  activities: {
+    orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
+    include: {
+      transaction: { select: { id: true, description: true, type: true } },
+      account: { select: { id: true, name: true, type: true } },
+    },
+  },
+}
+
 function parseGoalInput(body) {
   const name = requireText(body.name, 'Name')
   if (name.length > NAME_MAX) {
     throw new AppError(`Name must be at most ${NAME_MAX} characters.`, 400)
   }
   const targetAmount = amountString(body.targetAmount, 'Target amount')
-  const current = body.currentAmount === undefined || body.currentAmount === null || body.currentAmount === ''
-    ? '0'
-    : amountString(body.currentAmount, 'Current amount')
+  if (body.accountId === undefined || body.accountId === null || body.accountId === '') {
+    throw new AppError('Account is required.', 400)
+  }
+  const accountId = integer(body.accountId, 'accountId')
   let categoryId = null
   if (body.categoryId !== undefined && body.categoryId !== null && body.categoryId !== '') {
     categoryId = integer(body.categoryId, 'categoryId')
-  }
-  let accountId = null
-  if (body.accountId !== undefined && body.accountId !== null && body.accountId !== '') {
-    accountId = integer(body.accountId, 'accountId')
   }
   let targetDate = null
   if (body.targetDate !== undefined && body.targetDate !== null && body.targetDate !== '') {
@@ -40,13 +49,19 @@ function parseGoalInput(body) {
     }
     if (description === '') description = null
   }
-  return { name, description, targetAmount, currentAmount: current, categoryId, accountId, targetDate }
+  return { name, description, targetAmount, categoryId, accountId, targetDate }
 }
 
-function validateGoalAmounts(input) {
-  if (Number(input.currentAmount) > Number(input.targetAmount)) {
-    throw new AppError('Current amount cannot exceed the target amount.', 400)
+function computeCurrent(activities, Decimal) {
+  let current = new Decimal(0)
+  for (const activity of activities) {
+    if (activity.type === 'CONTRIBUTION') {
+      current = current.plus(activity.amount)
+    } else {
+      current = current.minus(activity.amount)
+    }
   }
+  return current.isNegative() ? new Decimal(0) : current
 }
 
 function deriveStatus(currentAmount, targetAmount) {
@@ -54,21 +69,20 @@ function deriveStatus(currentAmount, targetAmount) {
 }
 
 function serialize(goal, Decimal) {
+  const activities = goal.activities || []
+  const current = computeCurrent(activities, Decimal)
+  const status = deriveStatus(current, goal.targetAmount)
   const progress = new Decimal(goal.targetAmount).gt(0)
-    ? new Decimal(goal.currentAmount).div(goal.targetAmount).mul(100)
+    ? current.div(goal.targetAmount).mul(100)
     : new Decimal(0)
-  const remaining = new Decimal(goal.targetAmount).minus(goal.currentAmount)
+  const remaining = new Decimal(goal.targetAmount).minus(current)
   return {
     ...goal,
-    progress: progress,
-    remaining: remaining,
-    status: goal.status,
+    currentAmount: current,
+    progress,
+    remaining: remaining.isNegative() ? new Decimal(0) : remaining,
+    status,
   }
-}
-
-async function enrichGoal(prisma, goal) {
-  const Decimal = await getDecimal()
-  return serialize(goal, Decimal)
 }
 
 async function listGoals(userId) {
@@ -76,52 +90,41 @@ async function listGoals(userId) {
   const goals = await prisma.goal.findMany({
     where: { userId },
     orderBy: [{ status: 'asc' }, { createdAt: 'desc' }],
-    include: {
-      category: { select: { id: true, name: true, icon: true, color: true } },
-      account: { select: { id: true, name: true, type: true } },
-    },
+    include: GOAL_INCLUDE,
   })
   const Decimal = await getDecimal()
-  return Promise.all(goals.map((goal) => serialize(goal, Decimal)))
+  return goals.map((goal) => serialize(goal, Decimal))
 }
 
 async function getGoal(userId, id) {
   const prisma = await getPrisma()
   const goal = await prisma.goal.findFirst({
     where: { id, userId },
-    include: {
-      category: { select: { id: true, name: true, icon: true, color: true } },
-      account: { select: { id: true, name: true, type: true } },
-    },
+    include: GOAL_INCLUDE,
   })
   if (!goal) {
     throw new AppError('Goal not found.', 404)
   }
-  return enrichGoal(prisma, goal)
+  const Decimal = await getDecimal()
+  return serialize(goal, Decimal)
 }
 
 async function createGoal(userId, body) {
   const prisma = await getPrisma()
   const input = parseGoalInput(body)
-  validateGoalAmounts(input)
   if (input.categoryId) {
     await ensureCategoryExists(prisma, userId, input.categoryId, 400)
   }
-  if (input.accountId) {
-    await ensureAccountExists(prisma, userId, input.accountId, 400)
-  }
+  await ensureAccountExists(prisma, userId, input.accountId, 400)
   const goal = await prisma.goal.create({
     data: {
       ...input,
       userId,
-      status: deriveStatus(input.currentAmount, input.targetAmount),
-    },
-    include: {
-      category: { select: { id: true, name: true, icon: true, color: true } },
-      account: { select: { id: true, name: true, type: true } },
+      currentAmount: '0',
+      status: deriveStatus('0', input.targetAmount),
     },
   })
-  return enrichGoal(prisma, goal)
+  return getGoal(userId, goal.id)
 }
 
 async function updateGoal(userId, id, body) {
@@ -131,49 +134,15 @@ async function updateGoal(userId, id, body) {
     throw new AppError('Goal not found.', 404)
   }
   const input = parseGoalInput(body)
-  validateGoalAmounts(input)
   if (input.categoryId) {
     await ensureCategoryExists(prisma, userId, input.categoryId, 400)
   }
-  if (input.accountId) {
-    await ensureAccountExists(prisma, userId, input.accountId, 400)
-  }
-  const goal = await prisma.goal.update({
+  await ensureAccountExists(prisma, userId, input.accountId, 400)
+  await prisma.goal.update({
     where: { id },
-    data: {
-      ...input,
-      status: deriveStatus(input.currentAmount, input.targetAmount),
-    },
-    include: {
-      category: { select: { id: true, name: true, icon: true, color: true } },
-      account: { select: { id: true, name: true, type: true } },
-    },
+    data: { ...input },
   })
-  return enrichGoal(prisma, goal)
-}
-
-async function updateGoalProgress(userId, id, currentAmount) {
-  const prisma = await getPrisma()
-  const existing = await prisma.goal.findFirst({ where: { id, userId } })
-  if (!existing) {
-    throw new AppError('Goal not found.', 404)
-  }
-  const amount = amountString(currentAmount, 'Current amount')
-  if (Number(amount) > Number(existing.targetAmount)) {
-    throw new AppError('Current amount cannot exceed the target amount.', 400)
-  }
-  const goal = await prisma.goal.update({
-    where: { id },
-    data: {
-      currentAmount: amount,
-      status: deriveStatus(amount, existing.targetAmount),
-    },
-    include: {
-      category: { select: { id: true, name: true, icon: true, color: true } },
-      account: { select: { id: true, name: true, type: true } },
-    },
-  })
-  return enrichGoal(prisma, goal)
+  return getGoal(userId, id)
 }
 
 async function deleteGoal(userId, id) {
@@ -191,6 +160,5 @@ module.exports = {
   getGoal,
   createGoal,
   updateGoal,
-  updateGoalProgress,
   deleteGoal,
 }

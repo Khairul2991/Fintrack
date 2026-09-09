@@ -57,6 +57,7 @@ function TransactionTable({ transactions, onEdit, onDelete, accounts = [] }) {
             <th className="text-xs font-medium uppercase tracking-wide">{t('tx.colDate')}</th>
             <th className="text-xs font-medium uppercase tracking-wide">{t('tx.colCategory')}</th>
             <th className="text-xs font-medium uppercase tracking-wide">{t('tx.colAccount')}</th>
+            <th className="text-xs font-medium uppercase tracking-wide">{t('tx.colGoal')}</th>
             <th className="text-xs font-medium uppercase tracking-wide">{t('tx.colDescription')}</th>
             <th className="text-xs font-medium uppercase tracking-wide">{t('tx.colType')}</th>
             <th className="text-right text-xs font-medium uppercase tracking-wide">
@@ -91,6 +92,9 @@ function TransactionTable({ transactions, onEdit, onDelete, accounts = [] }) {
               </td>
               <td className="whitespace-nowrap text-sm text-base-content/70">
                 {account ? accountDisplayName(account, t) : '—'}
+              </td>
+              <td className="whitespace-nowrap text-sm text-base-content/70">
+                {transaction.goal ? transaction.goal.name : '—'}
               </td>
               <td>
                 <div className="font-medium text-sm">{transaction.description}</div>

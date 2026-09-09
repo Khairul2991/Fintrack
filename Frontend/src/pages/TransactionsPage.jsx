@@ -10,6 +10,7 @@ import { useToast } from '../context/ToastContext'
 import { useLanguage } from '../context/LanguageContext'
 import { listCategories } from '../services/categoryApi'
 import { listAccounts } from '../services/accountApi'
+import { listGoals } from '../services/goalApi'
 import { exportTransactions } from '../services/exportApi'
 import { downloadCsv, downloadExcel } from '../utils/exportUtils'
 import {
@@ -48,6 +49,7 @@ function TransactionsPage() {
   const [categoriesAttempt, setCategoriesAttempt] = useState(0)
 
   const [accounts, setAccounts] = useState([])
+  const [goals, setGoals] = useState([])
 
   const [applied, setApplied] = useState(EMPTY_APPLIED)
   const [draft, setDraft] = useState(EMPTY_DRAFT)
@@ -94,6 +96,20 @@ function TransactionsPage() {
       })
       .catch(() => {
         if (active) setAccounts([])
+      })
+    return () => {
+      active = false
+    }
+  }, [])
+
+  useEffect(() => {
+    let active = true
+    listGoals()
+      .then((response) => {
+        if (active) setGoals(response.data)
+      })
+      .catch(() => {
+        if (active) setGoals([])
       })
     return () => {
       active = false
@@ -497,6 +513,7 @@ function TransactionsPage() {
           transaction={editing}
           categories={categories}
           accounts={accounts}
+          goals={goals}
           onCancel={closeForm}
           onSave={handleSave}
         />

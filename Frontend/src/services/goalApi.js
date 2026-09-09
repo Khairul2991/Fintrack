@@ -1,4 +1,4 @@
-import { get, post, put, patch, del } from './api'
+import { get, post, put, del } from './api'
 
 export function listGoals() {
   return get('/goals')
@@ -18,10 +18,6 @@ export function createGoal(payload) {
 
 export function updateGoal(id, payload) {
   return put(`/goals/${id}`, payload)
-}
-
-export function updateGoalProgress(id, currentAmount) {
-  return patch(`/goals/${id}/progress`, { currentAmount })
 }
 
 export function deleteGoal(id) {

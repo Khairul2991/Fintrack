@@ -116,7 +116,7 @@ function AccountForm({ account, onCancel, onSave }) {
           ) : null}
           <div>
             <label className="label" htmlFor="account-name">
-              <span className="label-text">{t('accf.name')}</span>
+              <span className="label-text">{t('accf.name')} <span className="text-error">*</span></span>
             </label>
             <input
               id="account-name"
@@ -140,7 +140,7 @@ function AccountForm({ account, onCancel, onSave }) {
           </div>
           <div>
             <label className="label" htmlFor="account-type">
-              <span className="label-text">{t('accf.type')}</span>
+              <span className="label-text">{t('accf.type')} <span className="text-error">*</span></span>
             </label>
             <select
               id="account-type"

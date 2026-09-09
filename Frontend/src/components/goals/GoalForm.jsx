@@ -2,28 +2,27 @@ import { useEffect, useRef, useState } from 'react'
 import MoneyInput from '../common/MoneyInput'
 import { useLanguage } from '../../context/LanguageContext'
 import { isAmountOverLimit } from '../../utils/numberFormat'
-import { accountDisplayName } from '../../utils/accountDisplay'
+import { accountDisplayName, sortAccountsDefaultFirst } from '../../utils/accountDisplay'
 import { sortCategoriesForDisplay } from '../../l10n/categories'
 
 const NAME_MAX = 100
 const DESC_MAX = 500
 
-function initialForm(goal) {
+function initialForm(goal, accounts) {
   if (!goal) {
+    const cashDefault = accounts.find((account) => account.isDefault)
     return {
       name: '',
       targetAmount: '',
-      currentAmount: '',
       description: '',
       targetDate: '',
       categoryId: '',
-      accountId: '',
+      accountId: cashDefault ? String(cashDefault.id) : '',
     }
   }
   return {
     name: goal.name,
     targetAmount: goal.targetAmount,
-    currentAmount: goal.currentAmount,
     description: goal.description ?? '',
     targetDate: goal.targetDate ? goal.targetDate.slice(0, 10) : '',
     categoryId: goal.categoryId != null ? String(goal.categoryId) : '',
@@ -34,14 +33,16 @@ function initialForm(goal) {
 function GoalForm({ goal, categories = [], accounts = [], onCancel, onSave }) {
   const { t, localizeCategory, translateError } = useLanguage()
   const sortedCategories = sortCategoriesForDisplay(categories, localizeCategory)
-  const [form, setForm] = useState(() => initialForm(goal))
+  const defaultAccount = accounts.find((account) => account.isDefault)
+  const sortedAccounts = sortAccountsDefaultFirst(accounts)
+  const [form, setForm] = useState(() => initialForm(goal, accounts))
   const [errors, setErrors] = useState({})
   const [submitError, setSubmitError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
   const nameRef = useRef(null)
   const targetRef = useRef(null)
-  const currentRef = useRef(null)
+  const accountRef = useRef(null)
 
   useEffect(() => {
     function handleKeyDown(event) {
@@ -69,17 +70,8 @@ function GoalForm({ goal, categories = [], accounts = [], onCancel, onSave }) {
     } else if (isAmountOverLimit(form.targetAmount)) {
       next.targetAmount = t('common.amountTooLarge')
     }
-    const currentNum = Number(form.currentAmount)
-    if (form.currentAmount !== '' && (!Number.isFinite(currentNum) || currentNum < 0)) {
-      next.currentAmount = t('goalf.errCurrent')
-    } else if (
-      form.currentAmount !== '' &&
-      Number.isFinite(target) &&
-      currentNum > target
-    ) {
-      next.currentAmount = t('goalf.errCurrentExceedsTarget')
-    } else if (isAmountOverLimit(form.currentAmount)) {
-      next.currentAmount = t('common.amountTooLarge')
+    if (!form.accountId) {
+      next.accountId = t('goalf.errAccount')
     }
     if (form.description.length > DESC_MAX) {
       next.description = t('goalf.errDescriptionTooLong')
@@ -98,7 +90,7 @@ function GoalForm({ goal, categories = [], accounts = [], onCancel, onSave }) {
     const order = [
       { key: 'name', ref: nameRef },
       { key: 'targetAmount', ref: targetRef },
-      { key: 'currentAmount', ref: currentRef },
+      { key: 'accountId', ref: accountRef },
     ]
     const firstInvalid = order.find((item) => next[item.key])
     if (firstInvalid) {
@@ -111,10 +103,9 @@ function GoalForm({ goal, categories = [], accounts = [], onCancel, onSave }) {
         name: form.name.trim(),
         description: form.description.trim() ? form.description.trim() : null,
         targetAmount: form.targetAmount,
-        currentAmount: form.currentAmount === '' ? '0' : form.currentAmount,
         targetDate: form.targetDate ? form.targetDate : null,
         categoryId: form.categoryId ? Number(form.categoryId) : null,
-        accountId: form.accountId ? Number(form.accountId) : null,
+        accountId: Number(form.accountId),
       })
     } catch (error) {
       setSubmitError(translateError(error.message) || t('common.genericError'))
@@ -135,7 +126,7 @@ function GoalForm({ goal, categories = [], accounts = [], onCancel, onSave }) {
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label className="label" htmlFor="goal-name">
-                <span className="label-text">{t('goalf.name')}</span>
+                <span className="label-text">{t('goalf.name')} <span className="text-error">*</span></span>
               </label>
               <input
                 id="goal-name"
@@ -157,7 +148,7 @@ function GoalForm({ goal, categories = [], accounts = [], onCancel, onSave }) {
             </div>
             <div>
               <label className="label" htmlFor="goal-target">
-                <span className="label-text">{t('goalf.targetAmount')}</span>
+                <span className="label-text">{t('goalf.targetAmount')} <span className="text-error">*</span></span>
               </label>
               <MoneyInput
                 id="goal-target"
@@ -168,21 +159,6 @@ function GoalForm({ goal, categories = [], accounts = [], onCancel, onSave }) {
               />
               {errors.targetAmount ? (
                 <p className="mt-1 text-xs text-error">{errors.targetAmount}</p>
-              ) : null}
-            </div>
-            <div>
-              <label className="label" htmlFor="goal-current">
-                <span className="label-text">{t('goalf.currentAmount')}</span>
-              </label>
-              <MoneyInput
-                id="goal-current"
-                inputRef={currentRef}
-                value={form.currentAmount}
-                onChange={(value) => setField('currentAmount', value)}
-                error={Boolean(errors.currentAmount)}
-              />
-              {errors.currentAmount ? (
-                <p className="mt-1 text-xs text-error">{errors.currentAmount}</p>
               ) : null}
             </div>
             <div>
@@ -221,23 +197,37 @@ function GoalForm({ goal, categories = [], accounts = [], onCancel, onSave }) {
                 ))}
               </select>
             </div>
-            <div>
+            <div className="sm:col-span-2">
               <label className="label" htmlFor="goal-account">
-                <span className="label-text">{t('goalf.account')}</span>
+                <span className="label-text">{t('goalf.account')} <span className="text-error">*</span></span>
               </label>
               <select
                 id="goal-account"
-                className="select select-bordered w-full"
+                ref={accountRef}
+                className={`select select-bordered w-full ${errors.accountId ? 'select-error' : ''}`}
                 value={form.accountId}
                 onChange={(event) => setField('accountId', event.target.value)}
               >
-                <option value="">{t('goalf.selectAccount')}</option>
-                {accounts.map((account) => (
+                {accounts.length === 0 ? <option value="">{t('goalf.selectAccount')}</option> : null}
+                {sortedAccounts.map((account) => (
                   <option key={account.id} value={account.id}>
                     {accountDisplayName(account, t)}
                   </option>
                 ))}
               </select>
+              {errors.accountId ? (
+                <p className="mt-1 text-xs text-error">{errors.accountId}</p>
+              ) : null}
+              {!goal && defaultAccount ? (
+                <div className="mt-1 flex items-start gap-2 rounded-lg border border-info/20 bg-info/10 px-3 py-2">
+                  <span className="text-xs text-base-content/80">
+                    <span className="font-bold">
+                      {t('goalf.accountDefaultHint', { name: accountDisplayName(defaultAccount, t) })}
+                    </span>
+                    <span className="block text-base-content/60">{t('goalf.accountDefaultBody')}</span>
+                  </span>
+                </div>
+              ) : null}
             </div>
             <div className="sm:col-span-2">
               <label className="label" htmlFor="goal-desc">

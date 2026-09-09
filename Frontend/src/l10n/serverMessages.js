@@ -25,6 +25,12 @@ const SERVER_ERRORS = {
     'Type must be INCOME or EXPENSE.': 'Tipe harus INCOME atau EXPENSE.',
     'categoryId must be an integer.': 'categoryId harus berupa bilangan bulat.',
     'Invalid date. Use YYYY-MM-DD.': 'Tanggal tidak valid. Gunakan YYYY-MM-DD.',
+    'Account is required.': 'Akun wajib dipilih.',
+    'Goal account must match the transaction account.': 'Akun tujuan harus sama dengan akun transaksi.',
+    'This goal does not have an account. Edit the goal to set an account first.':
+      'Tujuan ini belum memiliki akun. Edit tujuan untuk memilih akun terlebih dahulu.',
+    'Goal not found.': 'Tujuan tidak ditemukan.',
+    'Note must be at most 500 characters.': 'Catatan maksimal 500 karakter.',
     'Note must be at most 500 characters.': 'Catatan maksimal 500 karakter.',
     'Transaction not found.': 'Transaksi tidak ditemukan.',
     'Budget not found.': 'Anggaran tidak ditemukan.',

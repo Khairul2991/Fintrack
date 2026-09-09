@@ -3,8 +3,8 @@ import PageHeader from '../components/layout/PageHeader'
 import EmptyState from '../components/common/EmptyState'
 import LoadingSkeleton from '../components/common/LoadingSkeleton'
 import ConfirmDialog from '../components/common/ConfirmDialog'
-import MoneyInput from '../components/common/MoneyInput'
 import GoalForm from '../components/goals/GoalForm'
+import GoalDetailDialog from '../components/goals/GoalDetailDialog'
 import { useToast } from '../context/ToastContext'
 import { useLanguage } from '../context/LanguageContext'
 import {
@@ -12,10 +12,8 @@ import {
   deleteGoal,
   getGoalsOverview,
   updateGoal,
-  updateGoalProgress,
 } from '../services/goalApi'
 import { formatCurrency, formatDate } from '../utils/format'
-import { isAmountOverLimit } from '../utils/numberFormat'
 import { accountDisplayName } from '../utils/accountDisplay'
 
 function EditIcon() {
@@ -58,80 +56,6 @@ function TrashIcon() {
   )
 }
 
-function GoalProgressDialog({ goal, onCancel, onSave }) {
-  const { t, translateError } = useLanguage()
-  const [value, setValue] = useState(goal.currentAmount)
-  const [error, setError] = useState('')
-  const [submitting, setSubmitting] = useState(false)
-
-  async function handleSubmit(event) {
-    event.preventDefault()
-    const num = Number(value)
-    if (value === '' || !Number.isFinite(num) || num < 0) {
-      setError(t('goalf.errCurrent'))
-      return
-    }
-    if (isAmountOverLimit(value)) {
-      setError(t('common.amountTooLarge'))
-      return
-    }
-    if (Number(goal.targetAmount) && num > Number(goal.targetAmount)) {
-      setError(t('goalf.errCurrentExceedsTarget'))
-      return
-    }
-    setError('')
-    setSubmitting(true)
-    try {
-      await onSave(value)
-    } catch (err) {
-      setError(translateError(err.message) || t('common.genericError'))
-      setSubmitting(false)
-    }
-  }
-
-  return (
-    <dialog className="modal modal-open">
-      <div className="modal-box max-w-sm rounded-box">
-        <h3 className="text-lg font-bold">{t('goal.updateProgressTitle')}</h3>
-        <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-3">
-          <div>
-            <label className="label" htmlFor="goal-progress">
-              <span className="label-text">{t('goal.updateProgressLabel')}</span>
-            </label>
-            <MoneyInput
-              id="goal-progress"
-              value={value}
-              onChange={(next) => {
-                setValue(next)
-                setError('')
-              }}
-              error={Boolean(error)}
-            />
-            {error ? <p className="mt-1 text-xs text-error">{error}</p> : null}
-          </div>
-          <div className="modal-action">
-            <button type="button" className="btn" onClick={onCancel} disabled={submitting}>
-              {t('common.cancel')}
-            </button>
-            <button type="submit" className="btn btn-primary" disabled={submitting}>
-              {submitting ? <span className="loading loading-spinner loading-sm" /> : null}
-              {t('common.save')}
-            </button>
-          </div>
-        </form>
-      </div>
-      <button
-        type="button"
-        className="modal-backdrop"
-        aria-label={t('common.closeDialog')}
-        onClick={() => {
-          if (!submitting) onCancel()
-        }}
-      />
-    </dialog>
-  )
-}
-
 function GoalsPage() {
   const toast = useToast()
   const { t, translateError, localizeCategory } = useLanguage()
@@ -146,7 +70,7 @@ function GoalsPage() {
 
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState(null)
-  const [progressTarget, setProgressTarget] = useState(null)
+  const [detailGoalId, setDetailGoalId] = useState(null)
   const [deleting, setDeleting] = useState(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
 
@@ -168,6 +92,18 @@ function GoalsPage() {
   useEffect(() => {
     loadGoals()
   }, [loadGoals, refreshKey])
+
+  const detailGoal = detailGoalId != null ? goals.find((goal) => goal.id === detailGoalId) || null : null
+
+  const summary = goals.reduce(
+    (acc, goal) => {
+      acc.current += Number(goal.currentAmount) || 0
+      acc.target += Number(goal.targetAmount) || 0
+      return acc
+    },
+    { current: 0, target: 0 },
+  )
+  const overallProgress = summary.target > 0 ? Math.min(100, (summary.current / summary.target) * 100) : 0
 
   function startReload() {
     setStatus('loading')
@@ -202,20 +138,13 @@ function GoalsPage() {
     setRefreshKey((key) => key + 1)
   }
 
-  async function handleProgressSave(value) {
-    await updateGoalProgress(progressTarget.id, value)
-    toast.success(t('goal.progressUpdated'))
-    setProgressTarget(null)
-    startReload()
-    setRefreshKey((key) => key + 1)
-  }
-
   async function handleDelete() {
     if (!deleting) return
     setDeleteLoading(true)
     try {
       await deleteGoal(deleting.id)
       toast.success(t('goal.deleted'))
+      if (detailGoalId === deleting.id) setDetailGoalId(null)
       setDeleting(null)
       startReload()
       setRefreshKey((key) => key + 1)
@@ -262,97 +191,113 @@ function GoalsPage() {
             }
           />
         ) : (
-          <div className="grid grid-cols-1 gap-4 p-4 md:grid-cols-2 xl:grid-cols-3">
-            {goals.map((goal) => {
-              const percent = Math.min(100, Number(goal.progress))
-              const completed = goal.status === 'COMPLETED'
-              return (
-                <article
-                  key={goal.id}
-                  className="card surface card-border rounded-box p-4 min-w-0"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <h3 className="font-bold text-base">{goal.name}</h3>
-                      <p className="text-xs text-base-content/50">
-                        {goal.category ? localizeCategory(goal.category) : ''}
-                        {goal.category && goal.account ? ' · ' : ''}
-                        {goal.account ? accountDisplayName(goal.account, t) : ''}
-                      </p>
+          <>
+            <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-3">
+              <div className="card surface card-border rounded-box p-4">
+                <p className="text-xs text-base-content/50">{t('goal.sumCurrent')}</p>
+                <p className="mt-1 text-xl font-bold financial-value">{formatCurrency(summary.current)}</p>
+              </div>
+              <div className="card surface card-border rounded-box p-4">
+                <p className="text-xs text-base-content/50">{t('goal.sumTargets')}</p>
+                <p className="mt-1 text-xl font-bold financial-value">{formatCurrency(summary.target)}</p>
+              </div>
+              <div className="card surface card-border rounded-box p-4">
+                <p className="text-xs text-base-content/50">{t('goal.sumProgress')}</p>
+                <p className="mt-1 text-xl font-bold text-primary">{overallProgress.toFixed(1)}%</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 p-4 pt-0 md:grid-cols-2 xl:grid-cols-3">
+              {goals.map((goal) => {
+                const percent = Math.min(100, Number(goal.progress))
+                const completed = goal.status === 'COMPLETED'
+                return (
+                  <article
+                    key={goal.id}
+                    className="card surface card-border rounded-box p-4 min-w-0"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <h3 className="font-bold text-base">{goal.name}</h3>
+                        <p className="text-xs text-base-content/50">
+                          {goal.category ? localizeCategory(goal.category) : ''}
+                          {goal.category && goal.account ? ' · ' : ''}
+                          {goal.account ? accountDisplayName(goal.account, t) : ''}
+                        </p>
+                      </div>
+                      {completed ? (
+                        <span className="badge badge-success badge-sm border-0 font-medium">
+                          {t('goal.statusCompleted')}
+                        </span>
+                      ) : (
+                        <span className="badge badge-sm border-0 font-medium bg-primary/15 text-primary">
+                          {t('goal.statusInProgress')}
+                        </span>
+                      )}
                     </div>
-                    {completed ? (
-                      <span className="badge badge-success badge-sm border-0 font-medium">
-                        {t('goal.statusCompleted')}
+
+                    {goal.description ? (
+                      <p className="mt-2 text-sm text-base-content/60">{goal.description}</p>
+                    ) : null}
+
+                    <progress
+                      className={`progress progress-primary mt-3 h-2.5 w-full ${completed ? 'progress-success' : ''}`}
+                      value={percent}
+                      max="100"
+                      aria-label={t('goal.progressAria', { percent: Math.round(percent) })}
+                    />
+                    <div className="mt-1 flex items-center justify-between gap-2 text-xs text-base-content/60">
+                      <span className="min-w-0 truncate">
+                        <span className="financial-value">{formatCurrency(goal.currentAmount)}</span>
+                        <span className="text-base-content/40"> / {formatCurrency(goal.targetAmount)}</span>
                       </span>
-                    ) : (
-                      <span className="badge badge-sm border-0 font-medium bg-primary/15 text-primary">
-                        {t('goal.statusInProgress')}
+                      <span className="shrink-0 font-semibold text-primary">{percent.toFixed(1)}%</span>
+                    </div>
+
+                    <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs">
+                      <span className="font-medium text-primary">
+                        {t('goal.remaining')}: <span className="financial-value">{formatCurrency(goal.remaining)}</span>
                       </span>
-                    )}
-                  </div>
+                      <span className="text-base-content/50">
+                        {goal.targetDate
+                          ? t('goal.deadlineLabel', { date: formatDate(goal.targetDate) })
+                          : t('goal.noDeadline')}
+                      </span>
+                    </div>
 
-                  {goal.description ? (
-                    <p className="mt-2 text-sm text-base-content/60">{goal.description}</p>
-                  ) : null}
-
-                  <progress
-                    className={`progress progress-primary mt-3 h-2.5 w-full ${completed ? 'progress-success' : ''}`}
-                    value={percent}
-                    max="100"
-                    aria-label={t('goal.progressAria', { percent: Math.round(percent) })}
-                  />
-                  <div className="mt-1 flex items-center justify-between text-xs text-base-content/60">
-                    <span className="min-w-0">
-                      {t('goal.colCurrent')}: <span className="financial-value">{formatCurrency(goal.currentAmount)}</span>
-                    </span>
-                    <span className="min-w-0 text-right">
-                      {t('goal.colTarget')}: <span className="financial-value">{formatCurrency(goal.targetAmount)}</span>
-                    </span>
-                  </div>
-
-                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs">
-                    <span className="font-medium text-primary">
-                      {t('goal.remaining')}: <span className="financial-value">{formatCurrency(goal.remaining)}</span>
-                    </span>
-                    <span className="text-base-content/50">
-                      {goal.targetDate
-                        ? t('goal.deadlineLabel', { date: formatDate(goal.targetDate) })
-                        : t('goal.noDeadline')}
-                    </span>
-                  </div>
-
-                  <div className="mt-3 flex items-center justify-between border-t border-base-200 pt-3">
-                    <button
-                      type="button"
-                      className="btn btn-sm btn-outline"
-                      onClick={() => setProgressTarget(goal)}
-                      aria-label={t('goal.updateProgressAria')}
-                    >
-                      {t('goal.updateProgressAria')}
-                    </button>
-                    <div className="flex gap-1">
+                    <div className="mt-3 flex items-center justify-between border-t border-base-200 pt-3">
                       <button
                         type="button"
-                        className="btn btn-ghost btn-square btn-sm text-base-content/60 hover:text-base-content"
-                        onClick={() => openEdit(goal)}
-                        aria-label={t('goal.editAria', { name: goal.name })}
+                        className="btn btn-sm btn-outline"
+                        onClick={() => setDetailGoalId(goal.id)}
+                        aria-label={t('goal.detailAria', { name: goal.name })}
                       >
-                        <EditIcon />
+                        {t('goal.detail')}
                       </button>
-                      <button
-                        type="button"
-                        className="btn btn-ghost btn-square btn-sm text-base-content/60 hover:text-error"
-                        onClick={() => setDeleting(goal)}
-                        aria-label={t('goal.deleteAria', { name: goal.name })}
-                      >
-                        <TrashIcon />
-                      </button>
+                      <div className="flex gap-1">
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-square btn-sm text-base-content/60 hover:text-base-content"
+                          onClick={() => openEdit(goal)}
+                          aria-label={t('goal.editAria', { name: goal.name })}
+                        >
+                          <EditIcon />
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-square btn-sm text-base-content/60 hover:text-error"
+                          onClick={() => setDeleting(goal)}
+                          aria-label={t('goal.deleteAria', { name: goal.name })}
+                        >
+                          <TrashIcon />
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                </article>
-              )
-            })}
-          </div>
+                  </article>
+                )
+              })}
+            </div>
+          </>
         )}
       </div>
 
@@ -366,11 +311,15 @@ function GoalsPage() {
         />
       ) : null}
 
-      {progressTarget ? (
-        <GoalProgressDialog
-          goal={progressTarget}
-          onCancel={() => setProgressTarget(null)}
-          onSave={handleProgressSave}
+      {detailGoal ? (
+        <GoalDetailDialog
+          goal={detailGoal}
+          accounts={accounts}
+          onClose={() => setDetailGoalId(null)}
+          onEdit={(goal) => {
+            setDetailGoalId(null)
+            openEdit(goal)
+          }}
         />
       ) : null}
 

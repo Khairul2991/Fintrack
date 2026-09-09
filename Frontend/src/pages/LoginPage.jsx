@@ -57,7 +57,7 @@ function LoginPage() {
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-3">
             <label className="floating-label">
-              <span>{t('auth.email')}</span>
+              <span>{t('auth.email')} <span className="text-error">*</span></span>
               <input
                 type="email"
                 className="input input-bordered w-full"
@@ -69,7 +69,7 @@ function LoginPage() {
             </label>
 
             <label className="floating-label">
-              <span>{t('auth.password')}</span>
+              <span>{t('auth.password')} <span className="text-error">*</span></span>
               <input
                 type="password"
                 className="input input-bordered w-full"
