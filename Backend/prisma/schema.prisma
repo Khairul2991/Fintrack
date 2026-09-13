@@ -13,6 +13,7 @@ datasource db {
 enum TransactionType {
   INCOME
   EXPENSE
+  TRANSFER
 }
 
 enum AccountType {
@@ -93,24 +94,30 @@ model Transaction {
   description           String
   amount                Decimal              @db.Decimal(18, 4)
   type                  TransactionType
-  categoryId            Int
+  categoryId            Int?
   accountId             Int?
+  transferAccountId     Int?
   goalId                Int?
+  sourceGoalId          Int?
   date                  DateTime
   note                  String?
   createdAt             DateTime             @default(now())
   recurringTransactionId Int?
   user                  User                 @relation(fields: [userId], references: [id])
-  category              Category             @relation(fields: [categoryId], references: [id])
+  category              Category?            @relation(fields: [categoryId], references: [id])
   account               Account?             @relation(fields: [accountId], references: [id])
+  transferAccount       Account?             @relation("TransferIn", fields: [transferAccountId], references: [id], onDelete: Restrict)
   goal                  Goal?                @relation(fields: [goalId], references: [id], onDelete: SetNull)
-  goalActivity          GoalActivity?
+  sourceGoal            Goal?                @relation("TransferSourceGoal", fields: [sourceGoalId], references: [id], onDelete: SetNull)
+  goalActivities        GoalActivity[]
   recurringTransaction  RecurringTransaction? @relation(fields: [recurringTransactionId], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@index([categoryId])
   @@index([accountId])
+  @@index([transferAccountId])
   @@index([goalId])
+  @@index([sourceGoalId])
   @@index([date])
   @@index([type])
   @@index([recurringTransactionId])
@@ -143,13 +150,13 @@ model Account {
   isDefault             Boolean                @default(false)
   initialBalance        Decimal                @default(0) @db.Decimal(18, 4)
   createdAt             DateTime               @default(now())
+  deletedAt             DateTime?
   user                  User                   @relation(fields: [userId], references: [id])
   transactions          Transaction[]
+  transfersReceived     Transaction[]          @relation("TransferIn")
   recurringTransactions RecurringTransaction[]
   goals                 Goal[]
   goalActivities        GoalActivity[]
-
-  @@unique([userId, name])
 }
 
 model RecurringTransaction {
@@ -215,6 +222,7 @@ model Goal {
   account       Account?       @relation(fields: [accountId], references: [id])
   activities    GoalActivity[]
   transactions  Transaction[]
+  sourceTransactions Transaction[] @relation("TransferSourceGoal")
 
   @@index([userId])
   @@index([categoryId])
@@ -236,7 +244,7 @@ model GoalActivity {
   account       Account?         @relation(fields: [accountId], references: [id], onDelete: SetNull)
   transaction   Transaction?     @relation(fields: [transactionId], references: [id], onDelete: Cascade)
 
-  @@unique([transactionId])
+  @@index([transactionId])
   @@index([goalId])
   @@index([accountId])
   @@index([type])

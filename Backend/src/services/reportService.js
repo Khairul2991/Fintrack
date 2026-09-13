@@ -21,7 +21,7 @@ async function getMonthlySeries(prisma, userId, count) {
     const bucket = buckets.get(key) || { income: new Decimal(0), expense: new Decimal(0) }
     if (row.type === 'INCOME') {
       bucket.income = bucket.income.plus(row.amount)
-    } else {
+    } else if (row.type === 'EXPENSE') {
       bucket.expense = bucket.expense.plus(row.amount)
     }
     buckets.set(key, bucket)

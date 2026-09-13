@@ -1,6 +1,7 @@
 const { getPrisma, getDecimal } = require('../lib/prisma')
 const { currentMonthYear, monthRange, lastNMonthStarts, monthKey } = require('../utils/date')
 const { runCatchUp } = require('./recurringTransactionService')
+const { getTransferFlow } = require('./transferBalance')
 
 function buildInsights({ series, topThisMonth, budgetMessages }) {
   const insights = []
@@ -39,7 +40,7 @@ async function getSummary(userId) {
       where: { month: curMonth, year: curYear, userId },
       include: { category: { select: { name: true } } },
     }),
-    prisma.account.findMany({ where: { userId }, orderBy: { name: 'asc' } }),
+    prisma.account.findMany({ where: { userId, deletedAt: null }, orderBy: { name: 'asc' } }),
   ])
 
   let income = new Decimal(0)
@@ -52,7 +53,7 @@ async function getSummary(userId) {
   for (const transaction of transactions) {
     if (transaction.type === 'INCOME') {
       income = income.plus(transaction.amount)
-    } else {
+    } else if (transaction.type === 'EXPENSE') {
       expense = expense.plus(transaction.amount)
       const currentTotal = spentByCategory.get(transaction.categoryId)
       spentByCategory.set(transaction.categoryId, currentTotal ? currentTotal.plus(transaction.amount) : new Decimal(transaction.amount))
@@ -66,7 +67,7 @@ async function getSummary(userId) {
     const bucket = byMonth.get(key) || { income: new Decimal(0), expense: new Decimal(0) }
     if (transaction.type === 'INCOME') {
       bucket.income = bucket.income.plus(transaction.amount)
-    } else {
+    } else if (transaction.type === 'EXPENSE') {
       bucket.expense = bucket.expense.plus(transaction.amount)
     }
     byMonth.set(key, bucket)
@@ -75,7 +76,7 @@ async function getSummary(userId) {
       const accountEntry = accountTotals.get(transaction.accountId) || { income: new Decimal(0), expense: new Decimal(0) }
       if (transaction.type === 'INCOME') {
         accountEntry.income = accountEntry.income.plus(transaction.amount)
-      } else {
+      } else if (transaction.type === 'EXPENSE') {
         accountEntry.expense = accountEntry.expense.plus(transaction.amount)
       }
       accountTotals.set(transaction.accountId, accountEntry)
@@ -149,9 +150,14 @@ async function getSummary(userId) {
     budgetMessages,
   })
 
+  const { transferOut, transferIn } = await getTransferFlow(prisma, userId, accounts.map((account) => account.id))
   const accountList = accounts.map((account) => {
     const totals = accountTotals.get(account.id) || { income: new Decimal(0), expense: new Decimal(0) }
-    const balance = new Decimal(account.initialBalance).plus(totals.income).minus(totals.expense)
+    const balance = new Decimal(account.initialBalance)
+      .plus(totals.income)
+      .minus(totals.expense)
+      .minus(transferOut.get(account.id) ?? new Decimal(0))
+      .plus(transferIn.get(account.id) ?? new Decimal(0))
     return { ...account, income: totals.income, expense: totals.expense, balance }
   })
 

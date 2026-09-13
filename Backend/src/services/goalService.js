@@ -3,7 +3,7 @@ const { getPrisma, getDecimal } = require('../lib/prisma')
 const { requireText, integer, amountString } = require('../utils/validate')
 const { parseDateOnly } = require('../utils/date')
 const { ensureCategoryExists } = require('./categoryService')
-const { ensureAccountExists } = require('./accountService')
+const { ensureActiveAccount } = require('./accountService')
 
 const NAME_MAX = 100
 const DESC_MAX = 500
@@ -115,7 +115,7 @@ async function createGoal(userId, body) {
   if (input.categoryId) {
     await ensureCategoryExists(prisma, userId, input.categoryId, 400)
   }
-  await ensureAccountExists(prisma, userId, input.accountId, 400)
+  await ensureActiveAccount(prisma, userId, input.accountId, 400)
   const goal = await prisma.goal.create({
     data: {
       ...input,
@@ -137,7 +137,7 @@ async function updateGoal(userId, id, body) {
   if (input.categoryId) {
     await ensureCategoryExists(prisma, userId, input.categoryId, 400)
   }
-  await ensureAccountExists(prisma, userId, input.accountId, 400)
+  await ensureActiveAccount(prisma, userId, input.accountId, 400)
   await prisma.goal.update({
     where: { id },
     data: { ...input },

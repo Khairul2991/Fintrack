@@ -15,7 +15,9 @@ function toDisplayAmount(raw) {
 }
 
 function typeLabel(type, lang) {
-  return type === 'INCOME' ? (lang === 'id' ? 'Pendapatan' : 'Income') : lang === 'id' ? 'Pengeluaran' : 'Expense'
+  if (type === 'INCOME') return lang === 'id' ? 'Pendapatan' : 'Income'
+  if (type === 'TRANSFER') return lang === 'id' ? 'Transfer' : 'Transfer'
+  return lang === 'id' ? 'Pengeluaran' : 'Expense'
 }
 
 function buildRows(rows, lang) {

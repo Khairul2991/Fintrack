@@ -34,6 +34,10 @@ async function getAnalytics(userId) {
   let largest = null
 
   for (const transaction of transactions) {
+    if (transaction.type === 'TRANSFER') {
+      continue
+    }
+
     txnTotal = txnTotal.plus(transaction.amount)
 
     if (!largest || transaction.amount.gt(largest.amount)) {

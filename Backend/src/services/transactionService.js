@@ -1,13 +1,14 @@
 const { AppError } = require('../utils/appError')
 const { getPrisma, getDecimal } = require('../lib/prisma')
 const { requireText, integer, amountString } = require('../utils/validate')
-const { parseDateOnly } = require('../utils/date')
+const { parseDateOnly, parseTransactionDate } = require('../utils/date')
 const { ensureCategoryExists } = require('./categoryService')
-const { ensureAccountExists, ensureCashAccount } = require('./accountService')
+const { ensureAccountExists, ensureActiveAccount, ensureCashAccount } = require('./accountService')
+const { getTransferFlow } = require('./transferBalance')
 
 const DESCRIPTION_MAX = 200
 const NOTE_MAX = 500
-const TYPES = ['INCOME', 'EXPENSE']
+const TYPES = ['INCOME', 'EXPENSE', 'TRANSFER']
 
 function parseTransactionInput(body) {
   const description = requireText(body.description, 'Description')
@@ -17,19 +18,50 @@ function parseTransactionInput(body) {
   const amount = amountString(body.amount)
   const type = requireText(body.type, 'Type')
   if (!TYPES.includes(type)) {
-    throw new AppError('Type must be INCOME or EXPENSE.', 400)
+    throw new AppError('Type must be INCOME, EXPENSE, or TRANSFER.', 400)
   }
-  const categoryId = integer(body.categoryId, 'categoryId')
+  let categoryId = null
+  if (body.categoryId !== undefined && body.categoryId !== null && body.categoryId !== '') {
+    categoryId = integer(body.categoryId, 'categoryId')
+  }
   let accountId = null
   if (body.accountId !== undefined && body.accountId !== null && body.accountId !== '') {
     accountId = integer(body.accountId, 'accountId')
+  }
+  let transferAccountId = null
+  if (body.transferAccountId !== undefined && body.transferAccountId !== null && body.transferAccountId !== '') {
+    transferAccountId = integer(body.transferAccountId, 'transferAccountId')
   }
   let goalId = null
   if (body.goalId !== undefined && body.goalId !== null && body.goalId !== '') {
     goalId = integer(body.goalId, 'goalId')
   }
+  let sourceGoalId = null
+  if (body.sourceGoalId !== undefined && body.sourceGoalId !== null && body.sourceGoalId !== '') {
+    sourceGoalId = integer(body.sourceGoalId, 'sourceGoalId')
+  }
+  if (type === 'TRANSFER') {
+    if (categoryId !== null) {
+      throw new AppError('Transfer cannot have a category.', 400)
+    }
+    if (transferAccountId === null) {
+      throw new AppError('Transfer destination account is required.', 400)
+    }
+    if (accountId !== null && transferAccountId === accountId) {
+      throw new AppError('Transfer source and destination must be different.', 400)
+    }
+    if (sourceGoalId !== null && sourceGoalId === goalId) {
+      throw new AppError('Source goal and destination goal must be different.', 400)
+    }
+  } else if (transferAccountId !== null) {
+    throw new AppError('Transfer destination is only allowed for TRANSFER transactions.', 400)
+  } else if (sourceGoalId !== null) {
+    throw new AppError('Source goal is only allowed for TRANSFER transactions.', 400)
+  } else if (categoryId === null) {
+    throw new AppError('categoryId must be an integer.', 400)
+  }
   const rawDate = requireText(body.date, 'Date')
-  const date = parseDateOnly(rawDate)
+  const date = parseTransactionDate(rawDate)
   if (!date) {
     throw new AppError('Invalid date. Use YYYY-MM-DD.', 400)
   }
@@ -41,7 +73,7 @@ function parseTransactionInput(body) {
     }
     if (note === '') note = null
   }
-  return { description, amount, type, categoryId, accountId, goalId, date, note }
+  return { description, amount, type, categoryId, accountId, transferAccountId, goalId, sourceGoalId, date, note }
 }
 
 function activityTypeFor(type) {
@@ -102,6 +134,94 @@ function activityDataFor(input) {
   }
 }
 
+async function currentGoalAmount(prisma, goalId) {
+  const Decimal = await getDecimal()
+  const activities = await prisma.goalActivity.findMany({
+    where: { goalId },
+    select: { type: true, amount: true },
+  })
+  let current = new Decimal(0)
+  for (const activity of activities) {
+    current = activity.type === 'CONTRIBUTION'
+      ? current.plus(activity.amount)
+      : current.minus(activity.amount)
+  }
+  return current.isNegative() ? new Decimal(0) : current
+}
+
+async function resolveExplicitSourceGoal(prisma, userId, sourceGoalId, accountId, amount) {
+  await ensureGoalOwnedAndMatching(prisma, userId, sourceGoalId, accountId)
+  const allocation = await currentGoalAmount(prisma, sourceGoalId)
+  const Decimal = await getDecimal()
+  if (new Decimal(amount).gt(allocation)) {
+    throw new AppError('The transfer amount exceeds the selected source goal balance.', 400)
+  }
+  return { id: sourceGoalId, withdrawal: amount }
+}
+
+async function autoResolveSourceGoal(prisma, userId, accountId, amount, available) {
+  const Decimal = await getDecimal()
+  const funded = await prisma.goal.findMany({
+    where: { userId, accountId, currentAmount: { gt: 0 } },
+    select: { id: true, currentAmount: true },
+  })
+  if (funded.length === 0) return null
+  const allocation = funded.reduce(
+    (sum, goal) => sum.plus(new Decimal(goal.currentAmount)),
+    new Decimal(0),
+  )
+  const after = new Decimal(available).minus(amount)
+  if (allocation.lte(after)) return null
+  if (funded.length !== 1) {
+    throw new AppError(
+      'Multiple source goals are funded on this account. Please select the source goal for this transfer.',
+      400,
+    )
+  }
+  const goal = funded[0]
+  const withdrawal = new Decimal(amount).gt(new Decimal(goal.currentAmount))
+    ? new Decimal(goal.currentAmount)
+    : new Decimal(amount)
+  return { id: goal.id, withdrawal: String(withdrawal) }
+}
+
+async function ledgerBalances(prisma, userId, accountIds) {
+  const Decimal = await getDecimal()
+  const ids = [...new Set(accountIds.filter((accountId) => accountId != null).map((accountId) => Number(accountId)))]
+  const balances = new Map()
+  if (ids.length === 0) return balances
+  const accounts = await prisma.account.findMany({
+    where: { id: { in: ids }, userId },
+    select: { id: true, initialBalance: true },
+  })
+  for (const account of accounts) {
+    balances.set(Number(account.id), new Decimal(account.initialBalance))
+  }
+  const totals = await prisma.transaction.groupBy({
+    by: ['accountId', 'type'],
+    where: { userId, accountId: { in: ids }, type: { in: ['INCOME', 'EXPENSE'] } },
+    _sum: { amount: true },
+  })
+  for (const row of totals) {
+    const key = Number(row.accountId)
+    if (!balances.has(key)) continue
+    const amount = row._sum.amount ?? new Decimal(0)
+    if (row.type === 'INCOME') {
+      balances.set(key, balances.get(key).plus(amount))
+    } else {
+      balances.set(key, balances.get(key).minus(amount))
+    }
+  }
+  const { transferOut, transferIn } = await getTransferFlow(prisma, userId, ids)
+  for (const id of ids) {
+    if (!balances.has(id)) continue
+    const out = transferOut.get(id) ?? new Decimal(0)
+    const into = transferIn.get(id) ?? new Decimal(0)
+    balances.set(id, balances.get(id).minus(out).plus(into))
+  }
+  return balances
+}
+
 async function listTransactions(userId, query) {
   const prisma = await getPrisma()
   const where = { userId }
@@ -115,7 +235,7 @@ async function listTransactions(userId, query) {
 
   if (query.type) {
     if (!TYPES.includes(query.type)) {
-      throw new AppError('Type must be INCOME or EXPENSE.', 400)
+      throw new AppError('Type must be INCOME, EXPENSE, or TRANSFER.', 400)
     }
     where.type = query.type
   }
@@ -129,7 +249,7 @@ async function listTransactions(userId, query) {
   if (query.accountId) {
     const accountId = integer(query.accountId, 'accountId')
     await ensureAccountOwnedBy(prisma, userId, accountId)
-    where.accountId = accountId
+    where.OR = [{ accountId }, { transferAccountId: accountId }]
   }
 
   if (query.startDate) {
@@ -171,8 +291,10 @@ async function listTransactions(userId, query) {
       take: limit,
       include: {
         category: { select: { id: true, name: true, icon: true, color: true } },
-        account: { select: { id: true, name: true, type: true } },
+        account: { select: { id: true, name: true, type: true, deletedAt: true } },
+        transferAccount: { select: { id: true, name: true, type: true, isDefault: true, deletedAt: true } },
         goal: { select: { id: true, name: true } },
+        sourceGoal: { select: { id: true, name: true } },
       },
     }),
   ])
@@ -186,8 +308,10 @@ async function getTransaction(userId, id) {
     where: { id, userId },
     include: {
       category: { select: { id: true, name: true, icon: true, color: true } },
-      account: { select: { id: true, name: true, type: true } },
+      account: { select: { id: true, name: true, type: true, deletedAt: true } },
+      transferAccount: { select: { id: true, name: true, type: true, isDefault: true, deletedAt: true } },
       goal: { select: { id: true, name: true } },
+      sourceGoal: { select: { id: true, name: true } },
     },
   })
   if (!transaction) {
@@ -214,33 +338,109 @@ async function ensureAccountOwnedBy(prisma, userId, accountId) {
   await ensureAccountExists(prisma, userId, accountId, 400)
 }
 
+async function ensureTransferDestination(prisma, userId, accountId) {
+  const found = await prisma.account.findFirst({
+    where: { id: accountId, userId },
+    select: { id: true, deletedAt: true },
+  })
+  if (!found) {
+    throw new AppError('Destination account not found.', 400)
+  }
+  if (found.deletedAt) {
+    throw new AppError('This account has been deleted.', 400)
+  }
+  return found
+}
+
 async function resolveAccountId(prisma, userId, accountId) {
   let resolved = accountId
   if (!resolved) {
     const cash = await ensureCashAccount(prisma, userId)
     resolved = cash.id
   }
-  await ensureAccountExists(prisma, userId, resolved, 400)
+  await ensureActiveAccount(prisma, userId, resolved, 400)
   return resolved
 }
 
 async function createTransaction(userId, body) {
   const prisma = await getPrisma()
   const input = parseTransactionInput(body)
-  await ensureCategoryExists(prisma, userId, input.categoryId, 400)
-  await ensureCategoryTypeMatches(prisma, input.categoryId, input.type)
-  input.accountId = await resolveAccountId(prisma, userId, input.accountId)
-  if (input.goalId) {
-    await ensureGoalOwnedAndMatching(prisma, userId, input.goalId, input.accountId)
+  let sourceWithdrawal = input.amount
+  if (input.type === 'TRANSFER') {
+    if (input.accountId === null) {
+      throw new AppError('Account is required.', 400)
+    }
+    await ensureActiveAccount(prisma, userId, input.accountId, 400)
+    await ensureTransferDestination(prisma, userId, input.transferAccountId)
+    if (input.goalId) {
+      await ensureGoalOwnedAndMatching(prisma, userId, input.goalId, input.transferAccountId)
+    }
+    const Decimal = await getDecimal()
+    const balances = await ledgerBalances(prisma, userId, [input.accountId])
+    const available = balances.get(Number(input.accountId)) ?? new Decimal(0)
+    if (new Decimal(input.amount).gt(available)) {
+      throw new AppError("Transfer amount must not exceed the source account's current balance.", 400)
+    }
+    if (input.sourceGoalId) {
+      const resolved = await resolveExplicitSourceGoal(
+        prisma,
+        userId,
+        input.sourceGoalId,
+        input.accountId,
+        input.amount,
+      )
+      sourceWithdrawal = resolved.withdrawal
+    } else {
+      const resolved = await autoResolveSourceGoal(
+        prisma,
+        userId,
+        input.accountId,
+        input.amount,
+        available,
+      )
+      if (resolved) {
+        input.sourceGoalId = resolved.id
+        sourceWithdrawal = resolved.withdrawal
+      }
+    }
+  } else {
+    await ensureCategoryExists(prisma, userId, input.categoryId, 400)
+    await ensureCategoryTypeMatches(prisma, input.categoryId, input.type)
+    input.accountId = await resolveAccountId(prisma, userId, input.accountId)
+    if (input.goalId) {
+      await ensureGoalOwnedAndMatching(prisma, userId, input.goalId, input.accountId)
+    }
   }
   return prisma.$transaction(async (tx) => {
     const transaction = await tx.transaction.create({ data: { ...input, userId } })
+    if (input.sourceGoalId) {
+      await tx.goalActivity.create({
+        data: {
+          goalId: input.sourceGoalId,
+          transactionId: transaction.id,
+          accountId: input.accountId,
+          type: 'WITHDRAWAL',
+          amount: sourceWithdrawal,
+          date: input.date,
+          note: input.note,
+        },
+      })
+      await syncGoalProgress(tx, input.sourceGoalId)
+    }
     if (input.goalId) {
       await tx.goalActivity.create({
         data: {
           goalId: input.goalId,
           transactionId: transaction.id,
-          ...activityDataFor(input),
+          ...(input.type === 'TRANSFER'
+            ? {
+                accountId: input.transferAccountId,
+                type: 'CONTRIBUTION',
+                amount: input.amount,
+                date: input.date,
+                note: input.note,
+              }
+            : activityDataFor(input)),
         },
       })
       await syncGoalProgress(tx, input.goalId)
@@ -251,13 +451,37 @@ async function createTransaction(userId, body) {
 
 async function updateTransaction(userId, id, body) {
   const prisma = await getPrisma()
-  await getTransaction(userId, id)
+  const existing = await getTransaction(userId, id)
+  if (existing.type === 'TRANSFER') {
+    throw new AppError('Transfer transactions cannot be edited.', 400)
+  }
   const input = parseTransactionInput(body)
+  if (input.type === 'TRANSFER') {
+    throw new AppError('A transaction cannot be changed to a transfer.', 400)
+  }
   await ensureCategoryExists(prisma, userId, input.categoryId, 400)
   await ensureCategoryTypeMatches(prisma, input.categoryId, input.type)
   input.accountId = await resolveAccountId(prisma, userId, input.accountId)
   if (input.goalId) {
     await ensureGoalOwnedAndMatching(prisma, userId, input.goalId, input.accountId)
+  }
+  if (existing.type === 'INCOME') {
+    const oldAccount = existing.accountId != null ? Number(existing.accountId) : null
+    const newAccount = input.accountId != null ? Number(input.accountId) : null
+    const affected = [...new Set([oldAccount, newAccount])].filter((accountId) => accountId != null)
+    const balances = await ledgerBalances(prisma, userId, affected)
+    if (oldAccount != null && balances.has(oldAccount)) {
+      const withoutOld = balances.get(oldAccount).minus(existing.amount)
+      if (withoutOld.isNegative()) {
+        throw new AppError('Transaction cannot be changed because it would make an account balance negative.', 400)
+      }
+    }
+    if (newAccount !== oldAccount && newAccount != null && balances.has(newAccount)) {
+      const withNew = balances.get(newAccount).plus(input.amount)
+      if (withNew.isNegative()) {
+        throw new AppError('Transaction cannot be changed because it would make an account balance negative.', 400)
+      }
+    }
   }
   const nextGoalId = input.goalId
   return prisma.$transaction(async (tx) => {
@@ -305,8 +529,25 @@ async function updateTransaction(userId, id, body) {
 
 async function deleteTransaction(userId, id) {
   const prisma = await getPrisma()
-  await getTransaction(userId, id)
-  await prisma.transaction.delete({ where: { id } })
+  const existing = await getTransaction(userId, id)
+  const affected = [existing.accountId, existing.transferAccountId].filter((accountId) => accountId != null)
+  const balances = await ledgerBalances(prisma, userId, affected)
+  if (existing.type === 'INCOME' && existing.accountId != null) {
+    const key = Number(existing.accountId)
+    if (balances.has(key) && balances.get(key).minus(existing.amount).isNegative()) {
+      throw new AppError('Transaction cannot be deleted because it would make an account balance negative.', 400)
+    }
+  }
+  const linkedGoals = await prisma.goalActivity.findMany({
+    where: { transactionId: id },
+    select: { goalId: true },
+  })
+  await prisma.$transaction(async (tx) => {
+    await tx.transaction.delete({ where: { id } })
+    for (const linked of linkedGoals) {
+      await syncGoalProgress(tx, linked.goalId)
+    }
+  })
   return { id: Number(id) }
 }
 

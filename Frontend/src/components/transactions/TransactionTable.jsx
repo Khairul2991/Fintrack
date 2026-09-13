@@ -1,57 +1,37 @@
-import { useMemo } from 'react'
-import { formatCurrency, formatDate } from '../../utils/format'
+import { useEffect, useMemo, useState } from 'react'
+import { formatCurrency, formatDateTime } from '../../utils/format'
 import { useLanguage } from '../../context/LanguageContext'
 import { accountDisplayName } from '../../utils/accountDisplay'
+import { EditIcon, InfoIcon, TrashIcon } from '../common/Icons'
 
-function EditIcon() {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-      strokeWidth={1.5}
-      stroke="currentColor"
-      className="h-5 w-5"
-      aria-hidden="true"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.862 4.487zM19.5 8.25l.75.75"
-      />
-    </svg>
-  )
-}
-
-function TrashIcon() {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      fill="none"
-      viewBox="0 0 24 24"
-      strokeWidth={1.5}
-      stroke="currentColor"
-      className="h-5 w-5"
-      aria-hidden="true"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"
-      />
-    </svg>
-  )
+function editBlockedReasons(transaction) {
+  const reasons = []
+  if (transaction.type === 'TRANSFER') reasons.push('tx.infoTransfer')
+  if (transaction.recurringTransactionId != null) reasons.push('tx.infoRecurring')
+  if (transaction.account?.deletedAt) reasons.push('tx.infoArchivedAccount')
+  if (transaction.transferAccount?.deletedAt) reasons.push('tx.infoArchivedDest')
+  return reasons
 }
 
 function TransactionTable({ transactions, onEdit, onDelete, accounts = [] }) {
   const { t, localizeCategory } = useLanguage()
+  const [infoTransaction, setInfoTransaction] = useState(null)
   const accountById = useMemo(
     () => new Map(accounts.map((account) => [account.id, account])),
     [accounts],
   )
+
+  useEffect(() => {
+    function handleKeyDown(event) {
+      if (event.key === 'Escape') setInfoTransaction(null)
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
   return (
-    <div className="overflow-x-auto">
-      <table className="table">
+    <>
+      <div className="overflow-x-auto">
+        <table className="table">
         <thead>
           <tr className="text-base-content/60">
             <th className="text-xs font-medium uppercase tracking-wide">{t('tx.colDate')}</th>
@@ -73,28 +53,44 @@ function TransactionTable({ transactions, onEdit, onDelete, accounts = [] }) {
             const account = transaction.account
               ? accountById.get(transaction.account.id) ?? transaction.account
               : null
+            const dest = transaction.transferAccount
+              ? accountById.get(transaction.transferAccount.id) ?? transaction.transferAccount
+              : null
+            const isTransfer = transaction.type === 'TRANSFER'
+            const isRecurring = transaction.recurringTransactionId != null
+            const accountLabel = isTransfer
+              ? `${account ? accountDisplayName(account, t) : '—'} → ${dest ? accountDisplayName(dest, t) : '—'}`
+              : account ? accountDisplayName(account, t) : '—'
             return (
             <tr key={transaction.id} className="hover">
               <td className="whitespace-nowrap text-sm text-base-content/70">
-                {formatDate(transaction.date)}
+                {formatDateTime(transaction.date)}
               </td>
               <td className="text-sm">
-                <span className="flex items-center gap-2">
-                  <span
-                    className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-xs"
-                    style={{ backgroundColor: `${transaction.category.color}26` }}
-                    aria-hidden="true"
-                  >
-                    {transaction.category.icon}
+                {transaction.category ? (
+                  <span className="flex items-center gap-2">
+                    <span
+                      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-xs"
+                      style={{ backgroundColor: `${transaction.category.color}26` }}
+                      aria-hidden="true"
+                    >
+                      {transaction.category.icon}
+                    </span>
+                    {localizeCategory(transaction.category)}
                   </span>
-                  {localizeCategory(transaction.category)}
-                </span>
+                ) : (
+                  <span className="text-base-content/40">—</span>
+                )}
               </td>
               <td className="whitespace-nowrap text-sm text-base-content/70">
-                {account ? accountDisplayName(account, t) : '—'}
+                {accountLabel}
               </td>
               <td className="whitespace-nowrap text-sm text-base-content/70">
-                {transaction.goal ? transaction.goal.name : '—'}
+                {transaction.type === 'TRANSFER'
+                  ? [transaction.sourceGoal?.name, transaction.goal?.name]
+                      .filter(Boolean)
+                      .join(' → ') || '—'
+                  : transaction.goal?.name || '—'}
               </td>
               <td>
                 <div className="font-medium text-sm">{transaction.description}</div>
@@ -107,30 +103,51 @@ function TransactionTable({ transactions, onEdit, onDelete, accounts = [] }) {
                   className={`badge badge-sm border-0 font-medium ${
                     transaction.type === 'INCOME'
                       ? 'bg-success/12 text-success'
-                      : 'bg-error/12 text-error'
+                      : isTransfer
+                        ? 'bg-neutral/10 text-base-content/70'
+                        : 'bg-error/12 text-error'
                   }`}
                 >
-                  {transaction.type === 'INCOME' ? t('common.income') : t('common.expense')}
+                  {transaction.type === 'INCOME'
+                    ? t('common.income')
+                    : isTransfer
+                      ? t('tx.transferBadge')
+                      : t('common.expense')}
                 </span>
               </td>
               <td
                 className={`financial-value text-right font-semibold tabular-nums ${
-                  transaction.type === 'INCOME' ? 'text-success' : 'text-error'
+                  transaction.type === 'INCOME'
+                    ? 'text-success'
+                    : isTransfer
+                      ? 'text-base-content'
+                      : 'text-error'
                 }`}
               >
-                {transaction.type === 'INCOME' ? '+' : '−'}
+                {transaction.type === 'INCOME' ? '+' : isTransfer ? '' : '−'}
                 {formatCurrency(transaction.amount)}
               </td>
               <td>
                 <div className="flex justify-end gap-1">
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-square btn-sm text-base-content/60 hover:text-base-content"
-                    onClick={() => onEdit(transaction)}
-                    aria-label={t('tx.editAria', { name: transaction.description })}
-                  >
-                    <EditIcon />
-                  </button>
+                  {isTransfer || isRecurring || account?.deletedAt || dest?.deletedAt ? (
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-square btn-sm text-base-content/50 hover:text-base-content"
+                      onClick={() => setInfoTransaction(transaction)}
+                      aria-label={t('tx.infoAria', { name: transaction.description })}
+                    >
+                      <InfoIcon />
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-square btn-sm text-base-content/60 hover:text-base-content"
+                      onClick={() => onEdit(transaction)}
+                      aria-label={t('tx.editAria', { name: transaction.description })}
+                    >
+                      <EditIcon />
+                    </button>
+                  )}
                   <button
                     type="button"
                     className="btn btn-ghost btn-square btn-sm text-base-content/60 hover:text-error"
@@ -146,7 +163,35 @@ function TransactionTable({ transactions, onEdit, onDelete, accounts = [] }) {
           })}
         </tbody>
       </table>
-    </div>
+      </div>
+      {infoTransaction ? (
+        <dialog className="modal modal-open" aria-label={t('tx.infoDialogAria')}>
+          <div className="modal-box max-w-md rounded-box">
+            <h3 className="text-lg font-bold">{t('tx.infoTitle')}</h3>
+            <p className="mt-1 text-sm text-base-content/60">{infoTransaction.description}</p>
+            <ul className="mt-3 flex flex-col gap-3">
+              {editBlockedReasons(infoTransaction).map((reason) => (
+                <li key={reason} className="flex items-start gap-2 text-sm text-base-content/80">
+                  <InfoIcon className="mt-0.5 h-4 w-4 shrink-0 text-base-content/40" />
+                  <span>{t(reason)}</span>
+                </li>
+              ))}
+            </ul>
+            <div className="modal-action">
+              <button type="button" className="btn" onClick={() => setInfoTransaction(null)}>
+                {t('tx.infoClose')}
+              </button>
+            </div>
+          </div>
+          <button
+            type="button"
+            className="modal-backdrop"
+            aria-label={t('common.closeDialog')}
+            onClick={() => setInfoTransaction(null)}
+          />
+        </dialog>
+      ) : null}
+    </>
   )
 }
 

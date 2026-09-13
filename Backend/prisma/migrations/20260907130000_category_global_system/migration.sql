@@ -143,3 +143,10 @@ CREATE UNIQUE INDEX "Category_userId_name_type_key"
 
 CREATE INDEX "Category_userId_idx" ON "Category" ("userId");
 CREATE INDEX "Category_type_idx" ON "Category" ("type");
+
+-- 8) Synchronize the identity sequence with the deterministic system ids (1..19)
+-- inserted above so the next autoincrement does not hit "Category_pkey".
+SELECT setval(
+  pg_get_serial_sequence('"Category"', 'id'),
+  (SELECT MAX(id) FROM "Category")
+);

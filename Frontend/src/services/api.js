@@ -13,10 +13,11 @@ export function clearCache() {
 }
 
 export class ApiError extends Error {
-  constructor(message, status) {
+  constructor(message, status, details = null) {
     super(message)
     this.name = 'ApiError'
     this.status = status
+    this.details = details
   }
 }
 
@@ -108,7 +109,7 @@ async function request(path, options = {}) {
 
     if (!response.ok) {
       const message = data && typeof data.message === 'string' ? data.message : 'Something went wrong.'
-      throw new ApiError(message, response.status)
+      throw new ApiError(message, response.status, data && data.details ? data.details : null)
     }
 
     if (token) {

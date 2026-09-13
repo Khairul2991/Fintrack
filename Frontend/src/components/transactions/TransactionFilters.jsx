@@ -140,6 +140,7 @@ function TransactionFilters({
                   <option value="">{t('tx.allTypes')}</option>
                   <option value="INCOME">{t('common.income')}</option>
                   <option value="EXPENSE">{t('common.expense')}</option>
+                  <option value="TRANSFER">{t('common.transfer')}</option>
                 </select>
               </div>
               <div>

@@ -21,11 +21,17 @@ describe('Categories API', () => {
     await resetDb(state.base, state.testUserId)
   })
 
-  it('lists 10 baseline categories sorted by name asc', async () => {
+  it('lists the 19 system categories grouped by type with names sorted within type', async () => {
     const categories = await getCategories(state.base, state.testUserId)
-    assert.equal(categories.length, 10)
-    const names = categories.map((c) => c.name)
-    assert.deepEqual(names, [...names].sort((a, b) => a.localeCompare(b)))
+    assert.equal(categories.length, 19)
+    const income = categories.filter((c) => c.type === 'INCOME')
+    const expense = categories.filter((c) => c.type === 'EXPENSE')
+    assert.equal(income.length, 8)
+    assert.equal(expense.length, 11)
+    assert.deepEqual([...new Set(categories.map((c) => c.type))], ['INCOME', 'EXPENSE'])
+    const sortedWithinType = (list) => list.every((c, i) => i === 0 || c.name.localeCompare(list[i - 1].name) >= 0)
+    assert.ok(sortedWithinType(income))
+    assert.ok(sortedWithinType(expense))
   })
 
   it('creates a category and returns 201 with the record', async () => {
@@ -33,6 +39,7 @@ describe('Categories API', () => {
       name: 'Travel',
       icon: '✈️',
       color: '#0ea5e9',
+      type: 'EXPENSE',
     }, { userId: state.testUserId })
     assert.equal(res.status, 201)
     assert.equal(res.data.success, true)
@@ -41,6 +48,7 @@ describe('Categories API', () => {
   })
 
   it('rejects a duplicate category name with 409', async () => {
+    await request(state.base, 'POST', '/categories', SEED_PAYLOAD('Food'), { userId: state.testUserId })
     const res = await request(state.base, 'POST', '/categories', SEED_PAYLOAD('Food'), { userId: state.testUserId })
     assert.equal(res.status, 409)
     assert.match(res.data.message, /already exists/)
@@ -91,6 +99,7 @@ describe('Categories API', () => {
       name: 'TempCat2',
       icon: '🔄',
       color: '#000000',
+      type: 'EXPENSE',
     }, { userId: state.testUserId })
     assert.equal(res.status, 200)
     assert.equal(res.data.data.name, 'TempCat2')
@@ -189,7 +198,7 @@ describe('Transactions API', () => {
       [{ description: 'x', amount: '0', type: 'EXPENSE', categoryId: cat.id, date: '2026-08-01' }, 'Amount must be greater than 0.'],
       [{ description: 'x', amount: '-5', type: 'EXPENSE', categoryId: cat.id, date: '2026-08-01' }, 'Amount must be a positive number.'],
       [{ description: 'x', amount: 'abc', type: 'EXPENSE', categoryId: cat.id, date: '2026-08-01' }, 'Amount must be a positive number.'],
-      [{ description: 'x', amount: '10', type: 'TRANSFER', categoryId: cat.id, date: '2026-08-01' }, 'Type must be INCOME or EXPENSE.'],
+      [{ description: 'x', amount: '10', type: 'BOGUS', categoryId: cat.id, date: '2026-08-01' }, 'Type must be INCOME, EXPENSE, or TRANSFER.'],
       [{ description: 'x', amount: '10', type: 'EXPENSE', categoryId: cat.id, date: '2026-13-40' }, 'Invalid date. Use YYYY-MM-DD.'],
       [{ description: 'x', amount: '10', type: 'EXPENSE', categoryId: 999999, date: '2026-08-01' }, 'Category not found.'],
       [{ description: 'x', amount: '10', type: 'EXPENSE', categoryId: 'z', date: '2026-08-01' }, 'categoryId must be an integer.'],
@@ -392,7 +401,7 @@ describe('Budgets API', () => {
   })
 
   it('computes On Track / Near Limit / Over Budget progress from real spending', async () => {
-    const transport = (await getCategories(state.base, state.testUserId)).find((c) => c.name === 'Transport')
+    const transport = (await getCategories(state.base, state.testUserId)).find((c) => c.name === 'Transportation')
     const created = await request(state.base, 'POST', '/budgets', {
       categoryId: transport.id,
       month: curM,
@@ -514,7 +523,7 @@ describe('Dashboard API', () => {
     const { curY, curM } = currentKeys()
     const salary = (await getCategories(state.base, state.testUserId)).find((c) => c.name === 'Salary')
     const food = (await getCategories(state.base, state.testUserId)).find((c) => c.name === 'Food')
-    const transport = (await getCategories(state.base, state.testUserId)).find((c) => c.name === 'Transport')
+    const transport = (await getCategories(state.base, state.testUserId)).find((c) => c.name === 'Transportation')
 
     const accountFixture = [
       { name: 'BCA', type: 'BANK', initialBalance: '2000000' },
@@ -553,12 +562,12 @@ describe('Dashboard API', () => {
     const res = await request(state.base, 'GET', '/dashboard/summary', undefined, { userId: state.testUserId })
     assert.equal(Number(res.data.data.summary.income), 5000000)
     assert.equal(Number(res.data.data.summary.expense), 2060000)
-    assert.equal(Number(res.data.data.summary.balance), 12600000)
+    assert.equal(Number(res.data.data.summary.balance), 15540000)
 
     const accountBalances = res.data.data.accounts
-    assert.equal(accountBalances.length, 5)
+    assert.equal(accountBalances.length, 6)
     const sum = accountBalances.reduce((s, account) => s + Number(account.balance), 0)
-    assert.equal(sum, 12600000)
+    assert.equal(sum, 15540000)
 
     const recent = res.data.data.recentTransactions
     assert.equal(recent.length, 3)
@@ -600,7 +609,7 @@ describe('Dashboard API', () => {
     assert.equal(Number(theirs.data.data.summary.expense), 0)
 
     const mine = await request(state.base, 'GET', '/dashboard/summary', undefined, { userId: state.testUserId })
-    assert.equal(Number(mine.data.data.summary.balance), 12600000)
+    assert.equal(Number(mine.data.data.summary.balance), 15540000)
   })
 })
 
@@ -659,7 +668,7 @@ describe('Reports API', () => {
   it('ranks expense categories by total and reports the highest', async () => {
     const { curY, curM } = currentKeys()
     const food = (await getCategories(state.base, state.testUserId)).find((c) => c.name === 'Food')
-    const transport = (await getCategories(state.base, state.testUserId)).find((c) => c.name === 'Transport')
+    const transport = (await getCategories(state.base, state.testUserId)).find((c) => c.name === 'Transportation')
     await request(state.base, 'POST', '/transactions', {
       description: 'fuel',
       amount: '150000',
@@ -686,10 +695,92 @@ describe('Reports API', () => {
     assert.equal(res.data.data.categoryReport.categories.length, 2)
     assert.equal(res.data.data.categoryReport.highest.name, 'Food')
     assert.ok(Array.isArray(res.data.data.categories))
-    assert.equal(res.data.data.categories.length, 10)
+    assert.equal(res.data.data.categories.length, 19)
+  })
+})
+
+describe('Account name reuse (archived accounts)', () => {
+  before(async () => {
+    await resetDb(state.base, state.testUserId)
+  })
+
+  it('allows a new active account to reuse the name of an archived account', async () => {
+    const created = await request(state.base, 'POST', '/accounts', {
+      name: 'Reusable Wallet',
+      type: 'EWALLET',
+      initialBalance: '50000',
+    }, { userId: state.testUserId })
+    assert.equal(created.status, 201)
+    const food = (await getCategories(state.base, state.testUserId)).find((c) => c.name === 'Food')
+    await request(state.base, 'POST', '/transactions', {
+      description: 'archival history',
+      amount: '10000',
+      type: 'EXPENSE',
+      categoryId: food.id,
+      accountId: created.data.data.id,
+      date: isoDate(2026, 9, 2),
+    }, { userId: state.testUserId })
+
+    const archived = await request(state.base, 'DELETE', `/accounts/${created.data.data.id}`, undefined, { userId: state.testUserId })
+    assert.equal(archived.status, 200)
+    assert.equal(archived.data.data.archived, true)
+
+    const reuse = await request(state.base, 'POST', '/accounts', {
+      name: 'Reusable Wallet',
+      type: 'EWALLET',
+      initialBalance: '0',
+    }, { userId: state.testUserId })
+    assert.equal(reuse.status, 201)
+
+    const list = await request(state.base, 'GET', '/accounts', undefined, { userId: state.testUserId })
+    const active = list.data.data.filter((account) => account.name === 'Reusable Wallet')
+    assert.equal(active.length, 1)
+    assert.equal(active[0].id, reuse.data.data.id)
+  })
+
+  it('still rejects a duplicate name while another active account holds it', async () => {
+    const created = await request(state.base, 'POST', '/accounts', {
+      name: 'Taken Active',
+      type: 'BANK',
+      initialBalance: '0',
+    }, { userId: state.testUserId })
+    assert.equal(created.status, 201)
+
+    const res = await request(state.base, 'POST', '/accounts', {
+      name: 'Taken Active',
+      type: 'BANK',
+      initialBalance: '0',
+    }, { userId: state.testUserId })
+    assert.equal(res.status, 409)
+    assert.equal(res.data.message, 'An account with this name already exists.')
+  })
+
+  it('enforces the partial unique index at the database level', async () => {
+    const prisma = await getPrisma()
+    const userId = state.testUserId
+    const name = 'Db Unique'
+    try {
+      await prisma.account.create({ data: { userId, name, type: 'BANK', initialBalance: 0 } })
+      await assert.rejects(
+        prisma.account.create({ data: { userId, name, type: 'BANK', initialBalance: 0 } }),
+        (error) => error && error.code === 'P2002',
+      )
+      await prisma.account.updateMany({
+        where: { userId, name, deletedAt: null },
+        data: { deletedAt: new Date() },
+      })
+      const reused = await prisma.account.create({ data: { userId, name, type: 'BANK', initialBalance: 0 } })
+      assert.equal(reused.name, name)
+      await assert.rejects(
+        prisma.account.create({ data: { userId, name, type: 'BANK', initialBalance: 0 } }),
+        (error) => error && error.code === 'P2002',
+      )
+    } finally {
+      await prisma.account.deleteMany({ where: { userId, name } })
+    }
   })
 })
 
 function SEED_PAYLOAD(name) {
-  return { name, icon: '🧪', color: '#111111' }
+  return { name, icon: '🧪', color: '#111111', type: 'EXPENSE' }
 }

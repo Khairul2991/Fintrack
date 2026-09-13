@@ -51,6 +51,27 @@ async function addTransaction(description, amount, type, category, year, month, 
   }, { userId: state.testUserId })
 }
 
+async function createGoalWithContribution(name, targetAmount, contribution, day) {
+  const created = await request(state.base, 'POST', '/goals', {
+    name,
+    targetAmount,
+    accountId,
+  }, { userId: state.testUserId })
+  assert.equal(created.status, 201)
+  const { curY, curM } = currentKeys()
+  const deposit = await request(state.base, 'POST', '/transactions', {
+    description: `${name} deposit`,
+    amount: String(contribution),
+    type: 'INCOME',
+    categoryId: await categoryIdByName('Salary'),
+    accountId,
+    goalId: created.data.data.id,
+    date: isoDate(curY, curM, day),
+  }, { userId: state.testUserId })
+  assert.equal(deposit.status, 201)
+  return created.data.data
+}
+
 async function reset() {
   await clearDerived()
   await seedAccountIfNeeded()
@@ -217,7 +238,7 @@ describe('AI Insights API - deterministic fallback', () => {
     const { curY, curM } = currentKeys()
     await reset()
     await addTransaction('big category', '700000', 'EXPENSE', 'Food', curY, curM, 7)
-    await addTransaction('small', '100000', 'EXPENSE', 'Transport', curY, curM, 8)
+    await addTransaction('small', '100000', 'EXPENSE', 'Transportation', curY, curM, 8)
     const res = await getAi({ month: curM, year: curY })
     const food = res.data.data.metrics.topCategories.find((c) => c.name === 'Food')
     assert.ok(food)
@@ -266,12 +287,8 @@ describe('AI Insights API - deterministic fallback', () => {
   it('warns when an in-progress goal is progressing slowly', async () => {
     const { curY, curM } = currentKeys()
     await reset()
+    await createGoalWithContribution('Emergency fund', '1000000', 50000, 2)
     await addTransaction('salary', '3000000', 'INCOME', 'Salary', curY, curM, 20)
-    await request(state.base, 'POST', '/goals', {
-      name: 'Emergency fund',
-      targetAmount: '1000000',
-      currentAmount: '50000',
-    }, { userId: state.testUserId })
     const res = await getAi({ month: curM, year: curY })
     const goal = res.data.data.metrics.goals.find((g) => g.name === 'Emergency fund')
     assert.equal(goal.progress, 5)
@@ -281,13 +298,13 @@ describe('AI Insights API - deterministic fallback', () => {
   it('does not emit a goal insight when a normal in-progress goal exists', async () => {
     const { curY, curM } = currentKeys()
     await reset()
-    await request(state.base, 'POST', '/goals', {
-      name: 'Vacation',
-      targetAmount: '1000000',
-      currentAmount: '500000',
-    }, { userId: state.testUserId })
+    const goal = await createGoalWithContribution('Vacation', '1000000', 500000, 3)
     const res = await getAi({ month: curM, year: curY })
     assert.ok(!hasType(res, 'goal'))
+    const goals = (await request(state.base, 'GET', '/goals', undefined, { userId: state.testUserId })).data.data
+    const vacation = goals.find((g) => g.id === goal.id)
+    assert.equal(vacation.status, 'IN_PROGRESS')
+    assert.equal(Number(vacation.progress), 50)
   })
 
   it('emits no goal insight when there are no goals', async () => {
@@ -344,11 +361,7 @@ describe('AI Insights API - deterministic fallback', () => {
     const { curY, curM } = currentKeys()
     await reset()
     await addTransaction('salary', '3000000', 'INCOME', 'Salary', curY, curM, 7)
-    await request(state.base, 'POST', '/goals', {
-      name: 'Slow fund',
-      targetAmount: '1000000',
-      currentAmount: '100000',
-    }, { userId: state.testUserId })
+    await createGoalWithContribution('Slow fund', '1000000', 100000, 7)
     const res = await getAi({ month: curM, year: curY })
     const goal = res.data.data.metrics.goals.find((g) => g.name === 'Slow fund')
     assert.equal(goal.progress, 10)

@@ -26,19 +26,6 @@ if (!BASE_DB_URL) {
 
 const TEST_DB_URL = withSchema(BASE_DB_URL, TEST_SCHEMA)
 
-export const SEED_CATEGORIES = [
-  { name: 'Food', icon: '🍜', color: '#f59e0b' },
-  { name: 'Transport', icon: '🚗', color: '#3b82f6' },
-  { name: 'Shopping', icon: '🛍️', color: '#ec4899' },
-  { name: 'Entertainment', icon: '🎬', color: '#8b5cf6' },
-  { name: 'Bills', icon: '🧾', color: '#ef4444' },
-  { name: 'Health', icon: '🏥', color: '#10b981' },
-  { name: 'Education', icon: '📚', color: '#06b6d4' },
-  { name: 'Salary', icon: '💰', color: '#22c55e' },
-  { name: 'Freelance', icon: '💻', color: '#6366f1' },
-  { name: 'Other', icon: '📦', color: '#6b7280' },
-]
-
 let realFetch
 let child
 let testUserId
@@ -59,7 +46,7 @@ export async function startBackend() {
   execSync('npx prisma migrate deploy', {
     cwd: BACKEND_DIR,
     env: { ...process.env, DATABASE_URL: TEST_DB_URL },
-    timeout: 60000,
+    timeout: 180000,
   })
 
   const { getPrisma } = require(path.resolve(BACKEND_DIR, 'src/lib/prisma.js'))
@@ -158,9 +145,6 @@ export async function resetDb() {
   const categories = (await request('GET', '/api/categories')).data.data
   for (const category of categories) {
     await request('DELETE', `/api/categories/${category.id}`)
-  }
-  for (const seed of SEED_CATEGORIES) {
-    await request('POST', '/api/categories', seed)
   }
 }
 

@@ -1,6 +1,7 @@
 const { AppError } = require('../utils/appError')
 const { getPrisma, getDecimal } = require('../lib/prisma')
 const { requireText, amountString } = require('../utils/validate')
+const { getTransferFlow } = require('./transferBalance')
 
 const NAME_MAX = 50
 const ACCOUNT_TYPES = ['CASH', 'BANK', 'SAVINGS', 'EWALLET', 'OTHER']
@@ -48,7 +49,7 @@ async function ensureCashAccount(prisma, userId) {
 async function ensureAccountExists(prisma, userId, accountId, status = 404) {
   const found = await prisma.account.findFirst({
     where: { id: accountId, userId },
-    select: { id: true, isDefault: true },
+    select: { id: true, isDefault: true, deletedAt: true },
   })
   if (!found) {
     throw new AppError('Account not found.', status)
@@ -56,9 +57,17 @@ async function ensureAccountExists(prisma, userId, accountId, status = 404) {
   return found
 }
 
+async function ensureActiveAccount(prisma, userId, accountId, status = 400) {
+  const found = await ensureAccountExists(prisma, userId, accountId, status)
+  if (found.deletedAt) {
+    throw new AppError('This account has been deleted.', 400)
+  }
+  return found
+}
+
 async function ensureUniqueAccountName(prisma, userId, name, excludeId) {
   const found = await prisma.account.findFirst({
-    where: { userId, name, ...(excludeId ? { id: { not: excludeId } } : {}) },
+    where: { userId, name, deletedAt: null, ...(excludeId ? { id: { not: excludeId } } : {}) },
     select: { id: true },
   })
   if (found) {
@@ -79,36 +88,78 @@ async function enrichBalance(prisma, userId, account) {
     if (row.type === 'INCOME') income = row._sum.amount ?? new Decimal(0)
     if (row.type === 'EXPENSE') expense = row._sum.amount ?? new Decimal(0)
   }
-  const balance = new Decimal(account.initialBalance).plus(income).minus(expense)
+  const { transferOut, transferIn } = await getTransferFlow(prisma, userId, [account.id])
+  const balance = new Decimal(account.initialBalance)
+    .plus(income)
+    .minus(expense)
+    .minus(transferOut.get(account.id) ?? new Decimal(0))
+    .plus(transferIn.get(account.id) ?? new Decimal(0))
   return { ...account, income, expense, balance }
 }
 
 async function listAccounts(userId) {
   const prisma = await getPrisma()
-  const accounts = await prisma.account.findMany({ where: { userId }, orderBy: { name: 'asc' } })
+  const accounts = await prisma.account.findMany({ where: { userId, deletedAt: null }, orderBy: { name: 'asc' } })
   if (accounts.length === 0) {
     return []
   }
   const Decimal = await getDecimal()
-  const totals = await prisma.transaction.groupBy({
-    by: ['accountId', 'type'],
-    where: { userId, accountId: { in: accounts.map((account) => account.id) } },
-    _sum: { amount: true },
-  })
+  const accountIds = accounts.map((account) => account.id)
+  const [totals, recurringByAccount, goalsByAccount, activitiesByAccount, transfers] = await Promise.all([
+    prisma.transaction.groupBy({
+      by: ['accountId', 'type'],
+      where: { userId, accountId: { in: accountIds } },
+      _sum: { amount: true },
+    }),
+    prisma.recurringTransaction.groupBy({
+      by: ['accountId'],
+      where: { userId, accountId: { in: accountIds } },
+      _count: true,
+    }),
+    prisma.goal.groupBy({
+      by: ['accountId'],
+      where: { userId, accountId: { in: accountIds } },
+      _count: true,
+    }),
+    prisma.goalActivity.groupBy({
+      by: ['accountId'],
+      where: { accountId: { in: accountIds } },
+      _count: true,
+    }),
+    getTransferFlow(prisma, userId, accountIds),
+  ])
   const byAccount = new Map()
   for (const row of totals) {
     const entry = byAccount.get(row.accountId) || { income: new Decimal(0), expense: new Decimal(0) }
     if (row.type === 'INCOME') {
       entry.income = row._sum.amount ?? new Decimal(0)
-    } else {
+    } else if (row.type === 'EXPENSE') {
       entry.expense = row._sum.amount ?? new Decimal(0)
     }
     byAccount.set(row.accountId, entry)
   }
+  const recurringById = new Map(recurringByAccount.map((row) => [row.accountId, row._count]))
+  const goalsById = new Map(goalsByAccount.map((row) => [row.accountId, row._count]))
+  const activitiesById = new Map(activitiesByAccount.map((row) => [row.accountId, row._count]))
+  const { transferOut, transferIn } = transfers
   return accounts.map((account) => {
     const totalsFor = byAccount.get(account.id) || { income: new Decimal(0), expense: new Decimal(0) }
-    const balance = new Decimal(account.initialBalance).plus(totalsFor.income).minus(totalsFor.expense)
-    return { ...account, income: totalsFor.income, expense: totalsFor.expense, balance }
+    const balance = new Decimal(account.initialBalance)
+      .plus(totalsFor.income)
+      .minus(totalsFor.expense)
+      .minus(transferOut.get(account.id) ?? new Decimal(0))
+      .plus(transferIn.get(account.id) ?? new Decimal(0))
+    const incomeExpenseInUse = totalsFor.income.gt(0) || totalsFor.expense.gt(0)
+    const transferInUse =
+      (transferOut.get(account.id) ?? new Decimal(0)).gt(0) ||
+      (transferIn.get(account.id) ?? new Decimal(0)).gt(0)
+    const inUse =
+      incomeExpenseInUse ||
+      transferInUse ||
+      (recurringById.get(account.id) ?? 0) > 0 ||
+      (goalsById.get(account.id) ?? 0) > 0 ||
+      (activitiesById.get(account.id) ?? 0) > 0
+    return { ...account, income: totalsFor.income, expense: totalsFor.expense, balance, inUse }
   })
 }
 
@@ -132,6 +183,9 @@ async function createAccount(userId, body) {
 async function updateAccount(userId, id, body) {
   const prisma = await getPrisma()
   const existing = await ensureAccountExists(prisma, userId, id)
+  if (existing.deletedAt) {
+    throw new AppError('This account has been deleted.', 400)
+  }
   const input = parseAccountInput(body)
   if (existing.isDefault && input.type !== 'CASH') {
     throw new AppError('The default cash account cannot be changed to another type.', 409)
@@ -147,19 +201,34 @@ async function deleteAccount(userId, id) {
   if (existing.isDefault) {
     throw new AppError('The default cash account cannot be deleted.', 409)
   }
-  const usedCount =
-    (await prisma.transaction.count({ where: { accountId: id, userId } })) +
-    (await prisma.recurringTransaction.count({ where: { accountId: id, userId } })) +
-    (await prisma.goal.count({ where: { accountId: id, userId } }))
-  if (usedCount > 0) {
-    throw new AppError('This account cannot be deleted because it is currently in use.', 409)
+  if (existing.deletedAt) {
+    return { id: Number(id), archived: true }
+  }
+  const [transactions, transfers, recurring, goals, goalActivities] = await Promise.all([
+    prisma.transaction.count({ where: { accountId: id, userId } }),
+    prisma.transaction.count({ where: { transferAccountId: id, userId } }),
+    prisma.recurringTransaction.count({ where: { accountId: id, userId } }),
+    prisma.goal.count({ where: { accountId: id, userId } }),
+    prisma.goalActivity.count({ where: { accountId: id } }),
+  ])
+  const total = transactions + transfers + recurring + goals + goalActivities
+  if (total > 0) {
+    await prisma.$transaction([
+      prisma.account.update({ where: { id }, data: { deletedAt: new Date() } }),
+      prisma.recurringTransaction.updateMany({
+        where: { userId, accountId: id, active: true },
+        data: { active: false },
+      }),
+    ])
+    return { id: Number(id), archived: true }
   }
   await prisma.account.delete({ where: { id } })
-  return { id: Number(id) }
+  return { id: Number(id), archived: false }
 }
 
 module.exports = {
   ensureAccountExists,
+  ensureActiveAccount,
   ensureCashAccount,
   listAccounts,
   getAccount,

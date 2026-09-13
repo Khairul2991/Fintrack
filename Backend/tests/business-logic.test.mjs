@@ -75,11 +75,11 @@ describe('Service input validation (business logic)', () => {
       transactionService.createTransaction(state.testUserId, {
         description: 'x',
         amount: '10',
-        type: 'TRANSFER',
+        type: 'BOGUS',
         categoryId: cat.id,
         date: '2026-08-01',
       }),
-      (err) => err instanceof AppError && err.message === 'Type must be INCOME or EXPENSE.',
+      (err) => err instanceof AppError && err.message === 'Type must be INCOME, EXPENSE, or TRANSFER.',
     )
     for (const date of ['2026-13-40', '2026-02-30', 'not-a-date']) {
       await assert.rejects(
@@ -121,6 +121,7 @@ describe('Service input validation (business logic)', () => {
       name: 'TravelBus',
       icon: '✈️',
       color: '#0ea5e9',
+      type: 'EXPENSE',
     })
     await transactionService.createTransaction(state.testUserId, {
       description: 'flight',
@@ -151,6 +152,7 @@ describe('Budget status classification (business logic)', () => {
       name: 'Travel',
       icon: '✈️',
       color: '#0ea5e9',
+      type: 'EXPENSE',
     })
     const budget = await budgetService.createBudget(state.testUserId, {
       categoryId: category.id,
@@ -206,7 +208,7 @@ describe('Dashboard and report aggregation (business logic)', () => {
     await resetDb(state.base, state.testUserId)
     const salary = (await getCategories(state.base, state.testUserId)).find((c) => c.name === 'Salary')
     const food = (await getCategories(state.base, state.testUserId)).find((c) => c.name === 'Food')
-    const transport = (await getCategories(state.base, state.testUserId)).find((c) => c.name === 'Transport')
+    const transport = (await getCategories(state.base, state.testUserId)).find((c) => c.name === 'Transportation')
 
     await request(state.base, 'POST', '/transactions', {
       description: 'salary',
@@ -242,7 +244,7 @@ describe('Dashboard and report aggregation (business logic)', () => {
     const summary = await dashboardService.getSummary(state.testUserId)
     assert.equal(Number(summary.summary.income), 8000000)
     assert.equal(Number(summary.summary.expense), 530000)
-    assert.equal(Number(summary.summary.balance), 0)
+    assert.equal(Number(summary.summary.balance), 7470000)
     assert.equal(summary.recentTransactions.length, 4)
 
     const series = summary.monthlySeries

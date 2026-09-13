@@ -24,16 +24,16 @@ if (!BASE_DB_URL) {
 export const TEST_DB_URL = withSchema(BASE_DB_URL, TEST_SCHEMA)
 
 export const SEED_CATEGORIES = [
-  { name: 'Food', icon: '🍜', color: '#f59e0b' },
-  { name: 'Transport', icon: '🚗', color: '#3b82f6' },
-  { name: 'Shopping', icon: '🛍️', color: '#ec4899' },
-  { name: 'Entertainment', icon: '🎬', color: '#8b5cf6' },
-  { name: 'Bills', icon: '🧾', color: '#ef4444' },
-  { name: 'Health', icon: '🏥', color: '#10b981' },
-  { name: 'Education', icon: '📚', color: '#06b6d4' },
-  { name: 'Salary', icon: '💰', color: '#22c55e' },
-  { name: 'Freelance', icon: '💻', color: '#6366f1' },
-  { name: 'Other', icon: '📦', color: '#6b7280' },
+  { name: 'Food', type: 'EXPENSE', icon: '🍜', color: '#f59e0b' },
+  { name: 'Transportation', type: 'EXPENSE', icon: '🚗', color: '#3b82f6' },
+  { name: 'Shopping', type: 'EXPENSE', icon: '🛍️', color: '#ec4899' },
+  { name: 'Entertainment', type: 'EXPENSE', icon: '🎬', color: '#8b5cf6' },
+  { name: 'Bills', type: 'EXPENSE', icon: '🧾', color: '#ef4444' },
+  { name: 'Health', type: 'EXPENSE', icon: '🏥', color: '#10b981' },
+  { name: 'Education', type: 'EXPENSE', icon: '📚', color: '#06b6d4' },
+  { name: 'Salary', type: 'INCOME', icon: '💰', color: '#22c55e' },
+  { name: 'Freelance', type: 'INCOME', icon: '💻', color: '#6366f1' },
+  { name: 'Other', type: 'INCOME', icon: '📦', color: '#6b7280' },
 ]
 
 let testUserId = null
@@ -54,7 +54,7 @@ export async function startApp() {
   execSync('npx prisma migrate deploy', {
     cwd: BACKEND_DIR,
     env: { ...process.env, DATABASE_URL: TEST_DB_URL },
-    timeout: 60000,
+    timeout: 180000,
   })
 
   const prisma = (await require('../src/lib/prisma').getPrisma())
@@ -132,9 +132,6 @@ export async function resetDb(base, userId) {
   }
   for (const category of await getCategories(base, userId)) {
     await request(base, 'DELETE', `/categories/${category.id}`, undefined, { userId })
-  }
-  for (const seed of SEED_CATEGORIES) {
-    await request(base, 'POST', '/categories', seed, { userId })
   }
 }
 

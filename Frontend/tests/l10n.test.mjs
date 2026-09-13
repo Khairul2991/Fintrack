@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { messages, DEFAULT_LANG, LANGUAGES } from '../src/l10n/messages.js'
 import { translateError } from '../src/l10n/serverMessages.js'
 import { translateInsight } from '../src/l10n/insights.js'
-import { formatDate, formatMonth } from '../src/utils/format.js'
+import { formatDate, formatDateTime, formatMonth, toLocalInputValue, toUtcInputValue } from '../src/utils/format.js'
 
 describe('l10n - message catalog parity', () => {
   const enKeys = Object.keys(messages.en).sort()
@@ -102,5 +102,58 @@ describe('l10n - language-aware dates', () => {
     const id = formatMonth('2026-08', 'id')
     assert.match(en, /Aug/i)
     assert.match(id, /Agu/i)
+  })
+
+it('formats a full date-time with minute precision and no seconds', () => {
+    const iso = '2026-09-10T14:35:27.000Z'
+    const options = {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      hour12: false,
+      minute: '2-digit',
+    }
+    const expectedEn = new Intl.DateTimeFormat('en-GB', options).format(new Date(iso))
+    const expectedId = new Intl.DateTimeFormat('id-ID', options).format(new Date(iso))
+    assert.equal(formatDateTime(iso, 'en'), expectedEn)
+    assert.equal(formatDateTime(iso, 'id'), expectedId)
+    assert.doesNotMatch(formatDateTime(iso, 'en'), /AM|PM/i)
+    assert.doesNotMatch(formatDateTime(iso, 'en'), /\d{2}:\d{2}:\d{2}/)
+    assert.match(formatDateTime(iso, 'en'), /Sep/)
+    assert.match(formatDateTime(iso, 'en'), /2026/)
+  })
+
+  it('falls back to date-only formatting for date-only values', () => {
+    const en = formatDateTime('2026-08-10', 'en')
+    assert.equal(en, formatDate('2026-08-10', 'en'))
+    assert.match(en, /August/i)
+  })
+})
+
+describe('l10n - datetime input conversion', () => {
+  it('converts a local datetime input to a UTC-naive string for the backend', () => {
+    const utc = toUtcInputValue('2026-09-10T14:35')
+    assert.match(utc, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/)
+    const roundTrip = toLocalInputValue(`${utc}Z`)
+    assert.equal(roundTrip.slice(0, 16), '2026-09-10T14:35')
+  })
+
+  it('preserves seconds when converting a datetime input', () => {
+    const input = '2026-01-05T08:09:10'
+    const utc = toUtcInputValue(input)
+    const back = toLocalInputValue(`${utc}Z`)
+    assert.equal(back.slice(0, 19), input)
+  })
+
+  it('round-trips a stored instant through local input without shifting time', () => {
+    const iso = '2026-09-10T07:35:27.000Z'
+    const value = toLocalInputValue(iso)
+    assert.equal(toUtcInputValue(value), '2026-09-10T07:35:27')
+  })
+
+  it('passes through invalid datetime input values unchanged', () => {
+    assert.equal(toUtcInputValue('2026-13-40T00:00'), '2026-13-40T00:00')
+    assert.equal(toUtcInputValue(''), '')
   })
 })

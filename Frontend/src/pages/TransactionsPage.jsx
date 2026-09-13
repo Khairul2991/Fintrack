@@ -13,8 +13,7 @@ import { listAccounts } from '../services/accountApi'
 import { listGoals } from '../services/goalApi'
 import { exportTransactions } from '../services/exportApi'
 import { downloadCsv, downloadExcel } from '../utils/exportUtils'
-import {
-  createTransaction,
+import { createTransaction,
   deleteTransaction,
   listTransactions,
   updateTransaction,
@@ -228,6 +227,7 @@ function TransactionsPage() {
   }
 
   function openEdit(transaction) {
+    if (transaction.type === 'TRANSFER') return
     setEditing(transaction)
     setFormOpen(true)
   }
@@ -521,8 +521,12 @@ function TransactionsPage() {
 
       {deleting ? (
         <ConfirmDialog
-          title={t('tx.confirmTitle')}
-          message={t('tx.confirmMsg', { name: deleting.description })}
+          title={deleting.type === 'TRANSFER' ? t('tx.confirmTransferTitle') : t('tx.confirmTitle')}
+          message={
+            deleting.type === 'TRANSFER'
+              ? t('tx.confirmTransferMsg', { name: deleting.description })
+              : t('tx.confirmMsg', { name: deleting.description })
+          }
           confirmLabel={t('common.delete')}
           loading={deleteLoading}
           onCancel={() => setDeleting(null)}

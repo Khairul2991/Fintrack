@@ -26,24 +26,24 @@ async function clearDerived() {
   await prisma.budget.deleteMany({})
 }
 
-// Seed the 10 baseline categories fresh (clearDerived wipes transactions but not categories).
+// Seed the baseline categories fresh (clearDerived wipes transactions but not categories).
 async function ensureSeedCategories() {
   const existing = await getCategories(state.base, state.testUserId)
   if (existing.length === 0) {
     const seeds = [
-      ['Food', '🍜', '#f59e0b'],
-      ['Transport', '🚗', '#3b82f6'],
-      ['Shopping', '🛍️', '#ec4899'],
-      ['Entertainment', '🎬', '#8b5cf6'],
-      ['Bills', '🧾', '#ef4444'],
-      ['Health', '🏥', '#10b981'],
-      ['Education', '📚', '#06b6d4'],
-      ['Salary', '💰', '#22c55e'],
-      ['Freelance', '💻', '#6366f1'],
-      ['Other', '📦', '#6b7280'],
+      ['Food', 'EXPENSE', '🍜', '#f59e0b'],
+      ['Transportation', 'EXPENSE', '🚗', '#3b82f6'],
+      ['Shopping', 'EXPENSE', '🛍️', '#ec4899'],
+      ['Entertainment', 'EXPENSE', '🎬', '#8b5cf6'],
+      ['Bills', 'EXPENSE', '🧾', '#ef4444'],
+      ['Health', 'EXPENSE', '🏥', '#10b981'],
+      ['Education', 'EXPENSE', '📚', '#06b6d4'],
+      ['Salary', 'INCOME', '💰', '#22c55e'],
+      ['Freelance', 'INCOME', '💻', '#6366f1'],
+      ['Other', 'INCOME', '📦', '#6b7280'],
     ]
-    for (const [name, icon, color] of seeds) {
-      await request(state.base, 'POST', '/categories', { name, icon, color }, { userId: state.testUserId })
+    for (const [name, type, icon, color] of seeds) {
+      await request(state.base, 'POST', '/categories', { name, type, icon, color }, { userId: state.testUserId })
     }
   }
 }
@@ -122,16 +122,26 @@ describe('Accounts API', () => {
     assert.equal(Number(updated.balance), 900000)
   })
 
-  it('returns 404 for a nonexistent account and protects an in-use account from deletion', async () => {
+  it('returns 404 for a nonexistent account and archives an in-use account instead of hard-deleting it', async () => {
     const missing = await request(state.base, 'GET', '/accounts/999999', undefined, { userId: state.testUserId })
     assert.equal(missing.status, 404)
     assert.equal(missing.data.message, 'Account not found.')
 
-    const accounts = (await request(state.base, 'GET', '/accounts', undefined, { userId: state.testUserId })).data.data
-    const inUse = accounts.find((a) => a.name === 'Main Bank')
-    const blocked = await request(state.base, 'DELETE', `/accounts/${inUse.id}`, undefined, { userId: state.testUserId })
-    assert.equal(blocked.status, 409)
-    assert.equal(blocked.data.message, 'This account cannot be deleted because it is currently in use.')
+    const food = (await getCategories(state.base, state.testUserId)).find((c) => c.name === 'Food')
+    const tmp = await request(state.base, 'POST', '/accounts', { name: 'Tmp', type: 'BANK', initialBalance: '0' }, { userId: state.testUserId })
+    const tmpId = tmp.data.data.id
+    await request(state.base, 'POST', '/transactions', {
+      description: 'snack',
+      amount: '5000',
+      type: 'EXPENSE',
+      categoryId: food.id,
+      accountId: tmpId,
+      date: isoDate(2026, 9, 12),
+    }, { userId: state.testUserId })
+
+    const res = await request(state.base, 'DELETE', `/accounts/${tmpId}`, undefined, { userId: state.testUserId })
+    assert.equal(res.status, 200)
+    assert.equal(res.data.data.archived, true)
   })
 
   it('keeps account balance consistent across transaction create, edit, and delete', async () => {
@@ -302,13 +312,90 @@ describe('Recurring Transactions API', () => {
     const missing = await request(state.base, 'GET', `/recurring-transactions/${id}`, undefined, { userId: state.testUserId })
     assert.equal(missing.status, 404)
   })
+
+  it('stores a start time and reports the next occurrence with it', async () => {
+    const food = (await getCategories(state.base, state.testUserId)).find((c) => c.name === 'Food')
+    const res = await request(state.base, 'POST', '/recurring-transactions', {
+      description: 'Evening gym',
+      amount: '180000',
+      type: 'EXPENSE',
+      categoryId: food.id,
+      frequency: 'WEEKLY',
+      startDate: '2030-04-05T07:30:00',
+    }, { userId: state.testUserId })
+    assert.equal(res.status, 201)
+    assert.equal(res.data.data.startDate, '2030-04-05T07:30:00.000Z')
+    assert.equal(res.data.data.nextOccurrence, '2030-04-05T07:30:00.000Z')
+  })
+
+  it('accepts a same-day end date with a start time and rejects invalid constraints', async () => {
+    const food = (await getCategories(state.base, state.testUserId)).find((c) => c.name === 'Food')
+    const sameDay = await request(state.base, 'POST', '/recurring-transactions', {
+      description: 'Same day series',
+      amount: '50000',
+      type: 'EXPENSE',
+      categoryId: food.id,
+      frequency: 'MONTHLY',
+      startDate: '2030-06-15T07:30:00',
+      endDate: '2030-06-15',
+    }, { userId: state.testUserId })
+    assert.equal(sameDay.status, 201)
+
+    const before = await request(state.base, 'POST', '/recurring-transactions', {
+      description: 'x',
+      amount: '50000',
+      type: 'EXPENSE',
+      categoryId: food.id,
+      frequency: 'MONTHLY',
+      startDate: '2030-06-15T07:30:00',
+      endDate: '2030-06-14',
+    }, { userId: state.testUserId })
+    assert.equal(before.status, 400)
+    assert.equal(before.data.message, 'End date must be on or after the start date.')
+
+    const badClock = await request(state.base, 'POST', '/recurring-transactions', {
+      description: 'x',
+      amount: '50000',
+      type: 'EXPENSE',
+      categoryId: food.id,
+      frequency: 'MONTHLY',
+      startDate: '2030-06-15T25:00:00',
+    }, { userId: state.testUserId })
+    assert.equal(badClock.status, 400)
+    assert.equal(badClock.data.message, 'Invalid start date. Use YYYY-MM-DD or YYYY-MM-DDTHH:mm.')
+  })
+
+  it('keeps the time of day across weekly catch-up and links generated transactions', async () => {
+    const food = (await getCategories(state.base, state.testUserId)).find((c) => c.name === 'Food')
+    const created = await request(state.base, 'POST', '/recurring-transactions', {
+      description: 'Weekly club',
+      amount: '90000',
+      type: 'EXPENSE',
+      categoryId: food.id,
+      frequency: 'WEEKLY',
+      startDate: '2026-01-01T05:30:00',
+    }, { userId: state.testUserId })
+    const id = created.data.data.id
+
+    const listRes = await request(state.base, 'GET', '/recurring-transactions', undefined, { userId: state.testUserId })
+    const item = listRes.data.data.items.find((entry) => entry.id === id)
+    assert.ok(item, 'catch-up should leave the weekly recurring in the list')
+    assert.match(item.nextOccurrence, /^\d{4}-\d{2}-\d{2}T05:30:00\.000Z$/)
+    assert.equal(new Date(item.nextOccurrence).getUTCDay(), 4)
+
+    const txs = (await request(state.base, 'GET', '/transactions?type=EXPENSE&limit=100', undefined, { userId: state.testUserId })).data.data
+    const recurringTx = txs.find((tx) => tx.recurringTransactionId === id)
+    assert.ok(recurringTx, 'generated transactions must carry recurringTransactionId')
+    assert.match(recurringTx.date, /T05:30:00\.000Z$/)
+    assert.equal(new Date(recurringTx.date).getUTCDay(), 4)
+  })
 })
 
 describe('Recurring Budgets API', () => {
   const { curY, curM } = currentKeys()
 
   it('creates a recurring budget and rolls it into a concrete monthly budget', async () => {
-    const transport = (await getCategories(state.base, state.testUserId)).find((c) => c.name === 'Transport')
+    const transport = (await getCategories(state.base, state.testUserId)).find((c) => c.name === 'Transportation')
     const res = await request(state.base, 'POST', '/recurring-budgets', {
       categoryId: transport.id,
       amount: '300000',
@@ -322,7 +409,7 @@ describe('Recurring Budgets API', () => {
     // Listing triggers rollover; the current month budget must then exist.
     await request(state.base, 'GET', '/recurring-budgets', undefined, { userId: state.testUserId })
     const budgets = (await request(state.base, 'GET', `/budgets?month=${curM}&year=${curY}`, undefined, { userId: state.testUserId })).data.data
-    assert.ok(budgets.some((b) => Number(b.amount) === 300000 && b.category.name === 'Transport'))
+    assert.ok(budgets.some((b) => Number(b.amount) === 300000 && b.category.name === 'Transportation'))
   })
 
   it('rejects an invalid frequency', async () => {
@@ -388,55 +475,93 @@ describe('Recurring Budgets API', () => {
 })
 
 describe('Goals API', () => {
-  it('creates a goal with progress, remaining, and IN_PROGRESS status', async () => {
-    const education = (await getCategories(state.base, state.testUserId)).find((c) => c.name === 'Education')
-    const res = await request(state.base, 'POST', '/goals', {
-      name: 'New laptop',
-      targetAmount: '10000000',
-      currentAmount: '2500000',
-      targetDate: isoDate(2027, 1, 1),
-      categoryId: education.id,
+  let goalAccountId
+
+  async function addContribution(goalId, amount, day) {
+    const salary = (await getCategories(state.base, state.testUserId)).find((c) => c.name === 'Salary')
+    return request(state.base, 'POST', '/transactions', {
+      description: 'goal deposit',
+      amount: String(amount),
+      type: 'INCOME',
+      categoryId: salary.id,
+      accountId: goalAccountId,
+      goalId,
+      date: isoDate(2026, 9, day),
+    }, { userId: state.testUserId })
+  }
+
+  before(async () => {
+    const res = await request(state.base, 'POST', '/accounts', {
+      name: 'Goal Savings',
+      type: 'SAVINGS',
+      initialBalance: '0',
     }, { userId: state.testUserId })
     assert.equal(res.status, 201)
-    assert.equal(res.data.data.name, 'New laptop')
+    goalAccountId = res.data.data.id
+  })
+
+  it('creates a goal with progress, remaining, and IN_PROGRESS status', async () => {
+    const education = (await getCategories(state.base, state.testUserId)).find((c) => c.name === 'Education')
+    const created = await request(state.base, 'POST', '/goals', {
+      name: 'New laptop',
+      targetAmount: '10000000',
+      targetDate: isoDate(2027, 1, 1),
+      categoryId: education.id,
+      accountId: goalAccountId,
+    }, { userId: state.testUserId })
+    assert.equal(created.status, 201)
+    assert.equal(created.data.data.name, 'New laptop')
+    assert.equal(created.data.data.status, 'IN_PROGRESS')
+    assert.equal(Number(created.data.data.currentAmount), 0)
+    assert.equal(Number(created.data.data.remaining), 10000000)
+
+    const dep = await addContribution(created.data.data.id, 2500000, 5)
+    assert.equal(dep.status, 201)
+    const res = await request(state.base, 'GET', `/goals/${created.data.data.id}`, undefined, { userId: state.testUserId })
     assert.equal(res.data.data.status, 'IN_PROGRESS')
     assert.equal(Number(res.data.data.progress), 25)
     assert.equal(Number(res.data.data.remaining), 7500000)
   })
 
-  it('rejects current amount exceeding the target', async () => {
-    const res = await request(state.base, 'POST', '/goals', {
-      name: 'Bad goal',
+  it('completes a goal when contributions exceed the target', async () => {
+    const created = await request(state.base, 'POST', '/goals', {
+      name: 'Exceed fund',
       targetAmount: '1000',
-      currentAmount: '5000',
+      accountId: goalAccountId,
     }, { userId: state.testUserId })
-    assert.equal(res.status, 400)
-    assert.equal(res.data.message, 'Current amount cannot exceed the target amount.')
+    assert.equal(created.status, 201)
+    const dep = await addContribution(created.data.data.id, 5000, 6)
+    assert.equal(dep.status, 201)
+    const res = await request(state.base, 'GET', `/goals/${created.data.data.id}`, undefined, { userId: state.testUserId })
+    assert.equal(res.data.data.status, 'COMPLETED')
+    assert.equal(Number(res.data.data.remaining), 0)
   })
 
   it('updates goal progress and flips to COMPLETED when the target is reached', async () => {
     const goals = (await request(state.base, 'GET', '/goals', undefined, { userId: state.testUserId })).data.data
     const goal = goals.find((g) => g.name === 'New laptop')
+    assert.ok(goal, 'goal from the creation test is expected to exist')
 
-    const updated = await request(state.base, 'PATCH', `/goals/${goal.id}/progress`, {
-      currentAmount: '10000000',
-    }, { userId: state.testUserId })
-    assert.equal(updated.status, 200)
-    assert.equal(updated.data.data.status, 'COMPLETED')
-    assert.equal(Number(updated.data.data.progress), 100)
-    assert.equal(Number(updated.data.data.remaining), 0)
+    await addContribution(goal.id, 7500000, 8)
+    const reached = (await request(state.base, 'GET', `/goals/${goal.id}`, undefined, { userId: state.testUserId })).data.data
+    assert.equal(reached.status, 'COMPLETED')
+    assert.equal(Number(reached.progress), 100)
+    assert.equal(Number(reached.remaining), 0)
 
-    const over = await request(state.base, 'PATCH', `/goals/${goal.id}/progress`, {
-      currentAmount: '11000000',
-    }, { userId: state.testUserId })
-    assert.equal(over.status, 400)
+    await addContribution(goal.id, 1000000, 9)
+    const over = (await request(state.base, 'GET', `/goals/${goal.id}`, undefined, { userId: state.testUserId })).data.data
+    assert.equal(over.status, 'COMPLETED')
+    assert.equal(Number(over.remaining), 0)
   })
 
   it('deletes a goal and returns 404 for a nonexistent one', async () => {
     const created = await request(state.base, 'POST', '/goals', {
       name: 'Temp goal',
       targetAmount: '5000',
+      accountId: goalAccountId,
     }, { userId: state.testUserId })
+    assert.equal(created.status, 201)
+    assert.equal(Number.isInteger(created.data.data.id), true)
     const id = created.data.data.id
     const deleted = await request(state.base, 'DELETE', `/goals/${id}`, undefined, { userId: state.testUserId })
     assert.equal(deleted.status, 200)
@@ -451,7 +576,7 @@ describe('Goals API', () => {
     assert.equal(res.status, 200)
     assert.ok(Array.isArray(res.data.data.goals))
     assert.ok(res.data.data.goals.length >= 1)
-    assert.equal(res.data.data.categories.length, 10)
+    assert.equal(res.data.data.categories.length, 19)
     assert.ok(Array.isArray(res.data.data.accounts))
   })
 })

@@ -18,11 +18,35 @@ const SERVER_ERRORS = {
     'The default cash account cannot be deleted.': 'Akun Tunai default tidak dapat dihapus.',
     'The default cash account cannot be changed to another type.':
       'Akun Tunai default tidak dapat diubah tipenya.',
+    'This account has been deleted.': 'Akun ini telah dihapus.',
     'Initial balance must be a positive number.': 'Saldo awal harus berupa bilangan positif.',
     'Description is required.': 'Deskripsi wajib diisi.',
     'Amount must be greater than 0.': 'Jumlah harus lebih besar dari 0.',
     'Amount must be a positive number.': 'Jumlah harus bilangan positif.',
-    'Type must be INCOME or EXPENSE.': 'Tipe harus INCOME atau EXPENSE.',
+    'Type must be INCOME, EXPENSE, or TRANSFER.': 'Tipe harus INCOME, EXPENSE, atau TRANSFER.',
+    'Transfer destination account is required.': 'Akun tujuan transfer wajib diisi.',
+    'Transfer source and destination must be different.': 'Akun asal dan tujuan transfer harus berbeda.',
+    'Transfer cannot have a category.': 'Transfer tidak boleh memiliki kategori.',
+    'Destination account not found.': 'Akun tujuan transfer tidak ditemukan.',
+    'Transfer destination is only allowed for TRANSFER transactions.':
+      'Akun tujuan transfer hanya diperbolehkan untuk transaksi TRANSFER.',
+    'Transfer transactions cannot be edited.': 'Transfer tidak dapat diedit.',
+    'A transaction cannot be changed to a transfer.':
+      'Transaksi tidak dapat diubah menjadi transfer.',
+    "Transfer amount must not exceed the source account's current balance.":
+      'Jumlah transfer tidak boleh melebihi saldo akun sumber saat ini.',
+    'The transfer amount exceeds the selected source goal balance.':
+      'Jumlah transfer melebihi saldo goal asal yang dipilih.',
+    'Source goal is only allowed for TRANSFER transactions.':
+      'Goal asal hanya diperbolehkan untuk transaksi TRANSFER.',
+    'Source goal and destination goal must be different.':
+      'Goal asal dan goal tujuan harus berbeda.',
+    'Multiple source goals are funded on this account. Please select the source goal for this transfer.':
+      'Beberapa goal di akun ini memiliki dana. Silakan pilih goal asal untuk transfer ini.',
+    'Transaction cannot be deleted because it would make an account balance negative.':
+      'Transaksi tidak dapat dihapus karena akan membuat saldo akun menjadi negatif.',
+    'Transaction cannot be changed because it would make an account balance negative.':
+      'Transaksi tidak dapat diubah karena akan membuat saldo akun menjadi negatif.',
     'categoryId must be an integer.': 'categoryId harus berupa bilangan bulat.',
     'Invalid date. Use YYYY-MM-DD.': 'Tanggal tidak valid. Gunakan YYYY-MM-DD.',
     'Account is required.': 'Akun wajib dipilih.',

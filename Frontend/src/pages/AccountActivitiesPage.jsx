@@ -3,22 +3,34 @@ import { useParams } from 'react-router-dom'
 import PageHeader from '../components/layout/PageHeader'
 import BackLink from '../components/common/BackLink'
 import EmptyState from '../components/common/EmptyState'
+import { SearchIcon } from '../components/common/Icons'
 import LoadingSkeleton from '../components/common/LoadingSkeleton'
 import { getAccount } from '../services/accountApi'
 import { listTransactions } from '../services/transactionApi'
 import { useLanguage } from '../context/LanguageContext'
-import { formatCurrency, formatDate } from '../utils/format'
+import { formatCurrency, formatDateTime } from '../utils/format'
 import { accountDisplayName } from '../utils/accountDisplay'
 
 const PAGE_SIZE = 10
 
 function ActivityTypeBadge({ type, t }) {
-  const income = type === 'INCOME'
+  if (type === 'INCOME') {
+    return (
+      <span className="badge badge-sm border-0 font-medium bg-success/10 text-success">
+        {t('common.income')}
+      </span>
+    )
+  }
+  if (type === 'TRANSFER') {
+    return (
+      <span className="badge badge-sm border-0 font-medium bg-neutral/10 text-base-content/70">
+        {t('tx.transferBadge')}
+      </span>
+    )
+  }
   return (
-    <span
-      className={`badge badge-sm border-0 font-medium ${income ? 'bg-success/10 text-success' : 'bg-error/10 text-error'}`}
-    >
-      {income ? t('common.income') : t('common.expense')}
+    <span className="badge badge-sm border-0 font-medium bg-error/10 text-error">
+      {t('common.expense')}
     </span>
   )
 }
@@ -133,14 +145,16 @@ function AccountActivitiesPage() {
 
       <div className="flex flex-wrap items-center gap-2">
         <div className="join">
-          {['ALL', 'INCOME', 'EXPENSE'].map((value) => {
+          {['ALL', 'INCOME', 'EXPENSE', 'TRANSFER'].map((value) => {
             const active = type === value
             const label =
               value === 'ALL'
                 ? t('common.all')
                 : value === 'INCOME'
                   ? t('common.income')
-                  : t('common.expense')
+                  : value === 'EXPENSE'
+                    ? t('common.expense')
+                    : t('common.transfer')
             return (
               <button
                 key={value}
@@ -154,15 +168,19 @@ function AccountActivitiesPage() {
             )
           })}
         </div>
-        <label className="input input-sm grow basis-64">
-          <span className="sr-only">{t('tx.searchAria')}</span>
+        <div className="relative grow basis-64">
+          <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-base-content/40">
+            <SearchIcon />
+          </span>
           <input
-            type="search"
+            type="text"
+            className="input input-bordered input-sm w-full pl-10 pr-10"
             value={search}
             onChange={(event) => changeSearch(event.target.value)}
             placeholder={t('tx.searchPlaceholder')}
+            aria-label={t('tx.searchAria')}
           />
-        </label>
+        </div>
       </div>
 
       <div className="card surface card-border min-w-0">
@@ -204,10 +222,11 @@ function AccountActivitiesPage() {
                 </thead>
                 <tbody>
                   {transactions.map((transaction) => {
+                    const isTransfer = transaction.type === 'TRANSFER'
                     const income = transaction.type === 'INCOME'
                     return (
                       <tr key={transaction.id}>
-                        <td className="text-base-content/70">{formatDate(transaction.date)}</td>
+                        <td className="text-base-content/70">{formatDateTime(transaction.date)}</td>
                         <td className="font-medium">{transaction.description || '-'}</td>
                         <td className="text-base-content/70">
                           {transaction.category
@@ -219,9 +238,9 @@ function AccountActivitiesPage() {
                           <ActivityTypeBadge type={transaction.type} t={t} />
                         </td>
                         <td
-                          className={`text-right font-semibold tabular-nums ${income ? 'text-success' : 'text-error'}`}
+                          className={`text-right font-semibold tabular-nums ${income ? 'text-success' : isTransfer ? 'text-base-content' : 'text-error'}`}
                         >
-                          {income ? '+' : '−'} {formatCurrency(transaction.amount)}
+                          {income ? '+' : isTransfer ? '' : '−'} {formatCurrency(transaction.amount)}
                         </td>
                       </tr>
                     )

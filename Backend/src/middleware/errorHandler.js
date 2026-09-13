@@ -2,7 +2,11 @@ const { AppError } = require('../utils/appError')
 
 function errorHandler(err, req, res, next) {
   if (err instanceof AppError) {
-    return res.status(err.status).json({ success: false, message: err.message })
+    const body = { success: false, message: err.message }
+    if (err.details) {
+      body.details = err.details
+    }
+    return res.status(err.status).json(body)
   }
 
   if (err && err.type === 'entity.parse.failed') {

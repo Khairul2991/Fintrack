@@ -40,6 +40,72 @@ export function formatDate(iso, lang = currentLang()) {
   }).format(date)
 }
 
+export function formatDateTime(iso, lang = currentLang()) {
+  if (typeof iso === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+    return formatDate(iso, lang)
+  }
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return '—'
+  return new Intl.DateTimeFormat(localeFor(lang), {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    hour12: false,
+    minute: '2-digit',
+  }).format(date)
+}
+
+function pad2(value) {
+  return String(value).padStart(2, '0')
+}
+
+const LOCAL_INPUT_RE = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/
+
+export function toUtcInputValue(value) {
+  const match = typeof value === 'string' ? value.match(LOCAL_INPUT_RE) : null
+  if (!match) return value
+  const [, y, mo, d, h, mi, s] = match
+  const year = Number(y)
+  const month = Number(mo)
+  const day = Number(d)
+  const hour = Number(h)
+  const minute = Number(mi)
+  const second = s ? Number(s) : 0
+  const date = new Date(year, month - 1, day, hour, minute, second)
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day ||
+    date.getHours() !== hour ||
+    date.getMinutes() !== minute ||
+    date.getSeconds() !== second
+  ) {
+    return value
+  }
+  return date.toISOString().slice(0, 19)
+}
+
+export function toLocalInputValue(iso) {
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) {
+    return typeof iso === 'string' ? iso.slice(0, 16) : ''
+  }
+  return [
+    date.getFullYear(),
+    '-',
+    pad2(date.getMonth() + 1),
+    '-',
+    pad2(date.getDate()),
+    'T',
+    pad2(date.getHours()),
+    ':',
+    pad2(date.getMinutes()),
+    ':',
+    pad2(date.getSeconds()),
+  ].join('')
+}
+
 export function formatMonth(ym, lang = currentLang()) {
   const date = new Date(`${ym}-01T00:00:00.000Z`)
   if (Number.isNaN(date.getTime())) return ym

@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import MoneyInput from '../common/MoneyInput'
+import TimeInput from '../common/TimeInput'
 import { useLanguage } from '../../context/LanguageContext'
 import { isAmountOverLimit } from '../../utils/numberFormat'
+import { toLocalInputValue, toUtcInputValue } from '../../utils/format'
 import { accountDisplayName, sortAccountsDefaultFirst } from '../../utils/accountDisplay'
 import { sortCategoriesForDisplay } from '../../l10n/categories'
 
@@ -9,6 +11,7 @@ const DESCRIPTION_MAX = 200
 const NOTE_MAX = 200
 
 const FREQUENCIES = ['DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY']
+const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/
 
 function todayInput() {
   return new Date().toISOString().slice(0, 10)
@@ -26,10 +29,15 @@ function initialForm(recurring, categories, accounts) {
       accountId: cashDefault ? String(cashDefault.id) : '',
       frequency: '',
       startDate: todayInput(),
+      startTime: '',
       endDate: '',
       note: '',
     }
   }
+  const startIsDateTime =
+    typeof recurring.startDate === 'string' &&
+    recurring.startDate.length > 10 &&
+    recurring.startDate.includes('T')
   return {
     description: recurring.description,
     amount: recurring.amount,
@@ -38,6 +46,7 @@ function initialForm(recurring, categories, accounts) {
     accountId: recurring.accountId != null ? String(recurring.accountId) : '',
     frequency: recurring.frequency,
     startDate: recurring.startDate.slice(0, 10),
+    startTime: startIsDateTime ? toLocalInputValue(recurring.startDate).slice(11, 16) : '',
     endDate: recurring.endDate ? recurring.endDate.slice(0, 10) : '',
     note: recurring.note ?? '',
   }
@@ -114,8 +123,11 @@ function RecurringTransactionForm({
     if (!form.startDate) {
       next.startDate = t('recTf.errStartDate')
     }
+    if (form.startTime && !TIME_RE.test(form.startTime)) {
+      next.startTime = t('recTf.errTime')
+    }
     if (form.endDate) {
-      if (form.startDate && form.endDate < form.startDate) {
+      if (form.startDate && form.endDate < form.startDate.slice(0, 10)) {
         next.endDate = t('recTf.errEndBeforeStart')
       } else if (!/^\d{4}-\d{2}-\d{2}$/.test(form.endDate)) {
         next.endDate = t('recTf.errEndDate')
@@ -154,7 +166,9 @@ function RecurringTransactionForm({
         categoryId: Number(form.categoryId),
         accountId: form.accountId ? Number(form.accountId) : null,
         frequency: form.frequency,
-        startDate: form.startDate,
+        startDate: form.startTime
+          ? toUtcInputValue(`${form.startDate}T${form.startTime}`)
+          : form.startDate,
         endDate: form.endDate ? form.endDate : null,
         note: form.note.trim() ? form.note.trim() : null,
       })
@@ -325,21 +339,42 @@ function RecurringTransactionForm({
                 <p className="mt-1 text-xs text-error">{errors.frequency}</p>
               ) : null}
             </div>
-            <div>
-              <label className="label" htmlFor="rect-start">
-                <span className="label-text">{t('recTf.startDate')} <span className="text-error">*</span></span>
-              </label>
-              <input
-                id="rect-start"
-                ref={startDateRef}
-                type="date"
-                className={`input input-bordered w-full ${errors.startDate ? 'input-error' : ''}`}
-                value={form.startDate}
-                onChange={(event) => setField('startDate', event.target.value)}
-              />
-              {errors.startDate ? (
-                <p className="mt-1 text-xs text-error">{errors.startDate}</p>
-              ) : null}
+            <div className="sm:col-span-2">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <div>
+                  <label className="label" htmlFor="rect-start">
+                    <span className="label-text">{t('recTf.startDate')} <span className="text-error">*</span></span>
+                  </label>
+                  <input
+                    id="rect-start"
+                    ref={startDateRef}
+                    type="date"
+                    className={`input input-bordered w-full ${errors.startDate ? 'input-error' : ''}`}
+                    value={form.startDate}
+                    onChange={(event) => setField('startDate', event.target.value)}
+                  />
+                  {errors.startDate ? (
+                    <p className="mt-1 text-xs text-error">{errors.startDate}</p>
+                  ) : null}
+                </div>
+                <div>
+                  <label className="label" htmlFor="rect-start-time">
+                    <span className="label-text">
+                      {t('recTf.time')}{' '}
+                      <span className="ml-1 text-base-content/40">{t('common.optional')}</span>
+                    </span>
+                  </label>
+                  <TimeInput
+                    id="rect-start-time"
+                    value={form.startTime}
+                    onChange={(value) => setField('startTime', value)}
+                    error={Boolean(errors.startTime)}
+                  />
+                  {errors.startTime ? (
+                    <p className="mt-1 text-xs text-error">{errors.startTime}</p>
+                  ) : null}
+                </div>
+              </div>
             </div>
             <div>
               <label className="label" htmlFor="rect-end">

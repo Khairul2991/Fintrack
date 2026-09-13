@@ -23,7 +23,10 @@ async function exportTransactions(userId, query) {
     date: tx.date instanceof Date ? tx.date.toISOString().slice(0, 10) : tx.date,
     type: tx.type,
     category: tx.category ? tx.category.name : '',
-    account: tx.account ? tx.account.name : '',
+    account:
+      tx.type === 'TRANSFER' && tx.transferAccount
+        ? `${tx.account ? tx.account.name : ''} → ${tx.transferAccount.name}`
+        : tx.account ? tx.account.name : '',
     amount: tx.amount,
     note: tx.note || '',
     description: tx.description,

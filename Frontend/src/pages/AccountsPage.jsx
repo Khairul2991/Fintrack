@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import PageHeader from '../components/layout/PageHeader'
 import EmptyState from '../components/common/EmptyState'
 import ConfirmDialog from '../components/common/ConfirmDialog'
 import AccountForm from '../components/accounts/AccountForm'
-import { PlusIcon, EditIcon, TrashIcon, ArrowRightIcon } from '../components/common/Icons'
+import AccountDetailDialog from '../components/accounts/AccountDetailDialog'
+import TransactionForm from '../components/transactions/TransactionForm'
+import { PlusIcon, EditIcon, TrashIcon } from '../components/common/Icons'
 import { useToast } from '../context/ToastContext'
 import { useLanguage } from '../context/LanguageContext'
 import {
@@ -13,7 +14,8 @@ import {
   listAccounts,
   updateAccount,
 } from '../services/accountApi'
-import { listTransactions } from '../services/transactionApi'
+import { createTransaction } from '../services/transactionApi'
+import { listGoals } from '../services/goalApi'
 import { formatCurrency } from '../utils/format'
 import { accountDisplayName, sortAccountsDefaultFirst } from '../utils/accountDisplay'
 
@@ -30,15 +32,17 @@ function AccountsPage() {
   const { t, translateError } = useLanguage()
 
   const [accounts, setAccounts] = useState([])
+  const [goals, setGoals] = useState([])
   const [status, setStatus] = useState('loading')
   const [loadError, setLoadError] = useState('')
   const [refreshKey, setRefreshKey] = useState(0)
-  const [recentByAccount, setRecentByAccount] = useState({})
 
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState(null)
   const [deleting, setDeleting] = useState(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
+  const [detailAccount, setDetailAccount] = useState(null)
+  const [transferAccount, setTransferAccount] = useState(null)
 
   const load = useCallback(() => {
     listAccounts()
@@ -58,25 +62,18 @@ function AccountsPage() {
   }, [load, refreshKey])
 
   useEffect(() => {
-    if (status !== 'ready' || accounts.length === 0) return
-    let cancelled = false
-    Promise.all(
-      accounts.map((account) =>
-        listTransactions({ accountId: account.id, limit: 3 })
-          .then((response) => ({ id: account.id, items: response.data }))
-          .catch(() => ({ id: account.id, items: [] })),
-      ),
-    ).then((entries) => {
-      if (!cancelled) {
-        setRecentByAccount(
-          Object.fromEntries(entries.map((entry) => [String(entry.id), entry.items])),
-        )
-      }
-    })
+    let active = true
+    listGoals()
+      .then((response) => {
+        if (active) setGoals(response.data)
+      })
+      .catch(() => {
+        if (active) setGoals([])
+      })
     return () => {
-      cancelled = true
+      active = false
     }
-  }, [status, accounts])
+  }, [])
 
   function retry() {
     setStatus('loading')
@@ -114,8 +111,12 @@ function AccountsPage() {
     if (!deleting) return
     setDeleteLoading(true)
     try {
-      await deleteAccount(deleting.id)
-      toast.success(t('acc.deleted'))
+      const response = await deleteAccount(deleting.id)
+      if (response.data.archived) {
+        toast.success(t('acc.archived', { name: deleting.name }))
+      } else {
+        toast.success(t('acc.deleted'))
+      }
       setDeleting(null)
       setRefreshKey((key) => key + 1)
     } catch (error) {
@@ -123,6 +124,13 @@ function AccountsPage() {
     } finally {
       setDeleteLoading(false)
     }
+  }
+
+  async function handleTransferSave(payload) {
+    await createTransaction(payload)
+    toast.success(t('acc.transferSuccess'))
+    setTransferAccount(null)
+    setRefreshKey((key) => key + 1)
   }
 
   const total = accounts.reduce((sum, account) => sum + Number(account.balance), 0)
@@ -216,44 +224,24 @@ function AccountsPage() {
                       {t('acc.colInitial')}: {formatCurrency(account.initialBalance)}
                     </p>
                   </div>
-                  {recentByAccount[String(account.id)] ? (
-                    <div className="border-t border-base-200 pt-3">
-                      <p className="text-xs font-medium text-base-content/60">
-                        {t('common.recentActivity')}
-                      </p>
-                      {recentByAccount[String(account.id)].length === 0 ? (
-                        <p className="mt-1 text-xs text-base-content/40">{t('accAct.noActivity')}</p>
-                      ) : (
-                        <ul className="mt-1 flex flex-col gap-1">
-                          {recentByAccount[String(account.id)].map((transaction) => {
-                            const income = transaction.type === 'INCOME'
-                            return (
-                              <li
-                                key={transaction.id}
-                                className="flex items-center justify-between gap-2 text-xs"
-                              >
-                                <span className="min-w-0 truncate text-base-content/70">
-                                  {transaction.description}
-                                </span>
-                                <span
-                                  className={`shrink-0 font-medium tabular-nums ${income ? 'text-success' : 'text-error'}`}
-                                >
-                                  {income ? '+' : '−'} {formatCurrency(transaction.amount)}
-                                </span>
-                              </li>
-                            )
-                          })}
-                        </ul>
-                      )}
-                      <Link
-                        to={`/accounts/${account.id}/activities`}
-                        className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
-                      >
-                        {t('common.viewAllActivity')}
-                        <ArrowRightIcon className="h-3.5 w-3.5" aria-hidden="true" />
-                      </Link>
-                    </div>
-                  ) : null}
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      className="btn btn-outline btn-sm min-w-[7.5rem] flex-1"
+                      onClick={() => setDetailAccount(account)}
+                      aria-label={t('acc.detailAria', { name: accountDisplayName(account, t) })}
+                    >
+                      {t('acc.detail')}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-outline btn-sm min-w-[7.5rem] flex-1"
+                      onClick={() => setTransferAccount(account)}
+                      aria-label={t('acc.transferFrom', { name: accountDisplayName(account, t) })}
+                    >
+                      {t('acc.transfer')}
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -265,10 +253,33 @@ function AccountsPage() {
         <AccountForm account={editing} onCancel={closeForm} onSave={handleSave} />
       ) : null}
 
+      {detailAccount ? (
+        <AccountDetailDialog
+          accountId={detailAccount.id}
+          accounts={accounts}
+          onClose={() => setDetailAccount(null)}
+        />
+      ) : null}
+
+      {transferAccount ? (
+        <TransactionForm
+          categories={[]}
+          goals={goals}
+          accounts={accounts}
+          fromAccountId={transferAccount.id}
+          onCancel={() => setTransferAccount(null)}
+          onSave={handleTransferSave}
+        />
+      ) : null}
+
       {deleting ? (
         <ConfirmDialog
-          title={t('acc.confirmTitle')}
-          message={t('acc.confirmMsg', { name: deleting.name })}
+          title={deleting.inUse ? t('acc.confirmArchiveTitle') : t('acc.confirmTitle')}
+          message={
+            deleting.inUse
+              ? t('acc.confirmArchiveMsg', { name: deleting.name })
+              : t('acc.confirmMsg', { name: deleting.name })
+          }
           confirmLabel={t('common.delete')}
           loading={deleteLoading}
           onCancel={() => setDeleting(null)}

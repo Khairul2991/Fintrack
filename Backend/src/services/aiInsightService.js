@@ -170,7 +170,7 @@ async function buildContext(userId, month, year) {
   for (const transaction of transactions) {
     if (transaction.type === 'INCOME') {
       income = income.plus(transaction.amount)
-    } else {
+    } else if (transaction.type === 'EXPENSE') {
       expense = expense.plus(transaction.amount)
       const currentTotal = spentByCategory.get(transaction.categoryId)
       spentByCategory.set(transaction.categoryId, currentTotal ? currentTotal.plus(transaction.amount) : new Decimal(transaction.amount))
@@ -181,6 +181,7 @@ async function buildContext(userId, month, year) {
   const transactionCount = transactions.length
 
   const largestTransactions = [...transactions]
+    .filter((transaction) => transaction.type !== 'TRANSFER')
     .sort((a, b) => b.amount.cmp(a.amount))
     .slice(0, 3)
 

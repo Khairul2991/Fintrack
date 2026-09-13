@@ -6,7 +6,7 @@ import EmptyState from '../components/common/EmptyState'
 import LoadingSkeleton from '../components/common/LoadingSkeleton'
 import { getGoal } from '../services/goalApi'
 import { useLanguage } from '../context/LanguageContext'
-import { formatCurrency, formatDate } from '../utils/format'
+import { formatCurrency, formatDateTime } from '../utils/format'
 import { accountDisplayName } from '../utils/accountDisplay'
 
 function ActivityTypeBadge({ type, t }) {
@@ -143,7 +143,7 @@ function GoalActivitiesPage() {
                           : activity.note || t('goalActPage.manual')
                         return (
                           <tr key={activity.id}>
-                            <td className="text-base-content/70">{formatDate(activity.date)}</td>
+                            <td className="text-base-content/70">{formatDateTime(activity.date)}</td>
                             <td className="font-medium">{source || '-'}</td>
                             <td className="text-base-content/70">
                               {activity.account ? accountDisplayName(activity.account, t) : '-'}

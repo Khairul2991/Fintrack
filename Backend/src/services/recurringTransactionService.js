@@ -1,9 +1,9 @@
 const { AppError } = require('../utils/appError')
 const { getPrisma } = require('../lib/prisma')
 const { requireText, amountString, integer } = require('../utils/validate')
-const { parseDateOnly } = require('../utils/date')
+const { parseDateOnly, parseTransactionDate } = require('../utils/date')
 const { ensureCategoryExists } = require('./categoryService')
-const { ensureAccountExists, ensureCashAccount } = require('./accountService')
+const { ensureActiveAccount, ensureCashAccount } = require('./accountService')
 
 const DESCRIPTION_MAX = 200
 const NOTE_MAX = 500
@@ -11,8 +11,19 @@ const TYPES = ['INCOME', 'EXPENSE']
 const FREQUENCIES = ['DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY']
 const MAX_GENERATE_PER_RUN = 400
 
+function utcDateKey(date) {
+  return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
+}
+
 function addFrequency(date, frequency) {
-  const result = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()))
+  const result = new Date(Date.UTC(
+    date.getUTCFullYear(),
+    date.getUTCMonth(),
+    date.getUTCDate(),
+    date.getUTCHours(),
+    date.getUTCMinutes(),
+    date.getUTCSeconds(),
+  ))
   if (frequency === 'DAILY') {
     result.setUTCDate(result.getUTCDate() + 1)
     return result
@@ -30,7 +41,14 @@ function addFrequency(date, frequency) {
 }
 
 function firstOccurrenceOnOrAfter(startDate) {
-  return new Date(Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth(), startDate.getUTCDate()))
+  return new Date(Date.UTC(
+    startDate.getUTCFullYear(),
+    startDate.getUTCMonth(),
+    startDate.getUTCDate(),
+    startDate.getUTCHours(),
+    startDate.getUTCMinutes(),
+    startDate.getUTCSeconds(),
+  ))
 }
 
 function startOfToday() {
@@ -58,9 +76,9 @@ function parseRecurringInput(body) {
     throw new AppError('Frequency must be DAILY, WEEKLY, MONTHLY, or YEARLY.', 400)
   }
   const rawStart = requireText(body.startDate, 'Start date')
-  const startDate = parseDateOnly(rawStart)
+  const startDate = parseTransactionDate(rawStart)
   if (!startDate) {
-    throw new AppError('Invalid start date. Use YYYY-MM-DD.', 400)
+    throw new AppError('Invalid start date. Use YYYY-MM-DD or YYYY-MM-DDTHH:mm.', 400)
   }
   let endDate = null
   if (body.endDate !== undefined && body.endDate !== null && body.endDate !== '') {
@@ -68,7 +86,7 @@ function parseRecurringInput(body) {
     if (!endDate) {
       throw new AppError('Invalid end date. Use YYYY-MM-DD.', 400)
     }
-    if (endDate.getTime() < startDate.getTime()) {
+    if (utcDateKey(endDate) < utcDateKey(startDate)) {
       throw new AppError('End date must be on or after the start date.', 400)
     }
   }
@@ -92,15 +110,15 @@ async function generateDueTransactions(prisma, userId, item, today) {
     accountId = cash.id
   }
   const owned = []
-  if (item.endDate && next.getTime() > item.endDate.getTime()) {
+  if (item.endDate && utcDateKey(next) > utcDateKey(item.endDate)) {
     await prisma.recurringTransaction.update({
       where: { id: item.id },
       data: { lastRunAt: new Date() },
     })
     return 0
   }
-  while (next.getTime() <= today.getTime() && generated < MAX_GENERATE_PER_RUN) {
-    if (item.endDate && next.getTime() > item.endDate.getTime()) break
+  while (utcDateKey(next) <= utcDateKey(today) && generated < MAX_GENERATE_PER_RUN) {
+    if (item.endDate && utcDateKey(next) > utcDateKey(item.endDate)) break
     owned.push({
       userId,
       description: item.description,
@@ -148,11 +166,16 @@ async function runCatchUp(userId) {
   return { generated, processed: items.length }
 }
 
+function serializeDateTime(value) {
+  const iso = value.toISOString()
+  return iso.slice(11, 19) === '00:00:00' ? iso.slice(0, 10) : iso
+}
+
 function serialize(item) {
   return {
     ...item,
-    nextOccurrence: item.nextOccurrence ? item.nextOccurrence.toISOString().slice(0, 10) : null,
-    startDate: item.startDate instanceof Date ? item.startDate.toISOString().slice(0, 10) : item.startDate,
+    nextOccurrence: item.nextOccurrence ? serializeDateTime(item.nextOccurrence) : null,
+    startDate: item.startDate instanceof Date ? serializeDateTime(item.startDate) : item.startDate,
     endDate: item.endDate ? item.endDate.toISOString().slice(0, 10) : null,
     lastRunAt: item.lastRunAt ? item.lastRunAt.toISOString() : null,
   }
@@ -195,9 +218,9 @@ async function createRecurringTransaction(userId, body, { active } = {}) {
     const cash = await ensureCashAccount(prisma, userId)
     input.accountId = cash.id
   }
-  await ensureAccountExists(prisma, userId, input.accountId, 400)
+  await ensureActiveAccount(prisma, userId, input.accountId, 400)
   let next = firstOccurrenceOnOrAfter(input.startDate)
-  if (input.endDate && next.getTime() > input.endDate.getTime()) {
+  if (input.endDate && utcDateKey(next) > utcDateKey(input.endDate)) {
     throw new AppError('Start date must be before the end date.', 400)
   }
   const data = {
@@ -222,14 +245,30 @@ async function updateRecurringTransaction(userId, id, body) {
     const cash = await ensureCashAccount(prisma, userId)
     input.accountId = cash.id
   }
-  await ensureAccountExists(prisma, userId, input.accountId, 400)
+  await ensureActiveAccount(prisma, userId, input.accountId, 400)
   const merge = { ...existing, ...input }
   const candidate = firstOccurrenceOnOrAfter(input.startDate)
-  if (merge.endDate && candidate.getTime() > merge.endDate.getTime()) {
+  if (merge.endDate && utcDateKey(candidate) > utcDateKey(merge.endDate)) {
     throw new AppError('Start date must be before the end date.', 400)
   }
   const currentNext = new Date(existing.nextOccurrence)
-  const next = candidate.getTime() > currentNext.getTime() ? candidate : currentNext
+  let next = candidate.getTime() > currentNext.getTime() ? candidate : currentNext
+  if (next === currentNext) {
+    const timeChanged =
+      input.startDate.getUTCHours() !== existing.startDate.getUTCHours() ||
+      input.startDate.getUTCMinutes() !== existing.startDate.getUTCMinutes() ||
+      input.startDate.getUTCSeconds() !== existing.startDate.getUTCSeconds()
+    if (timeChanged) {
+      next = new Date(Date.UTC(
+        currentNext.getUTCFullYear(),
+        currentNext.getUTCMonth(),
+        currentNext.getUTCDate(),
+        input.startDate.getUTCHours(),
+        input.startDate.getUTCMinutes(),
+        input.startDate.getUTCSeconds(),
+      ))
+    }
+  }
   const item = await prisma.recurringTransaction.update({
     where: { id },
     data: { ...input, nextOccurrence: next },

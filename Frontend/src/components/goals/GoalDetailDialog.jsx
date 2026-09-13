@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useLanguage } from '../../context/LanguageContext'
-import { formatCurrency, formatDate } from '../../utils/format'
+import { formatCurrency, formatDate, formatDateTime } from '../../utils/format'
 import { accountDisplayName } from '../../utils/accountDisplay'
 import { ArrowRightIcon } from '../common/Icons'
 
@@ -58,14 +58,14 @@ function GoalDetailDialog({ goal, accounts, onClose, onEdit }) {
           </div>
         </div>
 
-        <dl className="mt-4 grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
+        <dl className="mt-4 text-sm">
           <div className="flex items-center justify-between gap-2">
             <dt className="text-base-content/50">{t('goal.accountLabel')}</dt>
             <dd className="font-medium">
               {goalAccount ? accountDisplayName(goalAccount, t) : '-'}
             </dd>
           </div>
-          <div className="flex items-center justify-between gap-2">
+          <div className="mt-2 flex items-center justify-between gap-2 border-t border-base-200 pt-2">
             <dt className="text-base-content/50">{t('goalf.targetDate')}</dt>
             <dd className="font-medium">
               {goal.targetDate ? formatDate(goal.targetDate) : t('goal.noDeadline')}
@@ -95,7 +95,7 @@ function GoalDetailDialog({ goal, accounts, onClose, onEdit }) {
                       </span>
                     </div>
                     <span className="shrink-0 text-xs text-base-content/50">
-                      {formatDate(activity.date)}
+                      {formatDateTime(activity.date)}
                     </span>
                   </li>
                 )

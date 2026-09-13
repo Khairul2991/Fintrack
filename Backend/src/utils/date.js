@@ -17,6 +17,34 @@ function parseDateOnly(value) {
   return date
 }
 
+const DATE_TIME_RE = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?$/
+
+function parseTransactionDate(value) {
+  if (typeof value !== 'string') return null
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return parseDateOnly(value)
+  const match = value.match(DATE_TIME_RE)
+  if (!match) return null
+  const [, y, mo, d, h, mi, s] = match
+  const year = Number(y)
+  const month = Number(mo)
+  const day = Number(d)
+  const hour = Number(h)
+  const minute = Number(mi)
+  const second = s === undefined ? 0 : Number(s)
+  const date = new Date(Date.UTC(year, month - 1, day, hour, minute, second))
+  if (
+    date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day ||
+    date.getUTCHours() !== hour ||
+    date.getUTCMinutes() !== minute ||
+    date.getUTCSeconds() !== second
+  ) {
+    return null
+  }
+  return date
+}
+
 function monthRange(month, year) {
   return {
     gte: new Date(Date.UTC(year, month - 1, 1)),
@@ -46,6 +74,7 @@ module.exports = {
   MIN_YEAR,
   MAX_YEAR,
   parseDateOnly,
+  parseTransactionDate,
   monthRange,
   currentMonthYear,
   monthKey,
