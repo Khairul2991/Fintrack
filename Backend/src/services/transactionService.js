@@ -3,7 +3,7 @@ const { getPrisma, getDecimal } = require('../lib/prisma')
 const { requireText, integer, amountString } = require('../utils/validate')
 const { parseDateOnly, parseTransactionDate } = require('../utils/date')
 const { ensureCategoryExists } = require('./categoryService')
-const { ensureAccountExists, ensureActiveAccount, ensureCashAccount } = require('./accountService')
+const { ensureAccountExists, ensureActiveAccount, ensureCashAccount, cleanupArchivedAccountIfOrphaned } = require('./accountService')
 const { getTransferFlow } = require('./transferBalance')
 
 const DESCRIPTION_MAX = 200
@@ -484,7 +484,8 @@ async function updateTransaction(userId, id, body) {
     }
   }
   const nextGoalId = input.goalId
-  return prisma.$transaction(async (tx) => {
+  const previousAccountId = existing.accountId
+  const result = await prisma.$transaction(async (tx) => {
     const updated = await tx.transaction.update({ where: { id }, data: input })
     const linked = await tx.goalActivity.findFirst({
       where: { transactionId: id },
@@ -525,6 +526,10 @@ async function updateTransaction(userId, id, body) {
     }
     return updated
   })
+  if (previousAccountId != null && Number(previousAccountId) !== Number(input.accountId)) {
+    await cleanupArchivedAccountIfOrphaned(prisma, userId, previousAccountId)
+  }
+  return result
 }
 
 async function deleteTransaction(userId, id) {
@@ -547,6 +552,8 @@ async function deleteTransaction(userId, id) {
     for (const linked of linkedGoals) {
       await syncGoalProgress(tx, linked.goalId)
     }
+    await cleanupArchivedAccountIfOrphaned(tx, userId, existing.accountId)
+    await cleanupArchivedAccountIfOrphaned(tx, userId, existing.transferAccountId)
   })
   return { id: Number(id) }
 }

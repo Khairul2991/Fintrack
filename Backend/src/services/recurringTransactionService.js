@@ -3,7 +3,7 @@ const { getPrisma } = require('../lib/prisma')
 const { requireText, amountString, integer } = require('../utils/validate')
 const { parseDateOnly, parseTransactionDate } = require('../utils/date')
 const { ensureCategoryExists } = require('./categoryService')
-const { ensureActiveAccount, ensureCashAccount } = require('./accountService')
+const { ensureActiveAccount, ensureCashAccount, cleanupArchivedAccountIfOrphaned } = require('./accountService')
 
 const DESCRIPTION_MAX = 200
 const NOTE_MAX = 500
@@ -51,11 +51,6 @@ function firstOccurrenceOnOrAfter(startDate) {
   ))
 }
 
-function startOfToday() {
-  const now = new Date()
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
-}
-
 function parseRecurringInput(body) {
   const description = requireText(body.description, 'Description')
   if (description.length > DESCRIPTION_MAX) {
@@ -101,15 +96,13 @@ function parseRecurringInput(body) {
   return { description, amount, type, categoryId, accountId, frequency, startDate, endDate, note }
 }
 
-async function generateDueTransactions(prisma, userId, item, today) {
-  let generated = 0
+async function generateDueTransactions(prisma, userId, item, now) {
   let next = new Date(item.nextOccurrence)
   let accountId = item.accountId
   if (!accountId) {
     const cash = await ensureCashAccount(prisma, userId)
     accountId = cash.id
   }
-  const owned = []
   if (item.endDate && utcDateKey(next) > utcDateKey(item.endDate)) {
     await prisma.recurringTransaction.update({
       where: { id: item.id },
@@ -117,33 +110,54 @@ async function generateDueTransactions(prisma, userId, item, today) {
     })
     return 0
   }
-  while (utcDateKey(next) <= utcDateKey(today) && generated < MAX_GENERATE_PER_RUN) {
+  const due = []
+  while (next.getTime() <= now.getTime() && due.length < MAX_GENERATE_PER_RUN) {
     if (item.endDate && utcDateKey(next) > utcDateKey(item.endDate)) break
-    owned.push({
-      userId,
-      description: item.description,
-      amount: item.amount,
-      type: item.type,
-      categoryId: item.categoryId,
-      accountId,
-      date: next,
-      note: item.note,
-      recurringTransactionId: item.id,
-    })
+    due.push(new Date(next))
     next = addFrequency(next, item.frequency)
-    generated += 1
   }
-  if (owned.length > 0) {
-    await prisma.transaction.createMany({ data: owned })
+  if (due.length === 0) {
+    await prisma.recurringTransaction.update({
+      where: { id: item.id },
+      data: { lastRunAt: new Date() },
+    })
+    return 0
   }
-  await prisma.recurringTransaction.update({
-    where: { id: item.id },
-    data: { nextOccurrence: next, lastRunAt: new Date() },
+  const created = await prisma.$transaction(async (tx) => {
+    const existing = await tx.transaction.findMany({
+      where: { userId, recurringTransactionId: item.id, date: { gte: due[0], lte: now } },
+      select: { date: true },
+    })
+    const seen = new Set(existing.map((row) => new Date(row.date).getTime()))
+    const owned = []
+    for (const at of due) {
+      if (seen.has(at.getTime())) continue
+      seen.add(at.getTime())
+      owned.push({
+        userId,
+        description: item.description,
+        amount: item.amount,
+        type: item.type,
+        categoryId: item.categoryId,
+        accountId,
+        date: at,
+        note: item.note,
+        recurringTransactionId: item.id,
+      })
+    }
+    if (owned.length > 0) {
+      await tx.transaction.createMany({ data: owned })
+    }
+    await tx.recurringTransaction.update({
+      where: { id: item.id },
+      data: { nextOccurrence: next, lastRunAt: new Date() },
+    })
+    return owned.length
   })
-  return generated
+  return created
 }
 
-async function runCatchUp(userId) {
+async function runCatchUp(userId, options = {}) {
   const prisma = await getPrisma()
   const items = await prisma.recurringTransaction.findMany({
     where: { active: true, userId },
@@ -160,15 +174,14 @@ async function runCatchUp(userId) {
       nextOccurrence: true,
     },
   })
-  const today = startOfToday()
-  const results = await Promise.all(items.map((item) => generateDueTransactions(prisma, userId, item, today)))
+  const now = options.now instanceof Date ? options.now : new Date()
+  const results = await Promise.all(items.map((item) => generateDueTransactions(prisma, userId, item, now)))
   const generated = results.reduce((sum, count) => sum + count, 0)
   return { generated, processed: items.length }
 }
 
 function serializeDateTime(value) {
-  const iso = value.toISOString()
-  return iso.slice(11, 19) === '00:00:00' ? iso.slice(0, 10) : iso
+  return value.toISOString()
 }
 
 function serialize(item) {
@@ -219,7 +232,7 @@ async function createRecurringTransaction(userId, body, { active } = {}) {
     input.accountId = cash.id
   }
   await ensureActiveAccount(prisma, userId, input.accountId, 400)
-  let next = firstOccurrenceOnOrAfter(input.startDate)
+  const next = firstOccurrenceOnOrAfter(input.startDate)
   if (input.endDate && utcDateKey(next) > utcDateKey(input.endDate)) {
     throw new AppError('Start date must be before the end date.', 400)
   }
@@ -269,16 +282,23 @@ async function updateRecurringTransaction(userId, id, body) {
       ))
     }
   }
-  const item = await prisma.recurringTransaction.update({
-    where: { id },
-    data: { ...input, nextOccurrence: next },
-  })
-  if (String(existing.amount) !== input.amount) {
-    await prisma.transaction.updateMany({
-      where: { userId, recurringTransactionId: id },
-      data: { amount: input.amount },
+  const previousAccountId = existing.accountId
+  const item = await prisma.$transaction(async (tx) => {
+    const updated = await tx.recurringTransaction.update({
+      where: { id },
+      data: { ...input, nextOccurrence: next },
     })
-  }
+    if (String(existing.amount) !== input.amount) {
+      await tx.transaction.updateMany({
+        where: { userId, recurringTransactionId: id },
+        data: { amount: input.amount },
+      })
+    }
+    if (previousAccountId != null && Number(previousAccountId) !== Number(input.accountId)) {
+      await cleanupArchivedAccountIfOrphaned(tx, userId, previousAccountId)
+    }
+    return updated
+  })
   return getRecurringTransaction(userId, item.id)
 }
 
@@ -301,7 +321,10 @@ async function deleteRecurringTransaction(userId, id) {
   if (!existing) {
     throw new AppError('Recurring transaction not found.', 404)
   }
-  await prisma.recurringTransaction.delete({ where: { id } })
+  await prisma.$transaction(async (tx) => {
+    await tx.recurringTransaction.delete({ where: { id } })
+    await cleanupArchivedAccountIfOrphaned(tx, userId, existing.accountId)
+  })
   return { id: Number(id) }
 }
 

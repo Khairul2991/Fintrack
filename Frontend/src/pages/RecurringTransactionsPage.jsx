@@ -15,7 +15,7 @@ import {
   setRecurringTransactionActive,
   updateRecurringTransaction,
 } from '../services/recurringTransactionApi'
-import { formatCurrency, formatDateTime } from '../utils/format'
+import { formatCurrency, formatDate, formatDateTime } from '../utils/format'
 import { accountDisplayName } from '../utils/accountDisplay'
 
 const FREQUENCY_LABELS = {
@@ -301,6 +301,7 @@ function RecurringTransactionsPage() {
                   </th>
                   <th className="text-xs font-medium uppercase tracking-wide">{t('recT.colFrequency')}</th>
                   <th className="text-xs font-medium uppercase tracking-wide">{t('recT.colNext')}</th>
+                  <th className="text-xs font-medium uppercase tracking-wide">{t('recT.colEndDate')}</th>
                   <th className="text-xs font-medium uppercase tracking-wide">{t('recT.colActive')}</th>
                   <th className="text-right text-xs font-medium uppercase tracking-wide">
                     {t('recT.colActions')}
@@ -355,6 +356,9 @@ function RecurringTransactionsPage() {
                     </td>
                     <td className="whitespace-nowrap text-sm text-base-content/70">
                       {item.nextOccurrence ? formatDateTime(item.nextOccurrence) : t('recT.endsNever')}
+                    </td>
+                    <td className="whitespace-nowrap text-sm text-base-content/70">
+                      {item.endDate ? formatDate(item.endDate) : t('recT.endsNever')}
                     </td>
                     <td>
                       <span

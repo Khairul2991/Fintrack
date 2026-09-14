@@ -3,7 +3,7 @@ const { getPrisma, getDecimal } = require('../lib/prisma')
 const { requireText, integer, amountString } = require('../utils/validate')
 const { parseDateOnly } = require('../utils/date')
 const { ensureCategoryExists } = require('./categoryService')
-const { ensureActiveAccount } = require('./accountService')
+const { ensureActiveAccount, cleanupArchivedAccountIfOrphaned } = require('./accountService')
 
 const NAME_MAX = 100
 const DESC_MAX = 500
@@ -138,9 +138,15 @@ async function updateGoal(userId, id, body) {
     await ensureCategoryExists(prisma, userId, input.categoryId, 400)
   }
   await ensureActiveAccount(prisma, userId, input.accountId, 400)
-  await prisma.goal.update({
-    where: { id },
-    data: { ...input },
+  const previousAccountId = existing.accountId
+  await prisma.$transaction(async (tx) => {
+    await tx.goal.update({
+      where: { id },
+      data: { ...input },
+    })
+    if (previousAccountId != null && Number(previousAccountId) !== Number(input.accountId)) {
+      await cleanupArchivedAccountIfOrphaned(tx, userId, previousAccountId)
+    }
   })
   return getGoal(userId, id)
 }
@@ -151,7 +157,10 @@ async function deleteGoal(userId, id) {
   if (!existing) {
     throw new AppError('Goal not found.', 404)
   }
-  await prisma.goal.delete({ where: { id } })
+  await prisma.$transaction(async (tx) => {
+    await tx.goal.delete({ where: { id } })
+    await cleanupArchivedAccountIfOrphaned(tx, userId, existing.accountId)
+  })
   return { id: Number(id) }
 }
 

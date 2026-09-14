@@ -1,4 +1,5 @@
 import EmptyState from '../common/EmptyState'
+import { CloseIcon } from '../common/Icons'
 import { useLanguage } from '../../context/LanguageContext'
 import { formatCurrency, formatDate, formatDateTime } from '../../utils/format'
 import { summarizeDay } from '../../utils/calendarView'
@@ -85,11 +86,11 @@ function DayDetailPanel({ dayKey, transactions, onClear }) {
           <h2 className="text-base font-semibold text-base-content">{formatDate(dayKey, lang)}</h2>
           <button
             type="button"
-            className="btn btn-ghost btn-sm btn-square text-base-content/50 hover:text-base-content"
+            className="btn btn-ghost btn-square text-base-content/50 hover:text-base-content"
             onClick={onClear}
             aria-label={t('cal.closeDetail')}
           >
-            ×
+            <CloseIcon className="h-5 w-5" />
           </button>
         </div>
         <p className="text-sm text-base-content/60">

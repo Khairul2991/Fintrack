@@ -46,7 +46,7 @@ function initialForm(recurring, categories, accounts) {
     categoryId: String(recurring.categoryId),
     accountId: recurring.accountId != null ? String(recurring.accountId) : '',
     frequency: recurring.frequency,
-    startDate: recurring.startDate.slice(0, 10),
+    startDate: toLocalInputValue(recurring.startDate).slice(0, 10),
     startTime: startIsDateTime ? toLocalInputValue(recurring.startDate).slice(11, 16) : '',
     endDate: recurring.endDate ? recurring.endDate.slice(0, 10) : '',
     note: recurring.note ?? '',
@@ -227,6 +227,11 @@ function RecurringTransactionForm({
                 error={Boolean(errors.amount)}
               />
               {errors.amount ? <p className="mt-1 text-xs text-error">{errors.amount}</p> : null}
+              {recurring ? (
+                <div className="mt-1 flex items-start gap-2 rounded-lg border border-info/20 bg-info/10 px-3 py-2">
+                  <span className="text-xs text-base-content/80">{t('recTf.editAmountHint')}</span>
+                </div>
+              ) : null}
             </div>
             <div>
               <span className="label">

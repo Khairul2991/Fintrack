@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   formatCurrency,
-  formatDate,
+  formatDateLocal,
   formatDateTime,
   formatTime,
 } from '../../utils/format'
@@ -219,7 +219,7 @@ function TransactionTable({ transactions, onEdit, onDelete, accounts = [] }) {
             <dl className="mt-4 grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
               <DetailRow
                 label={t('tx.colDate')}
-                value={formatDate(detailTransaction.date, lang)}
+                value={formatDateLocal(detailTransaction.date, lang)}
               />
               <DetailRow label={t('tx.detailTime')} value={formatTime(detailTransaction.date, lang)} />
               <DetailRow label={t('tx.colType')}>

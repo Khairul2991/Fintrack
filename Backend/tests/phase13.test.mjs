@@ -214,7 +214,7 @@ describe('Recurring Transactions API', () => {
     }, { userId: state.testUserId })
     assert.equal(res.status, 201)
     assert.equal(res.data.data.description, 'Monthly rent')
-    assert.equal(res.data.data.nextOccurrence, '2026-09-01')
+    assert.equal(res.data.data.nextOccurrence, '2026-09-01T00:00:00.000Z')
     assert.equal(res.data.data.active, true)
   })
 

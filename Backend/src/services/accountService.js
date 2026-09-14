@@ -195,6 +195,24 @@ async function updateAccount(userId, id, body) {
   return enrichBalance(prisma, userId, account)
 }
 
+async function countAccountReferences(prisma, userId, accountId) {
+  const [transactions, transfers, recurring, goals, goalActivities] = await Promise.all([
+    prisma.transaction.count({ where: { accountId, userId } }),
+    prisma.transaction.count({ where: { transferAccountId: accountId, userId } }),
+    prisma.recurringTransaction.count({ where: { accountId, userId } }),
+    prisma.goal.count({ where: { accountId, userId } }),
+    prisma.goalActivity.count({ where: { accountId } }),
+  ])
+  return {
+    transactions,
+    transfers,
+    recurring,
+    goals,
+    goalActivities,
+    total: transactions + transfers + recurring + goals + goalActivities,
+  }
+}
+
 async function deleteAccount(userId, id) {
   const prisma = await getPrisma()
   const existing = await ensureAccountExists(prisma, userId, id)
@@ -204,15 +222,8 @@ async function deleteAccount(userId, id) {
   if (existing.deletedAt) {
     return { id: Number(id), archived: true }
   }
-  const [transactions, transfers, recurring, goals, goalActivities] = await Promise.all([
-    prisma.transaction.count({ where: { accountId: id, userId } }),
-    prisma.transaction.count({ where: { transferAccountId: id, userId } }),
-    prisma.recurringTransaction.count({ where: { accountId: id, userId } }),
-    prisma.goal.count({ where: { accountId: id, userId } }),
-    prisma.goalActivity.count({ where: { accountId: id } }),
-  ])
-  const total = transactions + transfers + recurring + goals + goalActivities
-  if (total > 0) {
+  const references = await countAccountReferences(prisma, userId, Number(id))
+  if (references.total > 0) {
     await prisma.$transaction([
       prisma.account.update({ where: { id }, data: { deletedAt: new Date() } }),
       prisma.recurringTransaction.updateMany({
@@ -226,6 +237,25 @@ async function deleteAccount(userId, id) {
   return { id: Number(id), archived: false }
 }
 
+async function cleanupArchivedAccountIfOrphaned(client, userId, accountId) {
+  if (accountId === undefined || accountId === null) {
+    return { cleaned: false }
+  }
+  const account = await client.account.findFirst({
+    where: { id: Number(accountId), userId },
+    select: { id: true, isDefault: true, deletedAt: true },
+  })
+  if (!account || !account.deletedAt || account.isDefault) {
+    return { cleaned: false }
+  }
+  const references = await countAccountReferences(client, userId, account.id)
+  if (references.total > 0) {
+    return { cleaned: false }
+  }
+  await client.account.delete({ where: { id: account.id } })
+  return { cleaned: true, id: account.id }
+}
+
 module.exports = {
   ensureAccountExists,
   ensureActiveAccount,
@@ -235,4 +265,5 @@ module.exports = {
   createAccount,
   updateAccount,
   deleteAccount,
+  cleanupArchivedAccountIfOrphaned,
 }

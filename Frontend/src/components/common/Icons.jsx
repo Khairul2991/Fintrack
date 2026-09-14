@@ -230,6 +230,26 @@ export function EyeIcon({ className = 'h-5 w-5' }) {
   )
 }
 
+export function CloseIcon({ className = 'h-5 w-5' }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+      strokeWidth={1.5}
+      stroke="currentColor"
+      className={className}
+      aria-hidden="true"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M6 18L18 6M6 6l12 12"
+      />
+    </svg>
+  )
+}
+
 export function EyeOffIcon({ className = 'h-5 w-5' }) {
   return (
     <svg

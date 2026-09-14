@@ -40,6 +40,19 @@ export function formatDate(iso, lang = currentLang()) {
   }).format(date)
 }
 
+export function formatDateLocal(iso, lang = currentLang()) {
+  if (typeof iso === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+    return formatDate(iso, lang)
+  }
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return '—'
+  return new Intl.DateTimeFormat(localeFor(lang), {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(date)
+}
+
 export function formatDateTime(iso, lang = currentLang()) {
   if (typeof iso === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(iso)) {
     return formatDate(iso, lang)
