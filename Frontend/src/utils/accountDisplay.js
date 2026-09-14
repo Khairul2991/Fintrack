@@ -1,6 +1,6 @@
 export function accountDisplayName(account, t) {
   if (!account) return ''
-  return account.isDefault ? t('acc.typeCash') : account.name
+  return account.isDefault ? `${t('acc.typeCash')} (${t('txf.default')})` : account.name
 }
 
 function numericBalance(account) {

@@ -106,6 +106,17 @@ export function toLocalInputValue(iso) {
   ].join('')
 }
 
+export function formatTime(iso, lang = currentLang()) {
+  if (typeof iso === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(iso)) return '—'
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return '—'
+  return new Intl.DateTimeFormat(localeFor(lang), {
+    hour: '2-digit',
+    hour12: false,
+    minute: '2-digit',
+  }).format(date)
+}
+
 export function formatMonth(ym, lang = currentLang()) {
   const date = new Date(`${ym}-01T00:00:00.000Z`)
   if (Number.isNaN(date.getTime())) return ym

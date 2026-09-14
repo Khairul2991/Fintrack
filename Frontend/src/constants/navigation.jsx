@@ -25,6 +25,14 @@ const icons = {
       <path d="M13 6l6 6-6 6" />
     </svg>
   ),
+  calendar: (
+    <svg {...iconProps}>
+      <rect x="3" y="5" width="18" height="16" rx="2" />
+      <path d="M3 10h18" />
+      <path d="M8 3v4" />
+      <path d="M16 3v4" />
+    </svg>
+  ),
   categories: (
     <svg {...iconProps}>
       <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
@@ -97,6 +105,7 @@ export const NAV_ITEMS = [
   { labelKey: 'nav.dashboard', to: '/', icon: icons.dashboard },
   { labelKey: 'nav.accounts', to: '/accounts', icon: icons.accounts },
   { labelKey: 'nav.transactions', to: '/transactions', icon: icons.transactions },
+  { labelKey: 'nav.calendar', to: '/calendar', icon: icons.calendar },
   { labelKey: 'nav.recurringTx', to: '/recurring-transactions', icon: icons.recurringTx },
   { labelKey: 'nav.categories', to: '/categories', icon: icons.categories },
   { labelKey: 'nav.budgets', to: '/budgets', icon: icons.budgets },

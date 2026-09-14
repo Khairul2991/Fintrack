@@ -2,6 +2,7 @@ import { useLanguage } from '../../context/LanguageContext'
 import { SearchIcon } from '../common/Icons'
 import { accountDisplayName } from '../../utils/accountDisplay'
 import { sortCategoriesForDisplay } from '../../l10n/categories'
+import FormSelect, { FormSelectOption } from '../common/FormSelect'
 
 function ChevronIcon({ open }) {
   return (
@@ -147,37 +148,35 @@ function TransactionFilters({
                 <label className="label">
                   <span className="text-sm text-base-content/60">{t('tx.filterCat')}</span>
                 </label>
-                <select
-                  className="select select-bordered w-full"
+                <FormSelect
                   value={draft.categoryId}
-                  onChange={(event) => onDraftChange({ categoryId: event.target.value })}
-                  aria-label={t('tx.filterCatAria')}
+                  onChange={(value) => onDraftChange({ categoryId: value })}
+                  ariaLabel={t('tx.filterCatAria')}
                 >
-                  <option value="">{t('tx.allCats')}</option>
+                  <FormSelectOption value="">{t('tx.allCats')}</FormSelectOption>
                   {sortedCategories.map((category) => (
-                    <option key={category.id} value={category.id}>
+                    <FormSelectOption key={category.id} value={category.id}>
                       {category.icon} {localizeCategory(category)}
-                    </option>
+                    </FormSelectOption>
                   ))}
-                </select>
+                </FormSelect>
               </div>
               <div>
                 <label className="label">
                   <span className="text-sm text-base-content/60">{t('tx.filterAccount')}</span>
                 </label>
-                <select
-                  className="select select-bordered w-full"
+                <FormSelect
                   value={draft.accountId}
-                  onChange={(event) => onDraftChange({ accountId: event.target.value })}
-                  aria-label={t('tx.filterAccountAria')}
+                  onChange={(value) => onDraftChange({ accountId: value })}
+                  ariaLabel={t('tx.filterAccountAria')}
                 >
-                  <option value="">{t('tx.allAccounts')}</option>
+                  <FormSelectOption value="">{t('tx.allAccounts')}</FormSelectOption>
                   {accounts.map((account) => (
-                    <option key={account.id} value={account.id}>
+                    <FormSelectOption key={account.id} value={account.id}>
                       {accountDisplayName(account, t)}
-                    </option>
+                    </FormSelectOption>
                   ))}
-                </select>
+                </FormSelect>
               </div>
               <div>
                 <label className="label">

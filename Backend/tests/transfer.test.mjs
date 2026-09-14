@@ -929,6 +929,81 @@ describe('Transfer antar akun', () => {
       assert.equal(Number((await getGoalAmount(first.id)).currentAmount), 15000)
       assert.equal(Number((await getGoalAmount(second.id)).currentAmount), 30000)
     })
+
+    it('keeps the goal untouched when the transfer matches the free balance exactly', async () => {
+      const src = await createAccountWithBalance('FreeBoundary Src')
+      const dst = await createAccountWithBalance('FreeBoundary Dst')
+      const goal = await createGoal('FreeBoundary Goal', src.id, '50000')
+      await salaryIncome(25000, src.id, goal.id)
+      await salaryIncome(15000, src.id, undefined)
+
+      const res = await transferBetween(src.id, dst.id, 15000)
+      assert.equal(res.status, 201)
+      assert.equal(res.data.data.sourceGoalId, null)
+      assert.equal(Number((await getGoalAmount(goal.id)).currentAmount), 25000)
+      const prisma = await getPrisma()
+      const activities = await prisma.goalActivity.findMany({
+        where: { transactionId: res.data.data.id },
+      })
+      assert.equal(activities.length, 0)
+    })
+
+    it('takes only the shortfall from the goal when the transfer exceeds the free balance', async () => {
+      const src = await createAccountWithBalance('Shortfall Src')
+      const dst = await createAccountWithBalance('Shortfall Dst')
+      const goal = await createGoal('Shortfall Goal', src.id, '50000')
+      await salaryIncome(25000, src.id, goal.id)
+      await salaryIncome(15000, src.id, undefined)
+
+      const res = await transferBetween(src.id, dst.id, 20000)
+      assert.equal(res.status, 201)
+      assert.equal(Number(res.data.data.sourceGoalId), goal.id)
+      assert.equal(Number((await getGoalAmount(goal.id)).currentAmount), 20000)
+      assert.equal(Number((await getAccountById(src.id)).balance), 20000)
+      const prisma = await getPrisma()
+      const activities = await prisma.goalActivity.findMany({
+        where: { transactionId: res.data.data.id },
+      })
+      assert.equal(activities.length, 1)
+      assert.equal(activities[0].type, 'WITHDRAWAL')
+      assert.equal(Number(activities[0].amount), 5000)
+    })
+
+    it('drains the goal fully when the full balance is transferred from an account with free balance', async () => {
+      const src = await createAccountWithBalance('FullDrain Src')
+      const dst = await createAccountWithBalance('FullDrain Dst')
+      const goal = await createGoal('FullDrain Goal', src.id, '50000')
+      await salaryIncome(25000, src.id, goal.id)
+      await salaryIncome(15000, src.id, undefined)
+
+      const res = await transferBetween(src.id, dst.id, 40000)
+      assert.equal(res.status, 201)
+      assert.equal(Number(res.data.data.sourceGoalId), goal.id)
+      assert.equal(Number((await getGoalAmount(goal.id)).currentAmount), 0)
+      const prisma = await getPrisma()
+      const activities = await prisma.goalActivity.findMany({
+        where: { transactionId: res.data.data.id },
+      })
+      assert.equal(activities.length, 1)
+      assert.equal(Number(activities[0].amount), 25000)
+    })
+
+    it('rejects a partially ambiguous transfer when the shortfall spans multiple funded goals', async () => {
+      const src = await createAccountWithBalance('PartialAmbiguous Src')
+      const dst = await createAccountWithBalance('PartialAmbiguous Dst')
+      const first = await createGoal('PartialAmbiguous A', src.id, '30000')
+      const second = await createGoal('PartialAmbiguous B', src.id, '30000')
+      await salaryIncome(15000, src.id, first.id)
+      await salaryIncome(10000, src.id, second.id)
+      await salaryIncome(15000, src.id, undefined)
+
+      const res = await transferBetween(src.id, dst.id, 20000)
+      assert.equal(res.status, 400)
+      assert.match(res.data.message, /select the source goal/i)
+      assert.equal(Number((await getGoalAmount(first.id)).currentAmount), 15000)
+      assert.equal(Number((await getGoalAmount(second.id)).currentAmount), 10000)
+      assert.equal(Number((await getAccountById(src.id)).balance), 40000)
+    })
   })
 
   describe('account delete history protection', () => {

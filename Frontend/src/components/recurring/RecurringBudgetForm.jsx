@@ -3,6 +3,7 @@ import MoneyInput from '../common/MoneyInput'
 import { useLanguage } from '../../context/LanguageContext'
 import { isAmountOverLimit } from '../../utils/numberFormat'
 import { sortCategoriesForDisplay } from '../../l10n/categories'
+import FormSelect, { FormSelectOption } from '../common/FormSelect'
 
 const MIN_YEAR = 2000
 const MAX_YEAR = 2100
@@ -131,20 +132,20 @@ function RecurringBudgetForm({ recurring, categories = [], onCancel, onSave }) {
               <label className="label" htmlFor="recb-category">
                 <span className="label-text">{t('recBf.category')} <span className="text-error">*</span></span>
               </label>
-              <select
+              <FormSelect
                 id="recb-category"
                 ref={categoryIdRef}
-                className={`select select-bordered w-full ${errors.categoryId ? 'select-error' : ''}`}
+                invalid={Boolean(errors.categoryId)}
                 value={form.categoryId}
-                onChange={(event) => setField('categoryId', event.target.value)}
+                onChange={(value) => setField('categoryId', value)}
               >
-                <option value="">{t('recBf.selectCategory')}</option>
+                <FormSelectOption value="">{t('recBf.selectCategory')}</FormSelectOption>
                 {sortedCategories.map((category) => (
-                  <option key={category.id} value={category.id}>
+                  <FormSelectOption key={category.id} value={category.id}>
                     {category.icon} {localizeCategory(category)}
-                  </option>
+                  </FormSelectOption>
                 ))}
-              </select>
+              </FormSelect>
               {errors.categoryId ? (
                 <p className="mt-1 text-xs text-error">{errors.categoryId}</p>
               ) : null}
@@ -186,19 +187,19 @@ function RecurringBudgetForm({ recurring, categories = [], onCancel, onSave }) {
               <label className="label" htmlFor="recb-month">
                 <span className="label-text">{t('recBf.startMonth')} <span className="text-error">*</span></span>
               </label>
-              <select
+              <FormSelect
                 id="recb-month"
                 ref={startMonthRef}
-                className={`select select-bordered w-full ${errors.startMonth ? 'select-error' : ''}`}
+                invalid={Boolean(errors.startMonth)}
                 value={form.startMonth}
-                onChange={(event) => setField('startMonth', Number(event.target.value))}
+                onChange={(value) => setField('startMonth', Number(value))}
               >
                 {Array.from({ length: 12 }, (_, i) => i + 1).map((month) => (
-                  <option key={month} value={month}>
+                  <FormSelectOption key={month} value={month}>
                     {String(month).padStart(2, '0')}
-                  </option>
+                  </FormSelectOption>
                 ))}
-              </select>
+              </FormSelect>
               {errors.startMonth ? (
                 <p className="mt-1 text-xs text-error">{errors.startMonth}</p>
               ) : null}

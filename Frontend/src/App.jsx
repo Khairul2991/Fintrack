@@ -10,6 +10,7 @@ import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import DashboardPage from './pages/DashboardPage'
 import TransactionsPage from './pages/TransactionsPage'
+import CalendarPage from './pages/CalendarPage'
 import CategoriesPage from './pages/CategoriesPage'
 import ReportsPage from './pages/ReportsPage'
 import BudgetsPage from './pages/BudgetsPage'
@@ -113,6 +114,7 @@ function App() {
                 <Route path="/accounts" element={<AccountsPage />} />
                 <Route path="/accounts/:id/activities" element={<AccountActivitiesPage />} />
                 <Route path="/transactions" element={<TransactionsPage />} />
+                <Route path="/calendar" element={<CalendarPage />} />
                 <Route path="/recurring-transactions" element={<RecurringTransactionsPage />} />
                 <Route path="/categories" element={<CategoriesPage />} />
                 <Route path="/budgets" element={<BudgetsPage />} />

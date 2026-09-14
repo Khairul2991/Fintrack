@@ -3,6 +3,7 @@ import MoneyInput from '../common/MoneyInput'
 import { useLanguage } from '../../context/LanguageContext'
 import { isAmountOverLimit } from '../../utils/numberFormat'
 import { sortCategoriesForDisplay } from '../../l10n/categories'
+import FormSelect, { FormSelectOption } from '../common/FormSelect'
 
 const MIN_YEAR = 2000
 const MAX_YEAR = 2100
@@ -118,21 +119,21 @@ function BudgetForm({ budget, categories, onCancel, onSave }) {
             <label className="label" htmlFor="budget-category">
               <span className="label-text">{t('budf.category')} <span className="text-error">*</span></span>
             </label>
-            <select
+            <FormSelect
               id="budget-category"
               ref={categoryIdRef}
-              className={`select select-bordered w-full ${errors.categoryId ? 'select-error' : ''}`}
-              value={form.categoryId}
-              onChange={(event) => setField('categoryId', event.target.value)}
               autoFocus
+              invalid={Boolean(errors.categoryId)}
+              value={form.categoryId}
+              onChange={(value) => setField('categoryId', value)}
             >
-              <option value="">{t('budf.selectCategory')}</option>
+              <FormSelectOption value="">{t('budf.selectCategory')}</FormSelectOption>
               {sortedCategories.map((category) => (
-                <option key={category.id} value={category.id}>
+                <FormSelectOption key={category.id} value={category.id}>
                   {category.icon} {localizeCategory(category)}
-                </option>
+                </FormSelectOption>
               ))}
-            </select>
+            </FormSelect>
             {errors.categoryId ? (
               <p className="mt-1 text-xs text-error">{errors.categoryId}</p>
             ) : null}
@@ -142,41 +143,41 @@ function BudgetForm({ budget, categories, onCancel, onSave }) {
               <label className="label" htmlFor="budget-month">
                 <span className="label-text">{t('budf.month')} <span className="text-error">*</span></span>
               </label>
-              <select
+              <FormSelect
                 id="budget-month"
                 ref={monthRef}
-                className={`select select-bordered w-full ${errors.month ? 'select-error' : ''}`}
+                invalid={Boolean(errors.month)}
                 value={form.month}
-                onChange={(event) => setField('month', event.target.value)}
+                onChange={(value) => setField('month', value)}
               >
                 {Array.from({ length: 12 }, (_, index) => {
                   const name = t(`months.${index + 1}`)
                   return (
-                    <option key={name} value={index + 1}>
+                    <FormSelectOption key={name} value={index + 1}>
                       {index + 1}. {name}
-                    </option>
+                    </FormSelectOption>
                   )
                 })}
-              </select>
+              </FormSelect>
               {errors.month ? <p className="mt-1 text-xs text-error">{errors.month}</p> : null}
             </div>
             <div>
               <label className="label" htmlFor="budget-year">
                 <span className="label-text">{t('budf.year')} <span className="text-error">*</span></span>
               </label>
-              <select
+              <FormSelect
                 id="budget-year"
                 ref={yearRef}
-                className={`select select-bordered w-full ${errors.year ? 'select-error' : ''}`}
+                invalid={Boolean(errors.year)}
                 value={form.year}
-                onChange={(event) => setField('year', event.target.value)}
+                onChange={(value) => setField('year', value)}
               >
                 {years.map((year) => (
-                  <option key={year} value={year}>
+                  <FormSelectOption key={year} value={year}>
                     {year}
-                  </option>
+                  </FormSelectOption>
                 ))}
-              </select>
+              </FormSelect>
               {errors.year ? <p className="mt-1 text-xs text-error">{errors.year}</p> : null}
             </div>
           </div>

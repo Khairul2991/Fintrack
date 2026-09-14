@@ -4,6 +4,7 @@ import { useLanguage } from '../../context/LanguageContext'
 import { isAmountOverLimit } from '../../utils/numberFormat'
 import { accountDisplayName, sortAccountsDefaultFirst } from '../../utils/accountDisplay'
 import { sortCategoriesForDisplay } from '../../l10n/categories'
+import FormSelect, { FormSelectOption } from '../common/FormSelect'
 
 const NAME_MAX = 100
 const DESC_MAX = 500
@@ -183,38 +184,37 @@ function GoalForm({ goal, categories = [], accounts = [], onCancel, onSave }) {
               <label className="label" htmlFor="goal-category">
                 <span className="label-text">{t('goalf.category')}</span>
               </label>
-              <select
+              <FormSelect
                 id="goal-category"
-                className="select select-bordered w-full"
                 value={form.categoryId}
-                onChange={(event) => setField('categoryId', event.target.value)}
+                onChange={(value) => setField('categoryId', value)}
               >
-                <option value="">{t('goalf.selectCategory')}</option>
+                <FormSelectOption value="">{t('goalf.selectCategory')}</FormSelectOption>
                 {sortedCategories.map((category) => (
-                  <option key={category.id} value={category.id}>
+                  <FormSelectOption key={category.id} value={category.id}>
                     {category.icon} {localizeCategory(category)}
-                  </option>
+                  </FormSelectOption>
                 ))}
-              </select>
+              </FormSelect>
             </div>
             <div className="sm:col-span-2">
               <label className="label" htmlFor="goal-account">
                 <span className="label-text">{t('goalf.account')} <span className="text-error">*</span></span>
               </label>
-              <select
+              <FormSelect
                 id="goal-account"
                 ref={accountRef}
-                className={`select select-bordered w-full ${errors.accountId ? 'select-error' : ''}`}
+                invalid={Boolean(errors.accountId)}
                 value={form.accountId}
-                onChange={(event) => setField('accountId', event.target.value)}
+                onChange={(value) => setField('accountId', value)}
               >
-                {accounts.length === 0 ? <option value="">{t('goalf.selectAccount')}</option> : null}
+                {accounts.length === 0 ? <FormSelectOption value="">{t('goalf.selectAccount')}</FormSelectOption> : null}
                 {sortedAccounts.map((account) => (
-                  <option key={account.id} value={account.id}>
+                  <FormSelectOption key={account.id} value={account.id}>
                     {accountDisplayName(account, t)}
-                  </option>
+                  </FormSelectOption>
                 ))}
-              </select>
+              </FormSelect>
               {errors.accountId ? (
                 <p className="mt-1 text-xs text-error">{errors.accountId}</p>
               ) : null}

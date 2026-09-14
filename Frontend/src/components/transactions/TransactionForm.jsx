@@ -7,6 +7,7 @@ import { accountDisplayName, sortAccountsDefaultFirst } from '../../utils/accoun
 import { toLocalInputValue, toUtcInputValue, formatCurrency } from '../../utils/format'
 import { sortCategoriesForDisplay } from '../../l10n/categories'
 import { resolveTransferSourceGoal } from '../../utils/transferGoal'
+import FormSelect, { FormSelectOption } from '../common/FormSelect'
 
 const DESCRIPTION_MAX = 200
 const NOTE_MAX = 500
@@ -103,13 +104,36 @@ function TransactionForm({ transaction, categories, accounts = [], goals = [], f
     return account ? Number(account.balance ?? 0) : 0
   }
   const sourceBalance = accountBalance(form.accountId)
+  const hasFundedGoals = sourceAccountGoals.length > 0
   const sourceResolution = resolveTransferSourceGoal({
     amount: Number(form.amount),
     available: sourceBalance,
     goals: accountGoals,
   })
-  const requiresSourceGoal = sourceResolution !== null
   const transferringFullBalance = form.amount !== '' && Number(form.amount) === sourceBalance
+  const transferAmount = Number(form.amount)
+  const amountEntered = form.amount !== '' && Number.isFinite(transferAmount) && transferAmount > 0
+  let fundingNote = null
+  if (form.type === 'TRANSFER' && form.accountId && !form.sourceGoalId && hasFundedGoals && amountEntered) {
+    if (sourceResolution && !sourceResolution.ambiguous) {
+      const from = Number(sourceResolution.goal.currentAmount)
+      const to = Math.max(0, from - sourceResolution.withdrawal)
+      fundingNote = transferringFullBalance
+        ? { kind: 'fullSingle', goal: sourceResolution.goal.name, from, to }
+        : {
+            kind: 'single',
+            name: sourceResolution.goal.name,
+            free: sourceResolution.unallocated,
+            shortfall: sourceResolution.shortfall,
+            from,
+            to,
+          }
+    } else if (sourceResolution && sourceResolution.ambiguous) {
+      fundingNote = { kind: transferringFullBalance ? 'fullMulti' : 'multi' }
+    } else {
+      fundingNote = { kind: 'free' }
+    }
+  }
   const visibleCategories = sortCategoriesForDisplay(
     categories.filter((category) => category.type === form.type),
     localizeCategory,
@@ -356,19 +380,19 @@ function TransactionForm({ transaction, categories, accounts = [], goals = [], f
                     {t('txf.availableBalance', { amount: formatCurrency(sourceBalance) })}
                   </span>
                 </div>
-                <select
+                <FormSelect
                   id="tx-account"
                   ref={accountIdRef}
-                  className={`select select-bordered w-full ${errors.accountId ? 'select-error' : ''}`}
+                  invalid={Boolean(errors.accountId)}
                   value={form.accountId}
-                  onChange={(event) => handleAccountChange(event.target.value)}
+                  onChange={handleAccountChange}
                 >
                   {sortedAccounts.map((account) => (
-                    <option key={account.id} value={account.id}>
+                    <FormSelectOption key={account.id} value={account.id}>
                       {accountDisplayName(account, t)}
-                    </option>
+                    </FormSelectOption>
                   ))}
-                </select>
+                </FormSelect>
                 {errors.accountId ? <p className="mt-1 text-xs text-error">{errors.accountId}</p> : null}
               </div>
               <div>
@@ -378,20 +402,20 @@ function TransactionForm({ transaction, categories, accounts = [], goals = [], f
                     {t('txf.availableBalance', { amount: formatCurrency(accountBalance(form.transferAccountId)) })}
                   </span>
                 </div>
-                <select
+                <FormSelect
                   id="tx-transfer-account"
                   ref={transferAccountIdRef}
-                  className={`select select-bordered w-full ${errors.transferAccountId ? 'select-error' : ''}`}
+                  invalid={Boolean(errors.transferAccountId)}
                   value={form.transferAccountId}
-                  onChange={(event) => handleTransferAccountChange(event.target.value)}
+                  onChange={handleTransferAccountChange}
                 >
-                  <option value="">{t('txf.selectAccount')}</option>
+                  <FormSelectOption value="">{t('txf.selectAccount')}</FormSelectOption>
                   {transferAccounts.map((account) => (
-                    <option key={account.id} value={account.id}>
+                    <FormSelectOption key={account.id} value={account.id}>
                       {accountDisplayName(account, t)}
-                    </option>
+                    </FormSelectOption>
                   ))}
-                </select>
+                </FormSelect>
                 {errors.transferAccountId ? (
                   <p className="mt-1 text-xs text-error">{errors.transferAccountId}</p>
                 ) : null}
@@ -403,20 +427,20 @@ function TransactionForm({ transaction, categories, accounts = [], goals = [], f
                       {t('txf.sourceGoal')} <span className="ml-1 text-base-content/40">{t('common.optional')}</span>
                     </span>
                   </label>
-                  <select
+                  <FormSelect
                     id="tx-source-goal"
-                    className={`select select-bordered w-full ${requiresSourceGoal && sourceAccountGoals.length > 1 && !form.sourceGoalId ? 'select-warning' : ''}`}
+                    warning={sourceResolution !== null && sourceResolution.ambiguous && !form.sourceGoalId}
                     value={form.sourceGoalId}
-                    onChange={(event) => setField('sourceGoalId', event.target.value)}
+                    onChange={(value) => setField('sourceGoalId', value)}
                     disabled={!form.accountId || sourceAccountGoals.length === 0}
                   >
-                    <option value="">{t('txf.noSourceGoal')}</option>
+                    <FormSelectOption value="">{t('txf.noSourceGoal')}</FormSelectOption>
                     {sourceAccountGoals.map((goal) => (
-                      <option key={goal.id} value={goal.id}>
+                      <FormSelectOption key={goal.id} value={goal.id}>
                         {goal.name} — {formatCurrency(goal.currentAmount)}
-                      </option>
+                      </FormSelectOption>
                     ))}
-                  </select>
+                  </FormSelect>
                   {form.accountId && sourceAccountGoals.length === 0 ? (
                     <p className="mt-1 text-xs text-base-content/50">{t('txf.noSourceAllocation')}</p>
                   ) : null}
@@ -427,20 +451,19 @@ function TransactionForm({ transaction, categories, accounts = [], goals = [], f
                       {t('txf.destGoal')} <span className="ml-1 text-base-content/40">{t('common.optional')}</span>
                     </span>
                   </label>
-                  <select
+                  <FormSelect
                     id="tx-goal"
-                    className="select select-bordered w-full"
                     value={form.goalId}
-                    onChange={(event) => setField('goalId', event.target.value)}
+                    onChange={(value) => setField('goalId', value)}
                     disabled={!form.transferAccountId || destinationAccountGoals.length === 0}
                   >
-                    <option value="">{t('txf.noGoal')}</option>
+                    <FormSelectOption value="">{t('txf.noGoal')}</FormSelectOption>
                     {destinationAccountGoals.map((goal) => (
-                      <option key={goal.id} value={goal.id}>
+                      <FormSelectOption key={goal.id} value={goal.id}>
                         {goal.name} — {formatCurrency(goal.currentAmount)}
-                      </option>
+                      </FormSelectOption>
                     ))}
-                  </select>
+                  </FormSelect>
                   {form.transferAccountId && destinationAccountGoals.length === 0 ? (
                     <p className="mt-1 text-xs text-base-content/50">{t('txf.noGoalsForDestination')}</p>
                   ) : null}
@@ -460,32 +483,48 @@ function TransactionForm({ transaction, categories, accounts = [], goals = [], f
                   error={Boolean(errors.amount)}
                 />
                 {errors.amount ? <p className="mt-1 text-xs text-error">{errors.amount}</p> : null}
-                {requiresSourceGoal && !form.sourceGoalId ? (
-                  transferringFullBalance ? (
+                {fundingNote ? (
+                  fundingNote.kind === 'free' ? (
+                    <p className="mt-1 text-xs text-base-content/60">{t('txf.freeBalanceHint')}</p>
+                  ) : fundingNote.kind === 'single' ? (
                     <div
                       role="alert"
                       className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning"
                     >
                       <span>
-                        {sourceResolution.ambiguous
+                        {t('txf.shortfallHint', {
+                          free: formatCurrency(fundingNote.free),
+                          shortfall: formatCurrency(fundingNote.shortfall),
+                          goal: fundingNote.name,
+                          from: formatCurrency(fundingNote.from),
+                          to: formatCurrency(fundingNote.to),
+                        })}
+                      </span>
+                    </div>
+                  ) : fundingNote.kind === 'multi' || fundingNote.kind === 'fullMulti' ? (
+                    <div
+                      role="alert"
+                      className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning"
+                    >
+                      <span>
+                        {fundingNote.kind === 'fullMulti'
                           ? t('txf.fullBalanceMulti')
-                          : t('txf.fullBalanceSingle', {
-                              goal: sourceResolution.goal.name,
-                              amount: formatCurrency(sourceResolution.withdrawal),
-                            })}
+                          : t('txf.multiSourceHint')}
                       </span>
                     </div>
                   ) : (
-                    <p
-                      role={sourceAccountGoals.length > 1 ? 'alert' : undefined}
-                      className={`mt-1 text-xs ${sourceAccountGoals.length > 1 ? 'text-warning' : 'text-base-content/60'}`}
+                    <div
+                      role="alert"
+                      className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning"
                     >
-                      {sourceAccountGoals.length === 1
-                        ? t('txf.autoSourceHint')
-                        : sourceAccountGoals.length > 1
-                          ? t('txf.multiSourceHint')
-                          : null}
-                    </p>
+                      <span>
+                        {t('txf.fullBalanceSingle', {
+                          goal: fundingNote.goal,
+                          from: formatCurrency(fundingNote.from),
+                          to: formatCurrency(fundingNote.to),
+                        })}
+                      </span>
+                    </div>
                   )
                 ) : null}
               </div>
@@ -610,20 +649,20 @@ function TransactionForm({ transaction, categories, accounts = [], goals = [], f
                 <label className="label py-1" htmlFor="tx-category">
                   <span className="label-text">{t('txf.category')} <span className="text-error">*</span></span>
                 </label>
-                <select
+                <FormSelect
                   id="tx-category"
                   ref={categoryIdRef}
-                  className={`select select-bordered w-full ${errors.categoryId ? 'select-error' : ''}`}
+                  invalid={Boolean(errors.categoryId)}
                   value={form.categoryId}
-                  onChange={(event) => setField('categoryId', event.target.value)}
+                  onChange={(value) => setField('categoryId', value)}
                 >
-                  <option value="">{t('txf.selectCategory')}</option>
+                  <FormSelectOption value="">{t('txf.selectCategory')}</FormSelectOption>
                   {visibleCategories.map((category) => (
-                    <option key={category.id} value={category.id}>
+                    <FormSelectOption key={category.id} value={category.id}>
                       {category.icon} {localizeCategory(category)}
-                    </option>
+                    </FormSelectOption>
                   ))}
-                </select>
+                </FormSelect>
                 {errors.categoryId ? (
                   <p className="mt-1 text-xs text-error">{errors.categoryId}</p>
                 ) : null}
@@ -636,20 +675,20 @@ function TransactionForm({ transaction, categories, accounts = [], goals = [], f
                   {form.type === 'TRANSFER' ? <span className="text-error">*</span> : null}
                 </span>
               </label>
-              <select
+                            <FormSelect
                 id="tx-account"
                 ref={accountIdRef}
-                className={`select select-bordered w-full ${errors.accountId ? 'select-error' : ''}`}
+                invalid={Boolean(errors.accountId)}
                 value={form.accountId}
-                onChange={(event) => handleAccountChange(event.target.value)}
+                onChange={handleAccountChange}
               >
-                {accounts.length === 0 ? <option value="">{t('txf.selectAccount')}</option> : null}
+                {accounts.length === 0 ? <FormSelectOption value="">{t('txf.selectAccount')}</FormSelectOption> : null}
                 {sortedAccounts.map((account) => (
-                  <option key={account.id} value={account.id}>
+                  <FormSelectOption key={account.id} value={account.id}>
                     {accountDisplayName(account, t)}
-                  </option>
+                  </FormSelectOption>
                 ))}
-              </select>
+              </FormSelect>
               {errors.accountId ? <p className="mt-1 text-xs text-error">{errors.accountId}</p> : null}
               {!transaction && defaultAccount && form.type !== 'TRANSFER' ? (
                 <div className="mt-1 flex items-start gap-2 rounded-lg border border-info/20 bg-info/10 px-3 py-2">
@@ -667,20 +706,20 @@ function TransactionForm({ transaction, categories, accounts = [], goals = [], f
                 <label className="label py-1" htmlFor="tx-transfer-account">
                   <span className="label-text">{t('tx.transferTo')} <span className="text-error">*</span></span>
                 </label>
-                <select
+                <FormSelect
                   id="tx-transfer-account"
                   ref={transferAccountIdRef}
-                  className={`select select-bordered w-full ${errors.transferAccountId ? 'select-error' : ''}`}
+                  invalid={Boolean(errors.transferAccountId)}
                   value={form.transferAccountId}
-                  onChange={(event) => handleTransferAccountChange(event.target.value)}
+                  onChange={handleTransferAccountChange}
                 >
-                  <option value="">{t('txf.selectAccount')}</option>
+                  <FormSelectOption value="">{t('txf.selectAccount')}</FormSelectOption>
                   {transferAccounts.map((account) => (
-                    <option key={account.id} value={account.id}>
+                    <FormSelectOption key={account.id} value={account.id}>
                       {accountDisplayName(account, t)}
-                    </option>
+                    </FormSelectOption>
                   ))}
-                </select>
+                </FormSelect>
                 {errors.transferAccountId ? (
                   <p className="mt-1 text-xs text-error">{errors.transferAccountId}</p>
                 ) : null}
@@ -692,20 +731,19 @@ function TransactionForm({ transaction, categories, accounts = [], goals = [], f
                   <label className="label py-1" htmlFor="tx-source-goal">
                     <span className="label-text">{t('txf.sourceGoal')}</span>
                   </label>
-                  <select
+                  <FormSelect
                     id="tx-source-goal"
-                    className="select select-bordered w-full"
                     value={form.sourceGoalId}
-                    onChange={(event) => setField('sourceGoalId', event.target.value)}
+                    onChange={(value) => setField('sourceGoalId', value)}
                     disabled={!form.accountId || sourceAccountGoals.length === 0}
                   >
-                    <option value="">{t('txf.noSourceGoal')}</option>
+                    <FormSelectOption value="">{t('txf.noSourceGoal')}</FormSelectOption>
                     {sourceAccountGoals.map((goal) => (
-                      <option key={goal.id} value={goal.id}>
+                      <FormSelectOption key={goal.id} value={goal.id}>
                         {goal.name} — {formatCurrency(goal.currentAmount)}
-                      </option>
+                      </FormSelectOption>
                     ))}
-                  </select>
+                  </FormSelect>
                   {form.accountId && sourceAccountGoals.length === 0 ? (
                     <p className="mt-1 text-xs text-base-content/50">{t('txf.noSourceAllocation')}</p>
                   ) : null}
@@ -714,20 +752,19 @@ function TransactionForm({ transaction, categories, accounts = [], goals = [], f
                   <label className="label py-1" htmlFor="tx-goal">
                     <span className="label-text">{t('txf.goal')}</span>
                   </label>
-                  <select
+                  <FormSelect
                     id="tx-goal"
-                    className="select select-bordered w-full"
                     value={form.goalId}
-                    onChange={(event) => setField('goalId', event.target.value)}
+                    onChange={(value) => setField('goalId', value)}
                     disabled={!form.transferAccountId || destinationAccountGoals.length === 0}
                   >
-                    <option value="">{t('txf.noGoal')}</option>
+                    <FormSelectOption value="">{t('txf.noGoal')}</FormSelectOption>
                     {destinationAccountGoals.map((goal) => (
-                      <option key={goal.id} value={goal.id}>
+                      <FormSelectOption key={goal.id} value={goal.id}>
                         {goal.name} — {formatCurrency(goal.currentAmount)}
-                      </option>
+                      </FormSelectOption>
                     ))}
-                  </select>
+                  </FormSelect>
                   {form.transferAccountId && destinationAccountGoals.length === 0 ? (
                     <p className="mt-1 text-xs text-base-content/50">
                       {t('txf.noGoalsForDestination')}
@@ -740,20 +777,19 @@ function TransactionForm({ transaction, categories, accounts = [], goals = [], f
                 <label className="label py-1" htmlFor="tx-goal">
                   <span className="label-text">{t('txf.goal')}</span>
                 </label>
-                <select
+                                <FormSelect
                   id="tx-goal"
-                  className="select select-bordered w-full"
                   value={form.goalId}
-                  onChange={(event) => setField('goalId', event.target.value)}
+                  onChange={(value) => setField('goalId', value)}
                   disabled={!form.accountId || accountGoals.length === 0}
                 >
-                  <option value="">{t('txf.noGoal')}</option>
+                  <FormSelectOption value="">{t('txf.noGoal')}</FormSelectOption>
                   {accountGoals.map((goal) => (
-                    <option key={goal.id} value={goal.id}>
+                    <FormSelectOption key={goal.id} value={goal.id}>
                       {goal.name} — {formatCurrency(goal.currentAmount)}
-                    </option>
+                    </FormSelectOption>
                   ))}
-                </select>
+                </FormSelect>
                 {form.accountId && accountGoals.length === 0 ? (
                   <p className="mt-1 text-xs text-base-content/50">{t('txf.noGoalsForAccount')}</p>
                 ) : null}

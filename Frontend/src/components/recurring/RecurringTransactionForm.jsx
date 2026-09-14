@@ -6,6 +6,7 @@ import { isAmountOverLimit } from '../../utils/numberFormat'
 import { toLocalInputValue, toUtcInputValue } from '../../utils/format'
 import { accountDisplayName, sortAccountsDefaultFirst } from '../../utils/accountDisplay'
 import { sortCategoriesForDisplay } from '../../l10n/categories'
+import FormSelect, { FormSelectOption } from '../common/FormSelect'
 
 const DESCRIPTION_MAX = 200
 const NOTE_MAX = 200
@@ -272,20 +273,20 @@ function RecurringTransactionForm({
               <label className="label" htmlFor="rect-category">
                 <span className="label-text">{t('recTf.category')} <span className="text-error">*</span></span>
               </label>
-              <select
+              <FormSelect
                 id="rect-category"
                 ref={categoryIdRef}
-                className={`select select-bordered w-full ${errors.categoryId ? 'select-error' : ''}`}
+                invalid={Boolean(errors.categoryId)}
                 value={form.categoryId}
-                onChange={(event) => setField('categoryId', event.target.value)}
+                onChange={(value) => setField('categoryId', value)}
               >
-                <option value="">{t('recTf.selectCategory')}</option>
+                <FormSelectOption value="">{t('recTf.selectCategory')}</FormSelectOption>
                 {visibleCategories.map((category) => (
-                  <option key={category.id} value={category.id}>
+                  <FormSelectOption key={category.id} value={category.id}>
                     {category.icon} {localizeCategory(category)}
-                  </option>
+                  </FormSelectOption>
                 ))}
-              </select>
+              </FormSelect>
               {errors.categoryId ? (
                 <p className="mt-1 text-xs text-error">{errors.categoryId}</p>
               ) : null}
@@ -294,19 +295,18 @@ function RecurringTransactionForm({
               <label className="label" htmlFor="rect-account">
                 <span className="label-text">{t('recTf.account')}</span>
               </label>
-              <select
+              <FormSelect
                 id="rect-account"
-                className="select select-bordered w-full"
                 value={form.accountId}
-                onChange={(event) => setField('accountId', event.target.value)}
+                onChange={(value) => setField('accountId', value)}
               >
-                {accounts.length === 0 ? <option value="">{t('recTf.selectAccount')}</option> : null}
+                {accounts.length === 0 ? <FormSelectOption value="">{t('recTf.selectAccount')}</FormSelectOption> : null}
                 {sortedAccounts.map((account) => (
-                  <option key={account.id} value={account.id}>
+                  <FormSelectOption key={account.id} value={account.id}>
                     {accountDisplayName(account, t)}
-                  </option>
+                  </FormSelectOption>
                 ))}
-              </select>
+              </FormSelect>
               {!recurring && defaultAccount ? (
                 <div className="mt-1 flex items-start gap-2 rounded-lg border border-info/20 bg-info/10 px-3 py-2">
                   <span className="text-xs text-base-content/80">

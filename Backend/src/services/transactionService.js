@@ -170,8 +170,9 @@ async function autoResolveSourceGoal(prisma, userId, accountId, amount, availabl
     (sum, goal) => sum.plus(new Decimal(goal.currentAmount)),
     new Decimal(0),
   )
-  const after = new Decimal(available).minus(amount)
-  if (allocation.lte(after)) return null
+  const unallocated = new Decimal(available).minus(allocation)
+  const shortfall = new Decimal(amount).minus(unallocated)
+  if (shortfall.lte(new Decimal(0))) return null
   if (funded.length !== 1) {
     throw new AppError(
       'Multiple source goals are funded on this account. Please select the source goal for this transfer.',
@@ -179,9 +180,8 @@ async function autoResolveSourceGoal(prisma, userId, accountId, amount, availabl
     )
   }
   const goal = funded[0]
-  const withdrawal = new Decimal(amount).gt(new Decimal(goal.currentAmount))
-    ? new Decimal(goal.currentAmount)
-    : new Decimal(amount)
+  const goalBalance = new Decimal(goal.currentAmount)
+  const withdrawal = shortfall.gt(goalBalance) ? goalBalance : shortfall
   return { id: goal.id, withdrawal: String(withdrawal) }
 }
 
