@@ -6,6 +6,8 @@ import { useToast } from '../context/ToastContext'
 import { useTheme } from '../hooks/useTheme'
 import { useLanguage } from '../context/LanguageContext'
 import { getSupabase } from '../lib/supabaseClient'
+import { resetMyData } from '../services/userApi'
+import { confirmGoogleIdentity, isGoogleUser } from '../utils/googleReauth'
 import { EyeIcon, EyeOffIcon } from '../components/common/Icons'
 import { LANGUAGES } from '../l10n/messages'
 
@@ -79,8 +81,14 @@ function SettingsPage() {
   const [passwordError, setPasswordError] = useState('')
   const [submittingPassword, setSubmittingPassword] = useState(false)
 
+  const [resetStep, setResetStep] = useState(null)
+  const [resetSecret, setResetSecret] = useState('')
+  const [resetError, setResetError] = useState('')
+  const [submittingReset, setSubmittingReset] = useState(false)
+
   const provider = user?.app_metadata?.provider || user?.identities?.[0]?.provider || 'email'
   const canChangePassword = provider === 'email'
+  const googleUser = isGoogleUser(user)
 
   function handleThemeChange(value) {
     if (value === theme) return
@@ -97,6 +105,64 @@ function SettingsPage() {
   function setPasswordField(name, value) {
     setPasswordForm((current) => ({ ...current, [name]: value }))
     setPasswordFieldErrors((current) => ({ ...current, [name]: '' }))
+  }
+
+  async function handlePasswordResetConfirm() {
+    if (submittingReset || resetSecret.trim() === '') return
+    setResetError('')
+    setSubmittingReset(true)
+    try {
+      if (!user?.email) {
+        setResetError(t('set.resetFailed'))
+        return
+      }
+      const supabase = getSupabase()
+      const { error } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: resetSecret,
+      })
+      if (error) {
+        setResetError(t('set.wrongPassword'))
+        return
+      }
+      await resetMyData()
+      setResetSecret('')
+      setResetStep('done')
+    } catch {
+      setResetError(t('set.resetFailed'))
+    } finally {
+      setSubmittingReset(false)
+    }
+  }
+
+  async function handleGoogleResetConfirm() {
+    if (submittingReset) return
+    setResetError('')
+    setSubmittingReset(true)
+    let result
+    try {
+      result = await confirmGoogleIdentity(getSupabase(), user)
+    } catch (err) {
+      setResetError(err?.message === 'resetPopupBlocked' ? t('set.googlePopupBlocked') : t('set.googleReauthFail'))
+      return
+    } finally {
+      setSubmittingReset(false)
+    }
+
+    if (result !== 'confirmed') {
+      setResetError(result === 'mismatch' ? t('set.googleReauthMismatch') : t('set.googleReauthFail'))
+      return
+    }
+
+    setSubmittingReset(true)
+    try {
+      await resetMyData()
+      setResetStep('done')
+    } catch {
+      setResetError(t('set.resetFailed'))
+    } finally {
+      setSubmittingReset(false)
+    }
   }
 
   async function handleChangePassword(event) {
@@ -250,7 +316,27 @@ function SettingsPage() {
         </div>
       </div>
 
-      <div className="card surface card-border">
+      <div className="card surface card-border border-error/30">
+        <div className="card-body">
+          <h2 className="card-title text-base font-semibold text-error">{t('set.dangerTitle')}</h2>
+          <p className="text-sm text-base-content/60">{t('set.dangerDesc')}</p>
+          <div>
+            <button
+              type="button"
+              className="btn btn-error mt-2"
+              onClick={() => {
+                setResetSecret('')
+                setResetError('')
+                setResetStep('warn')
+              }}
+            >
+              {t('set.deleteAllData')}
+            </button>
+          </div>
+        </div>
+      </div>
+
+            <div className="card surface card-border">
         <div className="card-body">
           <h2 className="card-title text-base font-semibold">{t('auth.logoutTitle')}</h2>
           <p className="text-sm text-base-content/60">{t('auth.logoutDesc')}</p>
@@ -265,6 +351,124 @@ function SettingsPage() {
           </button>
         </div>
       </div>
+
+      {resetStep ? (
+        <dialog className="modal modal-open">
+          <div className="modal-box max-w-md rounded-box">
+            {resetStep === 'warn' ? (
+              <>
+                <h3 className="text-lg font-bold text-error">{t('set.deleteAllDataTitle')}</h3>
+                <p className="mt-2 text-sm text-base-content/80">{t('set.deleteAllDataMsg')}</p>
+                <div className="modal-action">
+                  <button type="button" className="btn" onClick={() => setResetStep(null)}>
+                    {t('common.cancel')}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-error"
+                    onClick={() => {
+                      setResetSecret('')
+                      setResetError('')
+                      setResetStep('confirm')
+                    }}
+                  >
+                    {t('set.deleteAllData')}
+                  </button>
+                </div>
+              </>
+            ) : resetStep === 'confirm' ? (
+              <>
+                <h3 className="text-lg font-bold text-error">{t('set.deleteAllDataConfirmTitle')}</h3>
+                <p className="mt-2 text-sm text-base-content/80">{t('set.deleteAllDataConfirmDesc')}</p>
+                {resetError ? (
+                  <div role="alert" className="alert alert-error mt-3 text-sm">
+                    <span>{resetError}</span>
+                  </div>
+                ) : null}
+                {canChangePassword ? (
+                  <div className="mt-3">
+                    <PasswordField
+                      id="reset-password"
+                      label={t('auth.password')}
+                      value={resetSecret}
+                      onChange={(event) => {
+                        setResetSecret(event.target.value)
+                        setResetError('')
+                      }}
+                      autoComplete="current-password"
+                    />
+                    <p className="mt-1 text-xs text-base-content/60">{t('set.deleteAllDataPasswordLabel')}</p>
+                  </div>
+                ) : googleUser ? (
+                  <div className="mt-3">
+                    <p className="text-sm text-base-content/70">{t('set.googleConfirmDesc')}</p>
+                    <button
+                      type="button"
+                      className="btn btn-error mt-2 w-full"
+                      disabled={submittingReset}
+                      onClick={handleGoogleResetConfirm}
+                    >
+                      {submittingReset ? <span className="loading loading-spinner loading-sm" /> : null}
+                      {submittingReset ? t('set.googleConfirming') : t('set.googleConfirmButton')}
+                    </button>
+                  </div>
+                ) : (
+                  <div role="note" className="mt-3 text-sm text-base-content/70">
+                    {t('set.resetFailed')}
+                  </div>
+                )}
+                <div className="modal-action">
+                  <button
+                    type="button"
+                    className="btn"
+                    onClick={() => setResetStep(null)}
+                    disabled={submittingReset}
+                  >
+                    {t('common.cancel')}
+                  </button>
+                  {canChangePassword ? (
+                    <button
+                      type="button"
+                      className="btn btn-error"
+                      disabled={resetSecret.trim() === '' || submittingReset}
+                      onClick={handlePasswordResetConfirm}
+                    >
+                      {submittingReset ? <span className="loading loading-spinner loading-sm" /> : null}
+                      {t('set.deleteAllDataButton')}
+                    </button>
+                  ) : null}
+                </div>
+              </>
+            ) : (
+              <>
+                <h3 className="text-lg font-bold text-success">{t('set.resetDoneTitle')}</h3>
+                <p className="mt-2 text-sm text-base-content/80">{t('set.resetDoneMsg')}</p>
+                <div className="modal-action">
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={() => {
+                      setResetStep(null)
+                      navigate('/')
+                      window.location.reload()
+                    }}
+                  >
+                    {t('set.resetDoneButton')}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+          <button
+            type="button"
+            className="modal-backdrop"
+            aria-label={t('common.closeDialog')}
+            onClick={() => {
+              if (!submittingReset) setResetStep(null)
+            }}
+          />
+        </dialog>
+      ) : null}
     </div>
   )
 }

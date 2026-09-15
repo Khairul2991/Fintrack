@@ -331,6 +331,30 @@ const en = {
   'set.currencyDesc':
     'FinTrack stores amounts in Indonesian Rupiah (IDR) and formats them consistently across all pages.',
   'set.currencyExample': 'Example: Rp1.250.000',
+  'set.dangerTitle': 'Danger Zone',
+  'set.dangerDesc': 'Delete all of your financial data and start fresh, like a new account.',
+  'set.deleteAllData': 'Delete All Data',
+  'set.deleteAllDataTitle': 'Delete all data?',
+  'set.deleteAllDataMsg':
+    'This will delete all of your financial data, including transactions, transfers, accounts, budgets, recurring transactions, recurring budgets, goals, goal activities, and custom categories. System categories will remain. This action cannot be undone.',
+  'set.deleteAllDataConfirmTitle': 'Permanently delete all data?',
+  'set.deleteAllDataConfirmDesc':
+    'All transactions, accounts, budgets, goals, and your other financial data will be deleted. This is permanent and cannot be undone.',
+  'set.deleteAllDataButton': 'Delete All Data Permanently',
+  'set.deleteAllDataPasswordLabel': 'Enter your account password to continue:',
+  'set.wrongPassword': 'Incorrect password. No data was deleted.',
+  'set.googleConfirmDesc':
+    'To protect your data, confirm your Google account before deleting all FinTrack data. Your financial and application data will be deleted. Your login account will not be deleted.',
+  'set.googleConfirmButton': 'Continue with Google',
+  'set.googleConfirming': 'Checking your Google account...',
+  'set.googleReauthFail': 'Google confirmation did not complete. No data was deleted.',
+  'set.googleReauthMismatch':
+    'The confirmed Google account is not the account you are signed in with. No data was deleted.',
+  'set.googlePopupBlocked': 'The Google sign-in window was blocked. Allow pop-ups for this site and try again.',
+  'set.resetFailed': 'Data was not deleted because something went wrong. Please try again.',
+  'set.resetDoneTitle': 'All data deleted',
+  'set.resetDoneMsg': 'Your FinTrack now looks like a new account.',
+  'set.resetDoneButton': 'Back to Dashboard',
 
   'cal.title': 'Calendar',
   'cal.subtitle': 'Monthly financial overview',
@@ -1136,6 +1160,30 @@ const id = {
   'set.currencyDesc':
     'FinTrack menyimpan jumlah dalam Rupiah Indonesia (IDR) dan memformatnya secara konsisten di semua halaman.',
   'set.currencyExample': 'Contoh: Rp1.250.000',
+  'set.dangerTitle': 'Zona Berbahaya',
+  'set.dangerDesc': 'Hapus seluruh data finansial Anda dan mulai dari awal, seperti akun baru.',
+  'set.deleteAllData': 'Hapus Semua Data',
+  'set.deleteAllDataTitle': 'Hapus semua data?',
+  'set.deleteAllDataMsg':
+    'Tindakan ini akan menghapus seluruh data finansial Anda, termasuk transaksi, transfer, akun, budget, transaksi berulang, anggaran berulang, goal, aktivitas goal, dan kategori kustom. Kategori sistem akan tetap tersedia. Tindakan ini tidak dapat dibatalkan.',
+  'set.deleteAllDataConfirmTitle': 'Hapus semua data secara permanen?',
+  'set.deleteAllDataConfirmDesc':
+    'Semua transaksi, akun, budget, goal, dan data finansial Anda lainnya akan dihapus. Tindakan ini permanen dan tidak dapat dibatalkan.',
+  'set.deleteAllDataButton': 'Hapus Semua Data Secara Permanen',
+  'set.deleteAllDataPasswordLabel': 'Masukkan password akun Anda untuk melanjutkan:',
+  'set.wrongPassword': 'Password salah. Tidak ada data yang dihapus.',
+  'set.googleConfirmDesc':
+    'Untuk melindungi data Anda, konfirmasi akun Google Anda sebelum menghapus semua data FinTrack. Seluruh data finansial dan aplikasi Anda akan dihapus. Akun login Anda tidak akan dihapus.',
+  'set.googleConfirmButton': 'Lanjutkan dengan Google',
+  'set.googleConfirming': 'Memeriksa akun Google Anda...',
+  'set.googleReauthFail': 'Konfirmasi Google tidak selesai. Tidak ada data yang dihapus.',
+  'set.googleReauthMismatch':
+    'Akun Google yang dikonfirmasi bukan akun yang Anda gunakan saat ini. Tidak ada data yang dihapus.',
+  'set.googlePopupBlocked': 'Jendela masuk Google diblokir. Izinkan pop-up untuk situs ini lalu coba lagi.',
+  'set.resetFailed': 'Data belum dihapus karena terjadi kesalahan. Silakan coba lagi.',
+  'set.resetDoneTitle': 'Semua data dihapus',
+  'set.resetDoneMsg': 'FinTrack Anda sekarang terlihat seperti akun baru.',
+  'set.resetDoneButton': 'Kembali ke Dashboard',
 
   'cal.title': 'Kalender',
   'cal.subtitle': 'Ringkasan keuangan bulanan',
