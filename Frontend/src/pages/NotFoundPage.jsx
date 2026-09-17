@@ -7,7 +7,7 @@ function NotFoundPage() {
   return (
     <div>
       <PageHeader title={t('nf.title')} subtitle={t('nf.subtitle')} />
-      <Link to="/" className="btn btn-primary btn-sm">
+      <Link to="/dashboard" className="btn btn-primary btn-sm">
         {t('nf.back')}
       </Link>
     </div>

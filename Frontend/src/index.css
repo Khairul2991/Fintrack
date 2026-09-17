@@ -133,6 +133,16 @@ body,
   min-height: 100%;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
 body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -194,6 +204,11 @@ body {
 }
 
 /* --- Subtle fade for cards entering the canvas ---------------- */
+/* NOTE: `to` ends at `transform: none` (not `translateY(0)`) so the
+   finished animation leaves no residual transform. A retained
+   `translateY(0)` still counts as a non-`none` transform (identity
+   matrix) and keeps `.stagger-in` a permanent stacking context,
+   which let Hero content paint above the sticky navbar on Edge. */
 @keyframes ft-fade-in {
   from {
     opacity: 0;
@@ -201,18 +216,192 @@ body {
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: none;
   }
 }
 
 .stagger-in {
-  animation: ft-fade-in var(--duration-slow) var(--ease-out) both;
+  animation: ft-fade-in var(--duration-slow) var(--ease-out) backwards;
+}
+
+/* ============================================================
+   Landing ambient effects — decorative, GPU-friendly, no-JS safe
+   ============================================================ */
+
+/* --- Floating gradient orbs ---------------------------------- */
+@keyframes fintrack-float {
+  0%   { transform: translate3d(0, 0, 0); }
+  33%  { transform: translate3d(calc(var(--float-x, 2.5rem) * 0.45), var(--float-y, -2.5rem), 0); }
+  66%  { transform: translate3d(var(--float-x, 2.5rem), calc(var(--float-y, -2.5rem) * -0.55), 0); }
+  100% { transform: translate3d(0, 0, 0); }
+}
+
+.fintrack-orb {
+  position: absolute;
+  border-radius: 9999px;
+  pointer-events: none;
+  user-select: none;
+  will-change: transform;
+  /* Soften ambient intensity: scales each orb's configured opacity down
+     slightly (multiplies with the inline opacity) without touching orb
+     count, size, position, animation, or layering. */
+  filter: opacity(0.8);
+  background:
+    radial-gradient(circle at 30% 26%, var(--orb-sheen) 0%, transparent 42%),
+    radial-gradient(circle, var(--orb-color) 0%, var(--orb-mid) 36%, var(--orb-fade) 62%, transparent 76%);
+  box-shadow:
+    inset 0 0 0 1px var(--orb-ring),
+    inset 0 -20px 38px -18px var(--orb-shade),
+    0 12px 34px -10px var(--orb-glow);
+  animation: fintrack-float var(--float-dur, 22s) var(--ease-in-out) infinite;
+  animation-delay: var(--float-delay, 0s);
+}
+
+.fintrack-orb-primary {
+  --orb-sheen: color-mix(in oklab, var(--color-base-100) 85%, transparent);
+  --orb-color: color-mix(in oklab, var(--color-primary) 88%, var(--color-base-100));
+  --orb-mid: color-mix(in oklab, var(--color-primary) 48%, var(--color-base-100));
+  --orb-fade: color-mix(in oklab, var(--color-primary) 26%, var(--color-base-100));
+  --orb-ring: color-mix(in oklab, var(--color-primary) 68%, transparent);
+  --orb-shade: color-mix(in oklab, var(--color-primary) 40%, rgb(0 0 0 / 0.18));
+  --orb-glow: color-mix(in oklab, var(--color-primary) 46%, transparent);
+}
+
+.fintrack-orb-info {
+  --orb-sheen: color-mix(in oklab, var(--color-base-100) 85%, transparent);
+  --orb-color: color-mix(in oklab, var(--color-info) 80%, var(--color-base-100));
+  --orb-mid: color-mix(in oklab, var(--color-info) 42%, var(--color-base-100));
+  --orb-fade: color-mix(in oklab, var(--color-info) 22%, var(--color-base-100));
+  --orb-ring: color-mix(in oklab, var(--color-info) 62%, transparent);
+  --orb-shade: color-mix(in oklab, var(--color-info) 36%, rgb(0 0 0 / 0.16));
+  --orb-glow: color-mix(in oklab, var(--color-info) 42%, transparent);
+}
+
+/* --- Hero ambient glow --------------------------------------- */
+/* Bounded ellipses keep the fade fully inside the hero box (no
+   alpha at any box edge), so no vertical seam can form at the
+   hero's left/right boundaries regardless of viewport width. */
+.fintrack-hero-glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 25% 45% at 74% 50%, color-mix(in oklab, var(--color-primary) 24%, transparent) 0%, transparent 100%),
+    radial-gradient(ellipse 25% 45% at 26% 50%, color-mix(in oklab, var(--color-info) 15%, transparent) 0%, transparent 100%);
+}
+
+/* --- Content plane: navbar exclusion zone -------------------- */
+/* All landing content (main + footer) lives on a single plane that
+   stays above the global ambient orbs (z-20) in the body of the page
+   but is clipped so its pixels never enter the fixed navbar band (the
+   top 64px of the viewport). The clip is driven purely by CSS
+   scroll-driven animation: it always cuts off exactly `scrollY` pixels
+   from the plane's top, which is precisely the document region
+   overlapped by the transparent sticky header, so no section content
+   can paint over the navbar while the single orb layer (outside this
+   plane, z-20, between surface z-10 and content z-30) stays visible
+   through it. No scroll listeners involved. */
+.content-plane {
+  position: relative;
+  z-index: 30;
+  animation: landing-band-exclusion linear both;
+  animation-duration: auto;
+  animation-timeline: scroll(root);
+}
+
+/* --- Section surface plane: opaque white below the orbs ---------- */
+/* White section backgrounds are lifted OUT of `.content-plane` (which
+   is a stacking context: its z-index AND its clip-path force every
+   descendant above the z-20 orb layer) onto their own plane at z-5,
+   BELOW the global orbs (z-20) and above the page background. Content
+   stays in `.content-plane` at z-30, so the final order inside any
+   white section is: content > orb > white surface > page background.
+   The plane reuses the same scroll-driven exclusion as `.content-plane`
+   so no white strip can ever paint over the fixed navbar band. */
+.surface-plane {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  animation: landing-band-exclusion linear both;
+  animation-duration: auto;
+  animation-timeline: scroll(root);
+}
+
+@keyframes landing-band-exclusion {
+  from {
+    clip-path: inset(0 0 0 0);
+  }
+  to {
+    clip-path: inset(calc(100% - 100vh + 64px) 0 0 0);
+  }
+}
+
+/* --- Scroll-triggered section reveal ------------------------- */
+.fintrack-reveal {
+  opacity: 0;
+  transform: translate3d(0, 18px, 0);
+  transition:
+    opacity 0.7s var(--ease-out),
+    transform 0.7s var(--ease-out);
+}
+
+.fintrack-reveal-in {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+}
+
+/* --- Landing card micro-interaction -------------------------- */
+.fintrack-lift {
+  transition:
+    transform var(--duration) var(--ease-out),
+    box-shadow var(--duration) var(--ease-out),
+    border-color var(--duration) var(--ease-out);
+}
+
+.fintrack-lift:hover {
+  transform: translate3d(0, -3px, 0);
+  border-color: var(--color-primary);
+  box-shadow:
+    0 2px 8px rgb(0 0 0 / 0.06),
+    0 20px 44px -18px rgb(0 0 0 / 0.24);
+}
+
+.fintrack-lift:active {
+  transform: translate3d(0, -1px, 0);
+}
+
+/* --- Landing CTA button micro-interaction (rides DaisyUI) ---- */
+.fintrack-cta:hover {
+  transform: translate3d(0, -1px, 0);
+  filter: brightness(1.04);
+}
+
+.fintrack-cta:active {
+  transform: translate3d(0, 1px, 0);
+  filter: brightness(0.97);
 }
 
 @media (prefers-reduced-motion: reduce) {
   .stagger-in,
-  .surface-interactive {
+  .surface-interactive,
+  .fintrack-orb,
+  .fintrack-lift,
+  .fintrack-cta,
+  .fintrack-reveal {
     animation: none;
     transition: none;
+    will-change: auto;
+  }
+
+  .fintrack-reveal {
+    opacity: 1;
+    transform: none;
+  }
+
+  .fintrack-lift:hover,
+  .fintrack-cta:hover {
+    transform: none;
+    filter: none;
   }
 }

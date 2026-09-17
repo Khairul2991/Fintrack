@@ -18,8 +18,8 @@ Backend (`Backend/`):
 - `npm run prisma:generate` / `prisma:migrate` / `prisma:seed`
 
 Tests are real and use the Node.js built-in runner (no test dependencies):
-- Backend `npm test` — 92 tests against the isolated `fintrack_test` schema.
-- Frontend `npm test` — 54 tests against the isolated `fintrack_test_fe` schema.
+- Backend `npm test` — 187 tests against the isolated `fintrack_test` schema.
+- Frontend `npm test` — 157 tests against the isolated `fintrack_test_fe` schema.
 
 ## Development Server and Runtime Verification Rules
 - Development servers are long-running processes and MUST NOT be treated as commands that are expected to exit.
@@ -86,9 +86,10 @@ Only the second case requires startup troubleshooting.
   - PostgreSQL driver adapter: `@prisma/adapter-pg`. `PrismaClient` is instantiated with `new PrismaPg(process.env.DATABASE_URL, { schema })` when the URL carries a `?schema=` param (test schemas), otherwise without it (production `public`).
   - Config lives in `prisma.config.ts` (datasource url, migration path, seed command) — the schema datasource block has no `url` field.
   - `.env` is NOT auto-loaded at runtime; scripts use `--env-file=.env`, and `src/lib/prisma.js` calls `dotenv.config()`.
-  - Seeding is explicit only: `npx prisma db seed`. Seed is idempotent (legacy-user status check; new users get default categories on provisioning).
+  - Seeding is explicit only: `npx prisma db seed`. Seed is idempotent (legacy-user status check). Default categories are global `isSystem` rows available to every user (created at seed/migration time), not copied per user; provisioning a new user creates the default Cash account only.
   - Production `DATABASE_URL` is the Supabase PostgreSQL connection string. Backend tests append `?schema=fintrack_test`; frontend tests append `?schema=fintrack_test_fe`. SQLite (`Backend/database/dev.db`) is retained only as a legacy migration source and is never opened at runtime.
-- Auth: Supabase Auth (email/password). Backend verifies `Authorization: Bearer <access token>` via `supabase.auth.getUser()` (`src/lib/supabase.js`) and maps the Auth UUID → local `User.authUserId` (`requireAuth`). Ownership is always derived from `req.user.id`; client-supplied `userId` is ignored.
+- Auth: Supabase Auth — email/password plus Google OAuth (`signInWithOAuth`; re-authentication popup for destructive actions). Backend verifies `Authorization: Bearer <access token>` via `supabase.auth.getUser()` (`src/lib/supabase.js`) and maps the Auth UUID → local `User.authUserId` (`requireAuth`). Ownership is always derived from `req.user.id`; client-supplied `userId` is ignored.
+- Frontend routes: `/` is the public marketing landing page; authenticated pages live under `/dashboard`, `/accounts`, `/transactions`, `/calendar`, `/recurring-transactions`, `/categories`, `/budgets`, `/recurring-budgets`, `/goals`, `/reports`, `/ai-insights`, `/notifications`, `/settings` (see `Frontend/src/App.jsx`). The landing page is a CSS/JS layering system (global `FloatingOrbs` + `.content-plane` / `.surface-plane`); avoid changing its stacking without care.
 - This is a git repo (no CI, no root-level npm config).
 
 

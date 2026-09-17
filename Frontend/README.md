@@ -1,16 +1,66 @@
-# React + Vite
+# FinTrack Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+React 19 + Vite 8 single-page app for FinTrack. See the [root README](../README.md) for the full project overview, and [docs/Architecture.md](../docs/Architecture.md) for how the frontend fits into the system.
 
-Currently, two official plugins are available:
+## Stack
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- React 19 (JavaScript/JSX), Vite 8
+- React Router 7
+- Tailwind CSS 4 + DaisyUI 5
+- Recharts 3 (charts)
+- `@supabase/supabase-js` (Supabase Auth session only)
+- `exceljs` (client-side Excel export)
+- oxlint for linting
 
-## React Compiler
+## Scripts
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+| Command | Description |
+| --- | --- |
+| `npm run dev` | Start the Vite dev server (http://localhost:5173) |
+| `npm run build` | Production build |
+| `npm run preview` | Preview the production build |
+| `npm run lint` | Run oxlint (config in `.oxlintrc.json`) |
+| `npm test` | Run the UI-layer/service test suite (Node built-in runner) |
 
-## Expanding the Oxlint configuration
+## Environment
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+Create `Frontend/.env` (see `Frontend/.env.example`):
+
+| Variable | Purpose |
+| --- | --- |
+| `VITE_SUPABASE_URL` | Supabase project URL used by `supabase-js` |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | Supabase anon/publishable key (public; browser client) |
+| `VITE_API_URL` | Backend API base URL. Unset → `/api` (Vite dev proxy or same-origin) |
+
+Only public values belong in `VITE_*` variables. Never put backend secrets here.
+
+## Structure
+
+```text
+src/
+├── components/   # landing/, common/, dashboard/, transactions/, categories/,
+│                 # budgets/, reports/, accounts/, calendar/, goals/, recurring/,
+│                 # analytics/, layout/
+├── pages/        # One component per route (LandingPage, DashboardPage, ...)
+├── layouts/      # AppLayout, Sidebar, MobileNavigation
+├── hooks/        # useTheme, useLanguage
+├── services/     # Centralized API layer (api.js + per-resource modules)
+├── context/      # AuthContext, LanguageContext, ToastContext
+├── l10n/         # EN/ID message catalog, category/insight localization
+├── utils/        # format, export, date/calendar helpers
+├── constants/    # navigation
+├── App.jsx       # Route definitions
+└── main.jsx      # Entry point (theme + language init before render)
+```
+
+## Conventions
+
+- Components never call `fetch()` directly — all HTTP goes through `src/services/api.js` and per-resource modules. Non-2xx responses map to `ApiError`. The Supabase access token is attached via `setTokenProvider` (wired in `App.jsx`).
+- Business logic and financial calculations live in the backend; the UI renders data and dispatches actions.
+- Every data-loading page provides loading, empty, and error states.
+- EN/ID localization is centralized in `src/l10n/messages.js`; keep both languages in sync.
+- The marketing landing page (`/`) uses a layered CSS system (global `FloatingOrbs` + `.content-plane` / `.surface-plane`); see `docs/Architecture.md` before changing its stacking.
+
+## Testing
+
+`npm test` runs the service/UI-layer suite with the Node.js built-in test runner against an isolated `fintrack_test_fe` PostgreSQL schema (spawns the backend on port 3101). No test dependencies are required. `Backend/.env` must point `DATABASE_URL` at the shared PostgreSQL instance.

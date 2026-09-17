@@ -449,7 +449,7 @@ function SettingsPage() {
                     className="btn btn-primary"
                     onClick={() => {
                       setResetStep(null)
-                      navigate('/')
+                      navigate('/dashboard')
                       window.location.reload()
                     }}
                   >

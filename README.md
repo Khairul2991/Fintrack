@@ -4,20 +4,23 @@ FinTrack is a responsive, authenticated personal finance management web applicat
 
 ## Features
 
+- **Public marketing landing page** — animated CSS orbs, layered content/surface planes, feature highlights, and auth-aware CTAs at `/`; built with `FloatingOrbs`, `SectionSurfaces`, and scroll-reveal `Reveal` components.
 - **Dashboard** — total balance, income, expense, recent transactions, income-vs-expense chart, expense-by-category chart, and simple rule-based spending insights.
-- **Transactions** — CRUD with search, type/category/date filters, sorting by date or amount, and pagination.
-- **Categories** — CRUD with pre-seeded defaults and protection against deleting categories still in use.
+- **Transactions** — CRUD with search, type/category/account/date filters, sorting by date or amount, pagination, and **transfers** between accounts (net-zero balance moves). Income/expense transactions can optionally credit a savings goal.
+- **Categories** — CRUD with pre-seeded global default (system) categories and protection against deleting categories still in use.
 - **Budgets** — monthly per-category budgets with live spent/remaining/progress and On Track / Near Limit / Over Budget status.
-- **Reports** — 12-month income & expense comparison, expense-by-category ranking, and highest spending category.
-- **Accounts / Wallets** — multiple accounts (Cash, Bank, Savings, E-Wallet, Other) with initial balance and live enriched balance from transactions.
+- **Reports** — 12-month income & expense comparison, expense-by-category ranking, highest spending category, an all-in-one `GET /api/reports/overview`, and a server-generated PDF financial report.
+- **Accounts / Wallets** — multiple accounts (Cash, Bank, Savings, E-Wallet, Other) with initial balance, live enriched balance from transactions, a default Cash account, soft-delete of referenced accounts, and per-account activity logs.
+- **Calendar** — a month-grid calendar view of income and expenses.
 - **Recurring Transactions** — schedule daily/weekly/monthly/yearly recurring transactions with catch-up generation of due occurrences, pause/resume, and an end date.
 - **Recurring Budgets** — a recurring budget that rolls into a concrete monthly budget each period without duplicating existing budgets.
-- **Financial Goals** — savings goals with target amount/date, progress tracking, manual progress updates, and automatic COMPLETED status on reaching the target.
+- **Financial Goals** — savings goals with target amount/date, optional category, linked account, transaction-driven progress (contributions/withdrawals recorded as goal activities), and automatic COMPLETED status on reaching the target.
 - **Advanced Analytics** — cash flow, savings rate, monthly income/expense trend, budget utilization, highest spending category, spending concentration, and largest transaction.
 - **AI Financial Insights** — per-month AI-assisted analysis (summary, priorities, and recommendations) built from deterministic on-device metrics, with an automatic rule-based fallback when no AI provider is configured or the request fails. Fully EN/ID localized; sees only compact sanitized metrics, never raw transactions.
 - **Export** — download transactions as CSV or Excel (client-side) and a PDF financial report (server-side), localized per language.
 - **Notifications** — in-app notification center (recurring due, budget limit, goal deadline) with optional browser/desktop notifications after a user click.
-- **Settings** — theme switcher (System / Light / Dark) and currency info (amounts are stored in IDR).
+- **Settings** — theme switcher (System / Light / Dark), currency info (amounts are stored in IDR), language switcher, and "reset all data".
+- **Authentication** — Supabase Auth email/password **and Google OAuth** (with OAuth re-authentication for destructive actions), one user per Auth identity, full data ownership separation.
 - **English / Indonesian localization** — full EN/ID UI via a centralized message catalog; numbers formatted as `1.000` in the UI while the API always uses raw numeric values (e.g. `1000`).
 - **Polish** — dark mode, toast notifications, loading skeletons, empty states, error states with retry, responsive layout, and accessibility labels.
 
@@ -27,7 +30,7 @@ FinTrack is a responsive, authenticated personal finance management web applicat
 | --- | --- |
 | Frontend | React 19, JavaScript (JSX), Vite 8, React Router 7, Tailwind CSS 4, DaisyUI 5, Recharts 3 |
 | Backend | Node.js, Express 5, Prisma ORM 7 |
-| Authentication | Supabase Auth (email/password) |
+| Authentication | Supabase Auth (email/password + Google OAuth) |
 | Database | Supabase PostgreSQL (SQLite retained as legacy migration/dev source only) |
 | Testing | Node.js built-in test runner (`node --test`) |
 
@@ -158,7 +161,7 @@ These require the Supabase Dashboard (not source code) and are **pending** until
 - Set the Auth **Site URL** and **Redirect URLs** to the deployed frontend origin.
 - Confirm the app uses the **anon/publishable key** in the frontend and the **service-role key** only in `Backend/.env`.
 - Review the configured email sender so sign-up/verification emails use the production URL and sender identity.
-- When Google OAuth is added (planned, not yet implemented), enable the Google provider and register the redirect URL in the Dashboard.
+- Google OAuth is already **implemented**; before production use, enable the Google provider and register the production redirect URL in the Dashboard.
 
 ### Deployment prerequisites (Phase 18)
 
@@ -176,11 +179,11 @@ These require the Supabase Dashboard (not source code) and are **pending** until
 | `npm start` | Backend | Start Express API without watch |
 | `npm run lint` | Frontend | Run oxlint |
 | `npm run build` | Frontend | Production build of the React app |
-| `npm test` | Backend | Run the 92 backend API + business logic tests |
-| `npm test` | Frontend | Run the 54 frontend UI-layer tests |
+| `npm test` | Backend | Run the 187 backend API + business logic tests |
+| `npm test` | Frontend | Run the 157 frontend UI-layer tests |
 | `npm run prisma:generate` | Backend | Generate the Prisma client |
 | `npm run prisma:migrate` | Backend | Apply schema migrations (dev) |
-| `npm run prisma:seed` | Backend | Idempotent legacy-user status check (default categories are provisioned per user) |
+| `npm run prisma:seed` | Backend | Idempotent legacy-user status check (default categories are global `isSystem` rows; provisioning a new user creates the default Cash account) |
 
 ## Testing
 
@@ -190,8 +193,8 @@ Both test suites use the Node.js built-in test runner — **no test dependencies
 - **Frontend** (`Frontend/tests/`): imports the real service modules and talks to a spawned backend instance (port 3101, isolated `fintrack_test_fe` schema).
 
 ```sh
-cd Backend && npm test   # 92 tests
-cd Frontend && npm test  # 54 tests
+cd Backend && npm test   # 187 tests
+cd Frontend && npm test  # 157 tests
 ```
 
 Both suites automatically reset their isolated schema by loading `Backend/.env`, so `DATABASE_URL` must point at the shared PostgreSQL instance.
@@ -219,18 +222,16 @@ The earlier future-improvements roadmap is now largely implemented:
 7. ✅ Notifications (in-app + optional browser)
 8. ✅ EN/ID localization and UI/UX polish
 9. ✅ AI financial insights (deterministic metrics + optional AI interpretation with rule-based fallback)
-10. ✅ Authentication & multi-user ownership — Supabase Auth (email/password), every API request authorized from the authenticated identity
+10. ✅ Authentication & multi-user ownership — Supabase Auth (email/password **and Google OAuth**), every API request authorized from the authenticated identity
 11. ✅ PostgreSQL & cloud deployment — production database is Supabase PostgreSQL (migrated from SQLite; SQLite retained as legacy migration source)
-
-Google OAuth remains **planned, not implemented** in the current build.
+12. ✅ Calendar view, account transfers, per-account and per-goal activity logs, "reset all data", and the public marketing landing page
 
 These remain **out of scope** in this build (deferred — see `PRD.md` §47):
 
-1. Google OAuth sign-in
-2. Bank integration / automatic transaction import
-3. PWA / offline support
+1. Bank integration / automatic transaction import
+2. PWA / offline support
 
-Authentication is handled by Supabase Auth and every data route is protected (`Authorization: Bearer <access token>`; ownership derived from the authenticated identity, never from client-supplied `userId`). Production data lives in Supabase PostgreSQL; the full suite remains green: backend **92/92**, frontend **54/54**, lint + build clean.
+Authentication is handled by Supabase Auth and every data route is protected (`Authorization: Bearer <access token>`; ownership derived from the authenticated identity, never from client-supplied `userId`). Production data lives in Supabase PostgreSQL; the full suite remains green: backend **187/187**, frontend **157/157**, lint + build clean.
 
 ## Portfolio
 

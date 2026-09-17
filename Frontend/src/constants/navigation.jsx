@@ -102,7 +102,7 @@ const icons = {
 }
 
 export const NAV_ITEMS = [
-  { labelKey: 'nav.dashboard', to: '/', icon: icons.dashboard },
+  { labelKey: 'nav.dashboard', to: '/dashboard', icon: icons.dashboard },
   { labelKey: 'nav.accounts', to: '/accounts', icon: icons.accounts },
   { labelKey: 'nav.transactions', to: '/transactions', icon: icons.transactions },
   { labelKey: 'nav.calendar', to: '/calendar', icon: icons.calendar },

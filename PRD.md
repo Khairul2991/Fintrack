@@ -20,6 +20,8 @@ FinTrack adalah aplikasi web untuk membantu pengguna mengelola keuangan pribadi 
 Pengguna dapat:
 
 * mencatat pemasukan dan pengeluaran;
+* melakukan transfer antar akun;
+* melihat aktivitas keuangan melalui kalender;
 * mengelola kategori;
 * mengelola akun atau wallet;
 * membuat budget;
@@ -32,7 +34,8 @@ Pengguna dapat:
 * melakukan export data;
 * menghasilkan financial report PDF;
 * menerima notifications dan reminders;
-* mendapatkan AI-assisted financial insights.
+* mendapatkan AI-assisted financial insights;
+* melihat halaman landing page publik di `/`.
 
 FinTrack dikembangkan dari aplikasi single-user berbasis SQLite menjadi aplikasi **online-first, authenticated, multi-user, dan production-deployable**.
 
@@ -846,13 +849,13 @@ Konsep:
 User
 ----
 id
+authUserId        (unique — identity dari authentication provider / Supabase Auth UUID)
 email
 name
 createdAt
-updatedAt
 ```
 
-`id` harus dapat dikaitkan dengan identity dari authentication provider.
+`authUserId` harus dapat dikaitkan dengan identity dari authentication provider; `id` adalah local auto-increment primary key. Tidak terdapat kolom `updatedAt` (tidak dipakai pada skema aktual).
 
 ---
 
@@ -862,23 +865,24 @@ updatedAt
 Category
 --------
 id
-userId
+userId           (nullable — null untuk kategori sistem)
+type             (TransactionType: INCOME | EXPENSE)
 name
 icon
 color
+isSystem         (Boolean; kategori default global dibagikan ke semua user)
 createdAt
-updatedAt
 ```
 
 Relationship:
 
 ```text
-User 1 ──── * Category
+User 1 ──── * Category (userId nullable)
 Category 1 ──── * Transaction
 Category 1 ──── * Budget
 ```
 
-System/default category dapat memiliki strategi khusus sesuai kebutuhan implementasi.
+System/default category adalah **satu baris global** dengan `isSystem = true` dan `userId = null`, dibagikan (bukan disalin) ke seluruh user. Tidak terdapat database unique constraint pada nama — keunikan diperiksa di service layer. Tidak terdapat kolom `updatedAt`.
 
 ---
 
@@ -890,11 +894,14 @@ Account
 id
 userId
 name
-type
+type             (AccountType: CASH | BANK | SAVINGS | EWALLET | OTHER)
+isDefault        (Boolean; default Cash account, dibuat saat provisioning user)
 initialBalance
+deletedAt        (nullable; soft delete saat akun masih direferensikan)
 createdAt
-updatedAt
 ```
+
+Nama akun aktif bersifat unik per user (dicek di service layer). Akun yang masih direferensikan diarsipkan (`deletedAt`), akun tanpa referensi dihapus permanen.
 
 ---
 
@@ -906,14 +913,17 @@ Transaction
 id
 userId
 accountId
+transferAccountId   (nullable — akun tujuan untuk type = TRANSFER)
 categoryId
+goalId              (nullable — goal yang dikredit oleh INCOME/EXPENSE)
+sourceGoalId        (nullable — goal sumber untuk TRANSFER)
+recurringTransactionId (nullable — schedule berulang yang menghasilkan transaksi ini)
 description
-amount
-type
+amount             (Decimal)
+type               (TransactionType: INCOME | EXPENSE | TRANSFER)
 date
 note
 createdAt
-updatedAt
 ```
 
 Relationship:
@@ -921,8 +931,13 @@ Relationship:
 ```text
 User 1 ──── * Transaction
 Account 1 ──── * Transaction
+Account 1 ──── * Transaction (transferAccountId)
 Category 1 ──── * Transaction
+Goal 1 ──── * Transaction (via goalId / sourceGoalId)
+RecurringTransaction 1 ──── * Transaction
 ```
+
+Transaksi `TRANSFER` memindahkan dana antar akun (net-zero terhadap saldo total) dan tidak memiliki `categoryId` atau `goalId`. INCOME/EXPENSE yang menyertakan `goalId` mengkredit goal dan membuat `GoalActivity` tipe `CONTRIBUTION`; `TRANSFER` dengan `sourceGoalId` mendebit goal via `GoalActivity` tipe `WITHDRAWAL`. Tidak terdapat kolom `updatedAt`.
 
 ---
 
@@ -937,8 +952,8 @@ categoryId
 month
 year
 amount
+recurringBudgetId   (nullable — budget bulanan yang dihasilkan recurring budget)
 createdAt
-updatedAt
 ```
 
 Unique:
@@ -946,6 +961,8 @@ Unique:
 ```text
 userId + categoryId + month + year
 ```
+
+Tidak terdapat kolom `updatedAt`.
 
 ---
 
@@ -960,18 +977,22 @@ RecurringTransaction
 --------------------
 id
 userId
-accountId
+accountId          (nullable — default ke akun Cash bawaan)
 categoryId
 description
 amount
-type
-frequency
+type               (INCOME | EXPENSE)
+frequency          (DAILY | WEEKLY | MONTHLY | YEARLY)
 startDate
-endDate
+endDate            (nullable)
 active
+lastRunAt          (nullable)
+nextOccurrence     (diperbarui saat catch-up)
+note               (nullable)
 createdAt
-updatedAt
 ```
+
+Catch-up menghasilkan transaksi konkret untuk occurrence yang sudah jatuh tempo (dibatasi per run) dan memajukan `nextOccurrence` tanpa duplikasi yang tidak disengaja.
 
 ---
 
@@ -984,12 +1005,16 @@ id
 userId
 categoryId
 amount
-frequency
-startDate
+frequency          (MONTHLY | YEARLY)
+startMonth
+startYear
+nextMonth
+nextYear
 active
 createdAt
-updatedAt
 ```
+
+Rollover memajukan periode berjalan (`nextMonth`/`nextYear`) dan membuat budget bulanan (`Budget`) per periode tanpa menggandakan yang sudah ada.
 
 ---
 
@@ -1001,24 +1026,43 @@ Goal
 id
 userId
 name
+description        (nullable)
 targetAmount
-currentAmount
-targetDate
-status
+currentAmount      (disimpan; saat serialisasi dihitung ulang dari aktivitas + target)
+targetDate         (nullable)
+categoryId         (nullable)
+accountId          (diperlukan — akun yang terkait dengan goal)
+status             (GoalStatus: IN_PROGRESS | COMPLETED)
+createdAt
+```
+
+## 11.9 Goal Activity
+
+```text
+GoalActivity
+------------
+id
+goalId
+accountId          (nullable)
+transactionId      (nullable — transaksi yang menghasilkan aktivitas)
+amount
+type               (GoalActivityType: CONTRIBUTION | WITHDRAWAL)
+date
+note               (nullable)
 createdAt
 updatedAt
 ```
 
----
+`currentAmount` goal = jumlah `CONTRIBUTION` − `WITHDRAWAL` (di-floor ke 0). Aktivitas mencatat histori kontribusi/penarikan goal dan cascade-delete bersama goal-nya.
 
-## 11.9 Notification
+## 11.10 Notification
 
 ```text
 Notification
 ------------
 id
 userId
-type
+type             (NotificationType: RECURRING_DUE | BUDGET_LIMIT | GOAL_DEADLINE)
 title
 message
 read
@@ -1117,6 +1161,7 @@ DELETE /api/transactions/:id
 
 ```http
 GET    /api/categories
+GET    /api/categories/:id
 POST   /api/categories
 PUT    /api/categories/:id
 DELETE /api/categories/:id
@@ -1140,6 +1185,7 @@ DELETE /api/accounts/:id
 
 ```http
 GET    /api/budgets
+GET    /api/budgets/:id
 POST   /api/budgets
 PUT    /api/budgets/:id
 DELETE /api/budgets/:id
@@ -1151,8 +1197,10 @@ DELETE /api/budgets/:id
 
 ```http
 GET    /api/recurring-transactions
+GET    /api/recurring-transactions/:id
 POST   /api/recurring-transactions
 PUT    /api/recurring-transactions/:id
+PATCH  /api/recurring-transactions/:id/active
 DELETE /api/recurring-transactions/:id
 ```
 
@@ -1162,8 +1210,10 @@ DELETE /api/recurring-transactions/:id
 
 ```http
 GET    /api/recurring-budgets
+GET    /api/recurring-budgets/:id
 POST   /api/recurring-budgets
 PUT    /api/recurring-budgets/:id
+PATCH  /api/recurring-budgets/:id/active
 DELETE /api/recurring-budgets/:id
 ```
 
@@ -1173,6 +1223,8 @@ DELETE /api/recurring-budgets/:id
 
 ```http
 GET    /api/goals
+GET    /api/goals/overview
+GET    /api/goals/:id
 POST   /api/goals
 PUT    /api/goals/:id
 DELETE /api/goals/:id
@@ -1191,8 +1243,10 @@ GET /api/dashboard/summary
 ## Reports
 
 ```http
+GET /api/reports/overview
 GET /api/reports/monthly
 GET /api/reports/categories
+GET /api/reports/pdf?startDate=&endDate=
 ```
 
 ---
@@ -1200,16 +1254,18 @@ GET /api/reports/categories
 ## Analytics
 
 ```http
-GET /api/analytics
+GET /api/analytics/summary
 ```
 
 ---
 
 ## Export
 
-```text
-Export endpoint atau client-side export dapat digunakan sesuai kebutuhan arsitektur.
+```http
+GET /api/export/transactions
 ```
+
+Endpoint dan/atau client-side export digunakan sesuai kebutuhan arsitektur (frontend mengubah row JSON menjadi file `.xlsx`/`.csv` dengan `exceljs`).
 
 Export harus tetap dibatasi berdasarkan authenticated user.
 
@@ -1218,8 +1274,10 @@ Export harus tetap dibatasi berdasarkan authenticated user.
 ## PDF
 
 ```http
-GET /api/reports/financial-report
+GET /api/reports/pdf
 ```
+
+PDF financial report dihasilkan server-side (`html-pdf-node`) dari data aktual user yang sedang login; request harus membawa `Accept: application/pdf`.
 
 Bahasa report dapat didukung jika diperlukan.
 
@@ -1230,8 +1288,8 @@ Bahasa report dapat didukung jika diperlukan.
 ```http
 GET  /api/notifications
 POST /api/notifications/generate
-PUT  /api/notifications/:id/read
-PUT  /api/notifications/read-all
+PATCH  /api/notifications/:id/read
+POST /api/notifications/read-all
 ```
 
 ---
@@ -1432,23 +1490,28 @@ Tidak menggunakan TypeScript kecuali keputusan arsitektur berubah secara eksplis
 Public routes:
 
 ```text
+/
 /login
 /register
 ```
 
+`/` adalah **marketing landing page** publik (bukan halaman terautentikasi). Landing page menawarkan CTA login/register; user yang sudah login diarahkan ke `/dashboard`.
+
 Protected routes:
 
 ```text
-/
-/transactions
-/categories
+/dashboard
 /accounts
-/budgets
+/accounts/:id/activities
+/transactions
+/calendar
 /recurring-transactions
+/categories
+/budgets
 /recurring-budgets
 /goals
+/goals/:id/activities
 /reports
-/analytics
 /ai-insights
 /notifications
 /settings
@@ -1479,13 +1542,15 @@ Desktop:
 │ FinTrack      │ Page Header                 │
 │               │                             │
 │ Dashboard     │ Content                     │
-│ Transactions  │                             │
 │ Accounts      │                             │
+│ Transactions  │                             │
+│ Calendar      │                             │
+│ Recurring Tx  │                             │
 │ Categories    │                             │
 │ Budgets       │                             │
+│ Recurring Bgt │                             │
 │ Goals         │                             │
 │ Reports       │                             │
-│ Analytics     │                             │
 │ AI Insights   │                             │
 │ Notifications │                             │
 │ Settings      │                             │
@@ -2503,6 +2568,17 @@ Implemented:
 * Financial metric validation.
 * Net cash flow correctness.
 * Percentage/currency semantic formatting.
+
+## Phase 13B — Landing Page, Calendar & Transactions — COMPLETED
+
+Implemented:
+
+* Public marketing landing page at `/` (global `FloatingOrbs` + `.content-plane`/`.surface-plane` layering, `SectionSurfaces`, scroll-reveal `Reveal`, auth-aware navbar CTA).
+* Month-grid Calendar view of income and expenses.
+* Transfers between accounts (`TRANSFER` transactions, net-zero balance moves).
+* Per-account and per-goal activity logs (`AccountActivitiesPage`, `GoalActivitiesPage`).
+* "Reset all data" in Settings (`DELETE /api/users/me/data`).
+* Google OAuth sign-in with OAuth re-authentication guard for destructive actions.
 
 ---
 

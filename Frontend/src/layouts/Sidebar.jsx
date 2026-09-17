@@ -35,7 +35,7 @@ function SidebarNav({ onNavigate }) {
         <li key={item.to}>
           <NavLink
             to={item.to}
-            end={item.to === '/'}
+            end={item.to === '/dashboard'}
             onClick={onNavigate}
             className={({ isActive }) =>
               isActive
