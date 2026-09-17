@@ -6,7 +6,7 @@ import { formatCurrency, formatMonth, formatNumber, formatPercent, formatInsight
 import { getAiInsights } from '../services/aiInsightsApi'
 import { useLanguage } from '../context/LanguageContext'
 
-const STORAGE_KEY = 'fintrack-ai-view'
+const STORAGE_KEY = 'fintrack-insights-view'
 
 function currentMonthYear() {
   const now = new Date()
@@ -257,15 +257,6 @@ function AiInsightsPage() {
       ) : data ? (
         <>
           <div className="flex flex-wrap items-center gap-2">
-            <span
-              className={`badge ${data.source === 'ai' ? 'badge-primary' : 'badge-ghost'}`}
-            >
-              {data.source === 'ai'
-                ? t('ai.sourceAi')
-                : data.aiConfigured
-                  ? t('ai.sourceRuleConfigured')
-                  : t('ai.sourceRuleNotConfigured')}
-            </span>
             <span className="text-sm text-base-content/50 tabular-nums">
               {t('ai.transactions')}: {metrics.transactionCount}
             </span>

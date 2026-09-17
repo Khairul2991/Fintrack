@@ -70,6 +70,23 @@ const LANG_STRINGS = {
     fallbackNoExpenseExplanation: 'No expense transactions were recorded for this period.',
     fallbackNoIncomeTitle: 'No income this month',
     fallbackNoIncomeExplanation: 'No income transactions were recorded for this period.',
+    netPositiveTitle: 'Positive net cash flow',
+    netPositiveExplanation: 'Your income exceeded your expenses this period.',
+    netPositiveRecommendation: 'Set aside part of the surplus to grow your savings.',
+    netNegativeTitle: 'Negative net cash flow',
+    netNegativeExplanation: 'Your expenses exceeded your income this period.',
+    netNegativeRecommendation: 'Review your spending and look for costs you can reduce.',
+    netBalancedTitle: 'Balanced net cash flow',
+    netBalancedExplanation: 'Your income and expenses were evenly matched this period.',
+    netBalancedRecommendation: 'Watch upcoming expenses so your balance stays positive.',
+    summaryIncomeExpense: 'This period, your income was {income} and your expenses were {expense}.',
+    summaryIncomeOnly: 'This period, you received {income} in income with no expenses recorded.',
+    summaryExpenseOnly: 'This period, there was no income and your expenses were {expense}.',
+    summaryNetSurplus: ' Your net cash flow was a surplus of {net}.',
+    summaryNetDeficit: ' Your net cash flow was a deficit of {net}.',
+    summaryNetBalanced: ' Your income and expenses were balanced, with a net cash flow of {net}.',
+    summarySavingsPositive: ' Your savings rate was {rate}%, meaning part of your income remained after expenses.',
+    summarySavingsNegative: ' Your savings rate was {rate}%, meaning expenses used up all of your income.',
   },
   id: {
     emptyTitle: 'Belum ada data',
@@ -114,6 +131,23 @@ const LANG_STRINGS = {
     fallbackNoExpenseExplanation: 'Tidak ada transaksi pengeluaran yang dicatat untuk periode ini.',
     fallbackNoIncomeTitle: 'Tidak ada pendapatan bulan ini',
     fallbackNoIncomeExplanation: 'Tidak ada transaksi pendapatan yang dicatat untuk periode ini.',
+    netPositiveTitle: 'Arus kas bersih positif',
+    netPositiveExplanation: 'Pendapatan Anda melebihi pengeluaran pada periode ini.',
+    netPositiveRecommendation: 'Sisihkan sebagian surplus untuk menambah tabungan Anda.',
+    netNegativeTitle: 'Arus kas bersih negatif',
+    netNegativeExplanation: 'Pengeluaran Anda melebihi pendapatan pada periode ini.',
+    netNegativeRecommendation: 'Tinjau pengeluaran Anda dan cari biaya yang bisa dikurangi.',
+    netBalancedTitle: 'Arus kas bersih seimbang',
+    netBalancedExplanation: 'Pendapatan dan pengeluaran Anda hampir seimbang pada periode ini.',
+    netBalancedRecommendation: 'Perhatikan pengeluaran ke depan agar saldo tetap positif.',
+    summaryIncomeExpense: 'Pada periode ini, Anda menerima pendapatan {income} dan mengeluarkan {expense}.',
+    summaryIncomeOnly: 'Pada periode ini, Anda menerima pendapatan {income} tanpa pengeluaran.',
+    summaryExpenseOnly: 'Pada periode ini, tidak ada pendapatan dan pengeluaran Anda sebesar {expense}.',
+    summaryNetSurplus: ' Arus kas bersih Anda surplus sebesar {net}.',
+    summaryNetDeficit: ' Arus kas bersih Anda defisit sebesar {net}.',
+    summaryNetBalanced: ' Pendapatan dan pengeluaran Anda seimbang dengan arus kas bersih {net}.',
+    summarySavingsPositive: ' Rasio tabungan Anda {rate}%, artinya sebagian pendapatan masih tersisa setelah pengeluaran.',
+    summarySavingsNegative: ' Rasio tabungan Anda {rate}%, artinya pengeluaran menyerap seluruh pendapatan periode ini.',
   },
 }
 
@@ -391,6 +425,61 @@ async function callAiProvider(context, lang, config, fetchFn = global.fetch) {
   }
 }
 
+function formatMoney(value) {
+  const n = Number(value)
+  if (!Number.isFinite(n)) return 'Rp0'
+  const whole = Math.round(n * 100) % 100 === 0
+  const body = new Intl.NumberFormat('id-ID', {
+    minimumFractionDigits: whole ? 0 : 2,
+    maximumFractionDigits: whole ? 0 : 2,
+  }).format(n)
+  return `Rp${body}`
+}
+
+function formatPct(value) {
+  const n = Number(value)
+  if (!Number.isFinite(n)) return '0'
+  return new Intl.NumberFormat('id-ID', { maximumFractionDigits: 2 }).format(n)
+}
+
+function buildSummary(context, lang) {
+  const s = LANG_STRINGS[lang] || LANG_STRINGS.en
+  const income = Number(context.income)
+  const expense = Number(context.expense)
+  const net = Number(context.net)
+
+  let summary
+  if (income > 0 && expense > 0) {
+    summary = s.summaryIncomeExpense
+      .replace('{income}', formatMoney(income))
+      .replace('{expense}', formatMoney(expense))
+  } else if (income > 0) {
+    summary = s.summaryIncomeOnly.replace('{income}', formatMoney(income))
+  } else if (expense > 0) {
+    summary = s.summaryExpenseOnly.replace('{expense}', formatMoney(expense))
+  } else {
+    summary = s.summaryIncomeExpense
+      .replace('{income}', formatMoney(0))
+      .replace('{expense}', formatMoney(0))
+  }
+
+  if (net > 0) {
+    summary += s.summaryNetSurplus.replace('{net}', formatMoney(net))
+  } else if (net < 0) {
+    summary += s.summaryNetDeficit.replace('{net}', formatMoney(Math.abs(net)))
+  } else {
+    summary += s.summaryNetBalanced.replace('{net}', formatMoney(0))
+  }
+
+  const rate = Number(context.savingsRate)
+  if (income > 0 && context.savingsRate !== null && context.savingsRate !== undefined && Number.isFinite(rate)) {
+    summary += (rate > 0 ? s.summarySavingsPositive : s.summarySavingsNegative)
+      .replace('{rate}', formatPct(rate))
+  }
+
+  return summary
+}
+
 function demandFallbackRules(context, lang) {
   const s = LANG_STRINGS[lang] || LANG_STRINGS.en
   const insights = []
@@ -398,6 +487,45 @@ function demandFallbackRules(context, lang) {
     current: round(context.expense),
     previous: round(context.prevMonthExpense),
     changePercent: round(context.expenseChangePercent),
+  }
+
+  const hasActivity = Number(context.income) > 0 || Number(context.expense) > 0
+  if (hasActivity) {
+    const net = Number(context.net)
+    if (net > 0) {
+      insights.push({
+        type: 'cashflow',
+        severity: 'positive',
+        title: s.netPositiveTitle,
+        explanation: s.netPositiveExplanation,
+        recommendation: s.netPositiveRecommendation,
+        metrics: { current: round(context.net), previous: null, changePercent: null },
+        metricFormats: { current: 'currency' },
+        source: 'rule',
+      })
+    } else if (net < 0) {
+      insights.push({
+        type: 'cashflow',
+        severity: 'warning',
+        title: s.netNegativeTitle,
+        explanation: s.netNegativeExplanation,
+        recommendation: s.netNegativeRecommendation,
+        metrics: { current: round(context.net), previous: null, changePercent: null },
+        metricFormats: { current: 'currency' },
+        source: 'rule',
+      })
+    } else {
+      insights.push({
+        type: 'cashflow',
+        severity: 'info',
+        title: s.netBalancedTitle,
+        explanation: s.netBalancedExplanation,
+        recommendation: s.netBalancedRecommendation,
+        metrics: { current: round(context.net), previous: null, changePercent: null },
+        metricFormats: { current: 'currency' },
+        source: 'rule',
+      })
+    }
   }
 
   if (context.expenseChangePercent !== null && context.expenseChangePercent > EXPENSE_SURGE_PCT) {
@@ -600,7 +728,7 @@ async function getAiInsights(userId, query, lang = 'en', fetchFn = global.fetch)
         source: 'rule',
       }]
     } else {
-      summary = insights.length > 0 ? '' : s.emptySummary
+      summary = buildSummary(context, lang)
     }
   }
 

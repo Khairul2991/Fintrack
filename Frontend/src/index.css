@@ -188,6 +188,18 @@ body {
   outline-offset: 2px;
 }
 
+/* --- Sidebar menu: on-brand press/active state ---------------- */
+/* DaisyUI's .menu tokenizes its pressed (:active) and .menu-active
+   colors to --color-neutral, which flashes near-black on click.
+   Point those tokens at the already-designed active-route treatment
+   (primary tint + primary text) so pressing a nav item matches it.
+   Focus indicators are untouched — this only recolours background
+   and text for the press/hold state. */
+.menu {
+  --menu-active-bg: color-mix(in oklab, var(--color-primary) 10%, transparent);
+  --menu-active-fg: var(--color-primary);
+}
+
 /* --- Money: tabular figures + no wrapping by default ---------- */
 .tabular {
   font-variant-numeric: tabular-nums;

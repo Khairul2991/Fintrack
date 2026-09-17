@@ -2684,6 +2684,26 @@ Implemented:
 
 # 50. Next Development Roadmap
 
+## Phase 17.5 — Pre-Deployment Security Audit
+
+Goals:
+
+* Audit authentication.
+* Audit authorization.
+* Audit user ownership.
+* Test cross-user access.
+* Test protected endpoints.
+* Audit CORS.
+* Audit secrets and environment variables.
+* Audit error leakage.
+* Audit input validation.
+* Audit dependencies.
+
+Requirements:
+
+* Critical/High findings must be fixed before deployment.
+* Security audit must pass before Phase 18.
+
 ## Phase 18 — Backend Deployment
 
 Goals:

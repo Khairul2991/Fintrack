@@ -11,11 +11,12 @@ import {
 } from 'recharts'
 import LoadingSkeleton from '../common/LoadingSkeleton'
 import EmptyState from '../common/EmptyState'
-import { formatCurrency, formatCurrencyCompact, formatMonth } from '../../utils/format'
+import InfoTooltip from '../common/InfoTooltip'
+import { formatCurrency, formatCurrencyCompact, formatMonth, formatNumber, formatPercent } from '../../utils/format'
 import { getAnalytics } from '../../services/analyticsApi'
 import { useLanguage } from '../../context/LanguageContext'
 
-function MetricCard({ label, value, tone }) {
+function MetricCard({ label, value, tone, labelHint, labelHintLabel }) {
   const toneClass =
     tone === 'success'
       ? 'text-success'
@@ -24,23 +25,22 @@ function MetricCard({ label, value, tone }) {
         : 'text-base-content'
   return (
     <div className="card surface card-border rounded-box p-4 min-w-0">
-      <p className="text-xs text-base-content/60">{label}</p>
+      <p className="flex items-center gap-1 text-xs text-base-content/60">
+        <span className="min-w-0">{label}</span>
+        {labelHint ? <InfoTooltip label={labelHintLabel} text={labelHint} /> : null}
+      </p>
       <p className={`financial-value mt-1 text-lg font-bold tabular-nums ${toneClass}`}>{value}</p>
     </div>
   )
 }
 
 function TrendLabel({ change }) {
-  const { t } = useLanguage()
+  const { t, lang } = useLanguage()
   if (change === null || change === undefined) return <span>—</span>
   const value = Math.abs(Number(change))
-  if (Number(change) > 0) return <span className="text-error">{t('an.uptrend', { value: `${formatNumber(value)}%` })}</span>
-  if (Number(change) < 0) return <span className="text-success">{t('an.downtrend', { value: `${formatNumber(value)}%` })}</span>
+  if (Number(change) > 0) return <span className="text-error">{t('an.uptrend', { value: formatPercent(value, lang) })}</span>
+  if (Number(change) < 0) return <span className="text-success">{t('an.downtrend', { value: formatPercent(value, lang) })}</span>
   return <span>{t('an.flat')}</span>
-}
-
-function formatNumber(value) {
-  return new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 }).format(value)
 }
 
 function AnalyticsSection({ categoryById = {} }) {
@@ -134,8 +134,24 @@ function AnalyticsSection({ categoryById = {} }) {
         tone={Number(data.netCashFlow) >= 0 ? 'success' : 'error'}
       />
       <MetricCard label={t('an.avgMonthlyExpense')} value={formatCurrency(data.avgMonthlyExpense)} />
-      <MetricCard label={t('an.avgTransaction')} value={formatCurrency(data.avgTransactionAmount)} />
-      <MetricCard label={t('an.savingsRate')} value={formatSavings(data.savingsRate, lang)} />
+      <MetricCard
+        label={t('an.monthOverMonth')}
+        labelHint={t('an.monthOverMonthHint')}
+        labelHintLabel={t('an.monthOverMonthHintLabel')}
+        value={
+          data.monthOverMonthChange === null || data.monthOverMonthChange === undefined
+            ? '—'
+            : <TrendLabel change={data.monthOverMonthChange} />
+        }
+      />
+      <MetricCard
+        label={t('an.savingsRate')}
+        value={
+          data.savingsRate === null || data.savingsRate === undefined
+            ? '—'
+            : formatPercent(data.savingsRate, lang)
+        }
+      />
 
       <div className="card surface card-border lg:col-span-2">
         <div className="card-body">
@@ -189,7 +205,7 @@ function AnalyticsSection({ categoryById = {} }) {
           ) : (
             <>
               <p className="text-sm text-base-content/60">
-                {t('an.avgUtilization')}: {formatNumber(utilization.averageUtilization * 100)}%
+                {t('an.avgUtilization')}: {formatPercent(utilization.averageUtilization * 100, lang)}
               </p>
               <ul className="mt-2 flex flex-col gap-3">
                 {utilization.budgets.map((budget) => {
@@ -204,7 +220,7 @@ function AnalyticsSection({ categoryById = {} }) {
                     </div>
                     <progress
                       className="progress progress-primary h-2 w-full"
-                      value={formatNumber(budget.utilization * 100)}
+                      value={Number(budget.utilization) * 100}
                       max="100"
                     />
                   </li>
@@ -235,7 +251,7 @@ function AnalyticsSection({ categoryById = {} }) {
                   </p>
                   <p className="text-sm text-success">
                     {t('an.concentrationHigh', {
-                      value: formatNumber(data.spendingConcentration),
+                      value: formatNumber(data.spendingConcentration, lang),
                     })}
                   </p>
                 </div>
@@ -275,17 +291,6 @@ function AnalyticsSection({ categoryById = {} }) {
       </div>
     </div>
   )
-}
-
-function formatSavings(value, lang) {
-  if (value === null || value === undefined) return '—'
-  const amount = Number(value)
-  if (!Number.isFinite(amount)) return '—'
-  const locale = lang === 'id' ? 'id-ID' : 'en-GB'
-  return `${new Intl.NumberFormat(locale, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(amount)}%`
 }
 
 export default AnalyticsSection

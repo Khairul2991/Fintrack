@@ -332,10 +332,49 @@ describe('AI Insights API - deterministic fallback', () => {
     await reset()
     await addTransaction('salary', '5000000', 'INCOME', 'Salary', curY, curM, 2)
     await addTransaction('groceries', '2009000', 'EXPENSE', 'Food', curY, curM, 3)
-    const res = await getAi({ month: curM, year: curY })
+    const res = await getAi({ month: curM, year: curY, lang: 'id' })
     assert.equal(res.data.data.metrics.net, 2991000)
     const rate = res.data.data.metrics.savingsRate
     assert.ok(Math.abs(rate - 59.82) < 0.01, `expected savingsRate ~59.82 but got ${rate}`)
+    const summary = res.data.data.summary
+    assert.ok(summary.includes('Rp5.000.000'), summary)
+    assert.ok(summary.includes('Rp2.009.000'), summary)
+    assert.ok(summary.includes('Rp2.991.000'), summary)
+    assert.ok(summary.includes('59,82%'), summary)
+    assert.ok(!summary.includes('Rp5.000.000,0'), summary)
+  })
+
+  it('describes an income-only period without inventing expenses', async () => {
+    const { curY, curM } = currentKeys()
+    await reset()
+    await addTransaction('salary', '2000000', 'INCOME', 'Salary', curY, curM, 2)
+    const res = await getAi({ month: curM, year: curY, lang: 'id' })
+    const summary = res.data.data.summary
+    assert.ok(summary.includes('Rp2.000.000'), summary)
+    assert.ok(!summary.includes('Rp0'), summary)
+    assert.ok(summary.includes('100%'), summary)
+  })
+
+  it('describes an expense-only period without a savings rate', async () => {
+    const { curY, curM } = currentKeys()
+    await reset()
+    await addTransaction('rent', '1000000', 'EXPENSE', 'Bills', curY, curM, 4)
+    const res = await getAi({ month: curM, year: curY, lang: 'id' })
+    const summary = res.data.data.summary
+    assert.ok(summary.includes('Rp1.000.000'), summary)
+    assert.ok(!summary.includes('%'), summary)
+  })
+
+  it('describes a balanced period with an accurate savings rate', async () => {
+    const { curY, curM } = currentKeys()
+    await reset()
+    await addTransaction('salary', '1000000', 'INCOME', 'Salary', curY, curM, 2)
+    await addTransaction('rent', '1000000', 'EXPENSE', 'Bills', curY, curM, 4)
+    const res = await getAi({ month: curM, year: curY, lang: 'id' })
+    assert.equal(res.data.data.metrics.net, 0)
+    const summary = res.data.data.summary
+    assert.ok(summary.includes('Rp1.000.000'), summary)
+    assert.ok(summary.includes('0%'), summary)
   })
 
   it('produces a safe savings rate when income is zero', async () => {

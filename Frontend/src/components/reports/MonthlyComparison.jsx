@@ -1,5 +1,5 @@
 import EmptyState from '../common/EmptyState'
-import { formatCurrency, formatMonth } from '../../utils/format'
+import { formatCurrency, formatMonth, formatPercent } from '../../utils/format'
 import { useLanguage } from '../../context/LanguageContext'
 
 function positive(value) {
@@ -9,7 +9,7 @@ function positive(value) {
 }
 
 function MonthlyComparison({ months }) {
-  const { t } = useLanguage()
+  const { t, lang } = useLanguage()
   const hasDeltas = months.some((month) => Number(month.expenseDelta) !== 0)
 
   if (!hasDeltas) {
@@ -63,7 +63,7 @@ function MonthlyComparison({ months }) {
                   {' '}
                   (
                   <span className="font-semibold">
-                    {Math.abs(changePercent).toFixed(1)}% {rising ? t('rep.up') : t('rep.down')}
+                    {formatPercent(Math.abs(changePercent), lang)} {rising ? t('rep.up') : t('rep.down')}
                   </span>
                   )
                 </>
