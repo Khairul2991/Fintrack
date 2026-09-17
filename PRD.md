@@ -2306,7 +2306,7 @@ Structure dapat disesuaikan jika terdapat alasan teknis yang jelas.
 * Jangan mengimplementasikan bank integration.
 * AI API key harus server-side.
 * Database migration harus non-destructive kecuali memang diperlukan dan direncanakan.
-* Existing functionality Phase 1–13 tidak boleh diregress.
+* Existing functionality dari seluruh Phase yang berstatus COMPLETED tidak boleh diregress.
 
 ---
 
@@ -2432,6 +2432,8 @@ Sebuah fitur dianggap selesai jika:
 
 Development dilakukan secara bertahap.
 
+Catatan: Phase 13A–13D adalah pengelompokan fitur post-MVP. Berdasarkan riwayat repository, pekerjaan Phase 13B–13D (calendar, transfers, activity logs, account/user data management, dan landing page) diselesaikan setelah Phase 14–17.
+
 ## Phase 1 — Foundation — COMPLETED
 
 * Repository setup.
@@ -2518,6 +2520,7 @@ Development dilakukan secara bertahap.
 * Accessibility.
 * Theme.
 * Currency settings.
+* English/Indonesian localization.
 
 ## Phase 11 — Testing — COMPLETED
 
@@ -2569,26 +2572,49 @@ Implemented:
 * Net cash flow correctness.
 * Percentage/currency semantic formatting.
 
-## Phase 13B — Landing Page, Calendar & Transactions — COMPLETED
+## Phase 13B — Calendar, Transfers & Activity Logs — COMPLETED
 
 Implemented:
 
-* Public marketing landing page at `/` (global `FloatingOrbs` + `.content-plane`/`.surface-plane` layering, `SectionSurfaces`, scroll-reveal `Reveal`, auth-aware navbar CTA).
 * Month-grid Calendar view of income and expenses.
-* Transfers between accounts (`TRANSFER` transactions, net-zero balance moves).
-* Per-account and per-goal activity logs (`AccountActivitiesPage`, `GoalActivitiesPage`).
-* "Reset all data" in Settings (`DELETE /api/users/me/data`).
-* Google OAuth sign-in with OAuth re-authentication guard for destructive actions.
+* Transfers between accounts (`TRANSFER` transactions; net-zero balance moves).
+* Account-bound transactions and per-account activity logs (`AccountActivitiesPage`).
+* Goal-bound transactions and per-goal activity logs (`GoalActivitiesPage`).
+
+## Phase 13C — Account & User Data Management — COMPLETED
+
+Implemented:
+
+* Account soft delete (`deletedAt`) so historical transactions are preserved.
+* Default account handling (`isDefault`).
+* "Reset all data" in Settings (`DELETE /api/users/me/data`) — resets user data and recreates the default Cash account while keeping global system categories.
+* Google re-authentication guard for the destructive reset (`googleReauth.js`).
+
+## Phase 13D — Landing Page — COMPLETED
+
+Implemented:
+
+* Public marketing landing page at `/`; the authenticated application moved to `/dashboard`.
+* Sections: Hero, Why FinTrack, Features, How It Works, Budgets & Goals, Reports, Contact, Final CTA, and footer.
+* Auth-aware navbar CTA plus theme and language toggles.
+
+Landing layer architecture (final):
+
+* Single global `<FloatingOrbs />` continuous ambient layer (`LANDING_ORBS`, one layer only; no per-section or navbar orb layers; no canvas/WebGL).
+* Opaque section backgrounds live on `.surface-plane` (`z-5`) as `.surface-strip` elements measured from the live section boxes by `SectionSurfaces`.
+* The global orb layer (`z-20`) sits between the section surfaces and the actual content, so orbs float across section boundaries.
+* All landing content (`<main id="main">` and the footer) lives in `.content-plane` (`z-30`), above the orbs.
+* Fixed navbar surface (`z-10`), sticky `<header>` (`z-40`), and navbar content (`z-50`) keep the navbar above the orbs; scroll reveal uses `Reveal` (IntersectionObserver).
+* `.content-plane` and `.surface-plane` share the CSS scroll-driven `landing-band-exclusion` animation (`animation-timeline: scroll(root)`, `clip-path` cutoff) so no section content or white surface paints over the fixed navbar band, without scroll listeners.
+* Navbar and footer are integrated with the landing environment; orb/float/reveal motion is disabled under `prefers-reduced-motion`.
 
 ---
 
-# 50. Next Development Roadmap
-
 ## Phase 14 — Authentication Foundation — COMPLETED
 
-Goals:
+Implemented:
 
-* Authentication provider integration.
+* Authentication provider integration (Supabase Auth).
 * Register.
 * Login.
 * Logout.
@@ -2599,13 +2625,13 @@ Goals:
 * Authenticated user context.
 * User profile synchronization.
 
-Database ownership design must be finalized before implementation.
+Ownership is derived from `req.user.id`; client-supplied `userId` is ignored.
 
 ---
 
 ## Phase 15 — Multi-user & Authorization — COMPLETED
 
-Goals:
+Implemented:
 
 * User ownership.
 * Authorization middleware.
@@ -2625,7 +2651,7 @@ This phase is security-critical.
 
 ## Phase 16 — PostgreSQL Migration — COMPLETED
 
-Goals:
+Implemented:
 
 * PostgreSQL production schema.
 * Prisma PostgreSQL configuration.
@@ -2636,13 +2662,13 @@ Goals:
 * Relationship validation.
 * Data integrity testing.
 
-SQLite must not remain the production multi-user database.
+SQLite is retained only as a legacy migration source and is no longer the production multi-user database.
 
 ---
 
 ## Phase 17 — Production Configuration — COMPLETED
 
-Goals:
+Implemented:
 
 * Production environment variables.
 * Secure secrets.
@@ -2655,6 +2681,8 @@ Goals:
 * Production logging strategy.
 
 ---
+
+# 50. Next Development Roadmap
 
 ## Phase 18 — Backend Deployment
 
