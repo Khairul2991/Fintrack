@@ -1,4 +1,4 @@
-import { get, post, patch } from './api'
+import { get, post, patch, del } from './api'
 
 export function listNotifications() {
   return get('/notifications')
@@ -14,4 +14,8 @@ export function markNotificationRead(id) {
 
 export function markAllNotificationsRead() {
   return post('/notifications/read-all')
+}
+
+export function deleteNotification(id) {
+  return del(`/notifications/${id}`)
 }

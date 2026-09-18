@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { NAV_ITEMS } from '../constants/navigation'
 import { useAuth } from '../context/AuthContext'
 import { useLanguage } from '../context/LanguageContext'
+import { useNotifications } from '../context/NotificationContext'
 import ConfirmDialog from '../components/common/ConfirmDialog'
 import { UserIcon, LogoutIcon } from '../components/common/Icons'
 import { clearCache } from '../services/api'
@@ -29,6 +30,7 @@ export function BrandMark({ className = 'h-6 w-6' }) {
 
 function SidebarNav({ onNavigate }) {
   const { t } = useLanguage()
+  const { unread } = useNotifications()
   return (
     <ul className="menu w-full gap-1 p-2">
       {NAV_ITEMS.map((item) => (
@@ -39,12 +41,20 @@ function SidebarNav({ onNavigate }) {
             onClick={onNavigate}
             className={({ isActive }) =>
               isActive
-                ? 'active bg-primary/10 font-semibold text-primary'
-                : 'font-medium text-base-content/70 hover:text-base-content'
+                ? 'flex w-full items-center active bg-primary/10 font-semibold text-primary'
+                : 'flex w-full items-center font-medium text-base-content/70 hover:text-base-content'
             }
           >
             {item.icon}
-            {t(item.labelKey)}
+            <span className="flex-1">{t(item.labelKey)}</span>
+            {item.to === '/notifications' && unread > 0 ? (
+              <span
+                className="badge badge-primary badge-sm min-w-5 rounded-full border-0 px-1.5 font-semibold text-primary-content"
+                aria-label={t('notif.unread', { count: unread })}
+              >
+                {unread > 99 ? '99+' : unread}
+              </span>
+            ) : null}
           </NavLink>
         </li>
       ))}

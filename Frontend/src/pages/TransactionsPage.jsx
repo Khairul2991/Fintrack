@@ -301,11 +301,24 @@ function TransactionsPage() {
         toast.error(t('exp.empty'))
         return
       }
+      const exportLabels = {
+        date: t('exp.colDate'),
+        type: t('exp.colType'),
+        category: t('exp.colCategory'),
+        account: t('exp.colAccount'),
+        amount: t('exp.colAmount'),
+        note: t('exp.colNote'),
+        income: t('common.income'),
+        expense: t('common.expense'),
+        transfer: t('common.transfer'),
+        noAccount: t('exp.noAccount'),
+        sheetName: t('exp.sheetName'),
+      }
       if (format === 'csv') {
-        downloadCsv(data, lang)
+        downloadCsv(data, lang, exportLabels)
         toast.success(t('exp.exportedCsv'))
       } else {
-        await downloadExcel(data, lang)
+        await downloadExcel(data, lang, exportLabels)
         toast.success(t('exp.exportedExcel'))
       }
     } catch (error) {

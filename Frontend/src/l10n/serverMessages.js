@@ -54,6 +54,7 @@ const SERVER_ERRORS = {
     'This goal does not have an account. Edit the goal to set an account first.':
       'Tujuan ini belum memiliki akun. Edit tujuan untuk memilih akun terlebih dahulu.',
     'Goal not found.': 'Tujuan tidak ditemukan.',
+    'Notification not found.': 'Notifikasi tidak ditemukan.',
     'Note must be at most 500 characters.': 'Catatan maksimal 500 karakter.',
     'Note must be at most 500 characters.': 'Catatan maksimal 500 karakter.',
     'Transaction not found.': 'Transaksi tidak ditemukan.',

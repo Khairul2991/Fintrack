@@ -7,11 +7,11 @@ const { localizeCategoryName } = require('../utils/categoryLocale')
 const MONTH_COUNT = 12
 const TOP_CATEGORIES = 5
 
-function formatMoney(value) {
+function formatMoney(value, lang) {
   const n = Number(value)
   if (!Number.isFinite(n)) return '—'
   const whole = Math.round(n * 100) % 100 === 0
-  const body = new Intl.NumberFormat('id-ID', {
+  const body = new Intl.NumberFormat(lang === 'id' ? 'id-ID' : 'en-US', {
     minimumFractionDigits: whole ? 0 : 2,
     maximumFractionDigits: whole ? 0 : 2,
   }).format(n)
@@ -79,13 +79,13 @@ function writeHeader(doc, t) {
   doc.moveDown(1)
 }
 
-function writeSummary(doc, report, t) {
+function writeSummary(doc, report, t, lang) {
   doc.fontSize(13).fillColor('#111827').text(t.summary)
   doc.moveDown(0.4)
   const rows = [
-    [t.income, formatMoney(report.totalIncome)],
-    [t.expense, formatMoney(report.totalExpense)],
-    [t.balance, formatMoney(report.balance)],
+    [t.income, formatMoney(report.totalIncome, lang)],
+    [t.expense, formatMoney(report.totalExpense, lang)],
+    [t.balance, formatMoney(report.balance, lang)],
   ]
   for (const [label, value] of rows) {
     doc.fontSize(11).fillColor('#374151').text(label, { continued: true })
@@ -94,11 +94,16 @@ function writeSummary(doc, report, t) {
   doc.moveDown(1)
 }
 
-function writeTopCategories(doc, report, lang) {
-  doc.fontSize(13).fillColor('#111827').text('Top Expense Categories')
+// Height of the category share bar and the gap below it. The cursor is
+// advanced past the bar deterministically so the bar can never cover text.
+const BAR_HEIGHT = 6
+const BAR_GAP = 8
+
+function writeTopCategories(doc, report, t, lang) {
+  doc.fontSize(13).fillColor('#111827').text(t.topCategories)
   doc.moveDown(0.3)
   if (report.byCategory.length === 0) {
-    doc.fontSize(10).fillColor('#6b7280').text('No expense data available.')
+    doc.fontSize(10).fillColor('#6b7280').text(t.noExpense)
     doc.moveDown(1)
     return
   }
@@ -106,16 +111,18 @@ function writeTopCategories(doc, report, lang) {
   for (const cat of report.byCategory) {
     const label = localizeCategoryName(cat.name, lang)
     const share = Math.round((Number(cat.total) / max) * 100)
-    doc.fontSize(10).fillColor('#374151').text(`${label}: ${formatMoney(cat.total)}`)
+    doc.fontSize(10).fillColor('#374151').text(`${label}: ${formatMoney(cat.total, lang)}`)
     const width = Math.max(10, (share / 100) * 400)
-    doc.rect(60, doc.y + 2, width, 6).fill('#c7d2fe')
-    doc.moveDown(0.7)
+    const barTop = doc.y + 2
+    doc.rect(60, barTop, width, BAR_HEIGHT).fill('#c7d2fe')
+    doc.fillColor('#374151')
+    doc.y = barTop + BAR_HEIGHT + BAR_GAP
   }
   doc.moveDown(0.5)
 }
 
-function writeMonthlySummary(doc, report, lang) {
-  doc.fontSize(13).fillColor('#111827').text('Monthly Summary')
+function writeMonthlySummary(doc, report, t, lang) {
+  doc.fontSize(13).fillColor('#111827').text(t.monthly)
   doc.moveDown(0.3)
   const cols = {
     month: 120,
@@ -125,12 +132,11 @@ function writeMonthlySummary(doc, report, lang) {
   }
   let y = doc.y
   doc.font('Helvetica-Bold').fontSize(10).fillColor('#111827')
-  doc.text('Month', 50, y)
-  doc.text('Income', 50 + cols.month, y, { width: cols.income })
-  doc.text('Expense', 50 + cols.month + cols.income, y, { width: cols.expense })
-  doc.text('Net', 50 + cols.month + cols.income + cols.expense, y, { width: cols.net })
+  doc.text(t.colMonth, 50, y)
+  doc.text(t.colIncome, 50 + cols.month, y, { width: cols.income })
+  doc.text(t.colExpense, 50 + cols.month + cols.income, y, { width: cols.expense })
+  doc.text(t.colNet, 50 + cols.month + cols.income + cols.expense, y, { width: cols.net })
   doc.moveDown(0.5)
-  const tableTop = doc.y
   doc.font('Helvetica')
   for (const month of report.months) {
     const ym = month.month
@@ -140,20 +146,23 @@ function writeMonthlySummary(doc, report, lang) {
     y = doc.y
     doc.fillColor('#374151')
     doc.text(label, 50, y)
-    doc.text(formatMoney(month.income), 50 + cols.month, y, { width: cols.income })
-    doc.text(formatMoney(month.expense), 50 + cols.month + cols.income, y, { width: cols.expense })
-    doc.text(formatMoney(net), 50 + cols.month + cols.income + cols.expense, y, { width: cols.net })
+    doc.text(formatMoney(month.income, lang), 50 + cols.month, y, { width: cols.income })
+    doc.text(formatMoney(month.expense, lang), 50 + cols.month + cols.income, y, { width: cols.expense })
+    doc.text(formatMoney(net, lang), 50 + cols.month + cols.income + cols.expense, y, { width: cols.net })
     doc.moveDown(0.4)
   }
+  // Table cells use explicit x positions, which leaves the text cursor at the
+  // last column. Reset x so the next section starts at the left margin.
+  doc.x = doc.page.margins.left
   doc.moveDown(0.7)
 }
 
-function writeTransactionSummary(doc, report) {
-  doc.fontSize(13).fillColor('#111827').text('Transaction Summary')
+function writeTransactionSummary(doc, report, t) {
+  doc.fontSize(13).fillColor('#111827').text(t.transactions)
   doc.moveDown(0.4)
   doc.fontSize(10).fillColor('#374151')
-  doc.text(`Total transactions: ${report.transactionCount}`)
-  doc.text(`Expense transactions: ${report.expenseCount}`)
+  doc.text(`${t.totalTx}: ${report.transactionCount}`)
+  doc.text(`${t.expenseTx}: ${report.expenseCount}`)
   doc.moveDown(1)
 }
 
@@ -169,6 +178,17 @@ async function generateReportPdf(userId, lang = 'en') {
     income: isId ? 'Pendapatan' : 'Total income',
     expense: isId ? 'Pengeluaran' : 'Total expense',
     balance: isId ? 'Saldo' : 'Balance',
+    topCategories: isId ? 'Kategori Pengeluaran Teratas' : 'Top Expense Categories',
+    noExpense: isId ? 'Belum ada data pengeluaran.' : 'No expense data available.',
+    monthly: isId ? 'Ringkasan Bulanan' : 'Monthly Summary',
+    colMonth: isId ? 'Bulan' : 'Month',
+    colIncome: isId ? 'Pendapatan' : 'Income',
+    colExpense: isId ? 'Pengeluaran' : 'Expense',
+    colNet: isId ? 'Bersih' : 'Net',
+    transactions: isId ? 'Ringkasan Transaksi' : 'Transaction Summary',
+    totalTx: isId ? 'Total transaksi' : 'Total transactions',
+    expenseTx: isId ? 'Transaksi pengeluaran' : 'Expense transactions',
+    generated: isId ? 'Dibuat' : 'Generated',
   }
 
   return new Promise((resolve, reject) => {
@@ -179,16 +199,19 @@ async function generateReportPdf(userId, lang = 'en') {
     doc.on('error', reject)
 
     writeHeader(doc, t)
-    writeSummary(doc, report, t)
-    writeTopCategories(doc, report, lang)
-    writeMonthlySummary(doc, report, lang)
-    writeTransactionSummary(doc, report)
+    writeSummary(doc, report, t, lang)
+    writeTopCategories(doc, report, t, lang)
+    writeMonthlySummary(doc, report, t, lang)
+    writeTransactionSummary(doc, report, t)
 
-    // Footer with generated date.
+    // Footer with generated date. If content reached the footer zone,
+    // continue on a fresh page so the footer never covers content.
     const now = new Date()
+    const footerY = doc.page.height - 50
+    if (doc.y > footerY - 12) doc.addPage()
     doc.fontSize(8).fillColor('#9ca3af')
     doc.text(
-      `Generated ${now.toISOString().slice(0, 10)} FinTrack`,
+      `${t.generated} ${now.toISOString().slice(0, 10)} FinTrack`,
       50,
       doc.page.height - 50,
       { lineBreak: false },

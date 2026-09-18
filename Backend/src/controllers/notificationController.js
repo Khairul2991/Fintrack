@@ -22,9 +22,18 @@ async function markAllRead(req, res) {
   success(res, result)
 }
 
+async function deleteNotification(req, res) {
+  const result = await notificationService.deleteNotification(
+    req.user.id,
+    integer(req.params.id, 'id'),
+  )
+  success(res, result)
+}
+
 module.exports = {
   generate,
   listNotifications,
   markRead,
   markAllRead,
+  deleteNotification,
 }

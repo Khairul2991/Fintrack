@@ -1,57 +1,43 @@
 const { AppError } = require('../utils/appError')
 const { getPrisma, getDecimal } = require('../lib/prisma')
 const { currentMonthYear, monthRange } = require('../utils/date')
+const { createNotification } = require('./notificationStore')
 const { runCatchUp } = require('./recurringTransactionService')
 const { runBudgetRollover } = require('./recurringBudgetService')
 
-async function hasUnreadOf(prisma, userId, type, message) {
-  const existing = await prisma.notification.findFirst({
-    where: { type, message, read: false, userId },
-    select: { id: true },
-  })
-  return Boolean(existing)
+// Per-user single-flight: the automatic scheduler, the manual "Check
+// reminders" button, and retries must never run the same user's generation
+// concurrently. Concurrent calls for one user join the in-flight run.
+const inFlight = new Map()
+
+async function generateNotifications(userId, options = {}) {
+  const current = inFlight.get(userId)
+  if (current) return current
+  const run = performGeneration(userId, options).finally(() => inFlight.delete(userId))
+  inFlight.set(userId, run)
+  return run
 }
 
-async function createNotification(prisma, userId, type, title, message) {
-  if (await hasUnreadOf(prisma, userId, type, message)) {
-    return 0
-  }
-  await prisma.notification.create({ data: { userId, type, title, message } })
-  return 1
-}
-
-async function generateNotifications(userId) {
+async function performGeneration(userId, options = {}) {
   const prisma = await getPrisma()
   const Decimal = await getDecimal()
+  const now = options.now instanceof Date ? options.now : new Date()
+  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
+
+  let created = 0
+
+  // Reminders for due recurring transactions are created by runCatchUp at the
+  // moment it advances nextOccurrence (see generateDueTransactions). Running
+  // the due check inside the catch-up transaction guarantees the reminder
+  // cannot be skipped by any code path that advances nextOccurrence first
+  // (e.g. a Dashboard or recurring-list visit that calls runCatchUp directly).
   const stats = await Promise.all([
-    runCatchUp(userId).catch(() => ({ generated: 0, processed: 0 })),
+    runCatchUp(userId, { now }).catch(() => ({ generated: 0, processed: 0, notified: 0 })),
     runBudgetRollover(userId).catch(() => ({ rolled: 0, processed: 0 })),
   ])
   const catchUp = stats[0]
+  created += catchUp.notified || 0
   const rollover = stats[1]
-
-  let created = 0
-  const now = new Date()
-  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
-
-  const recurrences = await prisma.recurringTransaction.findMany({
-    where: { active: true, userId },
-    include: { category: { select: { name: true } } },
-  })
-  for (const item of recurrences) {
-    const next = new Date(item.nextOccurrence)
-    const isDue = next.getTime() <= today.getTime()
-    if (isDue && item.endDate && next.getTime() > item.endDate.getTime()) continue
-    if (isDue) {
-      created += await createNotification(
-        prisma,
-        userId,
-        'RECURRING_DUE',
-        'Recurring transaction due',
-        `"${item.description}" is due in your ${item.category.name} category.`,
-      )
-    }
-  }
 
   const { month, year } = currentMonthYear()
   const budgets = await prisma.budget.findMany({
@@ -128,4 +114,14 @@ async function markAllRead(userId) {
   return { marked: true }
 }
 
-module.exports = { generateNotifications, listNotifications, markRead, markAllRead }
+async function deleteNotification(userId, id) {
+  const prisma = await getPrisma()
+  const existing = await prisma.notification.findFirst({ where: { id, userId } })
+  if (!existing) {
+    throw new AppError('Notification not found.', 404)
+  }
+  await prisma.notification.delete({ where: { id } })
+  return { id: Number(id) }
+}
+
+module.exports = { generateNotifications, listNotifications, markRead, markAllRead, deleteNotification }

@@ -166,6 +166,35 @@ export function patch(path, payload) {
   return request(path, { method: 'PATCH', body: payload })
 }
 
+// Binary (non-JSON) GET using the same auth/token mechanism as `request`.
+// Used for endpoints that return a file, e.g. the report PDF.
+export async function getBlob(path, params = {}) {
+  const query = buildQuery(params)
+  const url = query ? `${path}?${query}` : path
+  const headers = {}
+  if (getTokenFn) {
+    const token = await getTokenFn()
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`
+    }
+  }
+  let response
+  try {
+    response = await fetch(`${API_BASE}${url}`, { headers })
+  } catch {
+    throw new ApiError('Unable to reach the server. Is the backend running?', 0)
+  }
+  if (response.status === 401) {
+    throw new ApiError('Session expired. Please log in again.', 401)
+  }
+  if (!response.ok) {
+    const data = await parseJson(response)
+    const message = data && typeof data.message === 'string' ? data.message : 'Something went wrong.'
+    throw new ApiError(message, response.status, data && data.details ? data.details : null)
+  }
+  return response.blob()
+}
+
 function buildQuery(params) {
   const search = new URLSearchParams()
   for (const [key, value] of Object.entries(params || {})) {

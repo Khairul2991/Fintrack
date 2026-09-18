@@ -2,6 +2,7 @@ const { AppError } = require('../utils/appError')
 const { getPrisma } = require('../lib/prisma')
 const { requireText, amountString, integer } = require('../utils/validate')
 const { parseDateOnly, parseTransactionDate } = require('../utils/date')
+const { createNotification } = require('./notificationStore')
 const { ensureCategoryExists } = require('./categoryService')
 const { ensureActiveAccount, ensureCashAccount, cleanupArchivedAccountIfOrphaned } = require('./accountService')
 
@@ -108,7 +109,7 @@ async function generateDueTransactions(prisma, userId, item, now) {
       where: { id: item.id },
       data: { lastRunAt: new Date() },
     })
-    return 0
+    return { created: 0, notified: 0 }
   }
   const due = []
   while (next.getTime() <= now.getTime() && due.length < MAX_GENERATE_PER_RUN) {
@@ -121,7 +122,7 @@ async function generateDueTransactions(prisma, userId, item, now) {
       where: { id: item.id },
       data: { lastRunAt: new Date() },
     })
-    return 0
+    return { created: 0, notified: 0 }
   }
   const created = await prisma.$transaction(async (tx) => {
     const existing = await tx.transaction.findMany({
@@ -148,11 +149,21 @@ async function generateDueTransactions(prisma, userId, item, now) {
     if (owned.length > 0) {
       await tx.transaction.createMany({ data: owned })
     }
+    let notified = 0
+    if (item.category && item.category.name) {
+      notified = await createNotification(
+        tx,
+        userId,
+        'RECURRING_DUE',
+        'Recurring transaction due',
+        `"${item.description}" is due in your ${item.category.name} category.`,
+      )
+    }
     await tx.recurringTransaction.update({
       where: { id: item.id },
       data: { nextOccurrence: next, lastRunAt: new Date() },
     })
-    return owned.length
+    return { created: owned.length, notified }
   })
   return created
 }
@@ -161,23 +172,13 @@ async function runCatchUp(userId, options = {}) {
   const prisma = await getPrisma()
   const items = await prisma.recurringTransaction.findMany({
     where: { active: true, userId },
-    select: {
-      id: true,
-      description: true,
-      amount: true,
-      type: true,
-      categoryId: true,
-      accountId: true,
-      note: true,
-      frequency: true,
-      endDate: true,
-      nextOccurrence: true,
-    },
+    include: { category: { select: { name: true } } },
   })
   const now = options.now instanceof Date ? options.now : new Date()
   const results = await Promise.all(items.map((item) => generateDueTransactions(prisma, userId, item, now)))
-  const generated = results.reduce((sum, count) => sum + count, 0)
-  return { generated, processed: items.length }
+  const generated = results.reduce((sum, result) => sum + result.created, 0)
+  const notified = results.reduce((sum, result) => sum + result.notified, 0)
+  return { generated, processed: items.length, notified }
 }
 
 function serializeDateTime(value) {

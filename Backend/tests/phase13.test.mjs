@@ -1,6 +1,7 @@
 import { describe, it, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { createRequire } from 'node:module'
+import zlib from 'node:zlib'
 import {
   startApp,
   stopApp,
@@ -12,6 +13,8 @@ import {
 
 const require = createRequire(import.meta.url)
 const { getPrisma } = require('../src/lib/prisma')
+const { generateNotifications } = require('../src/services/notificationService')
+const { runCatchUp } = require('../src/services/recurringTransactionService')
 
 let state
 
@@ -631,7 +634,295 @@ describe('Notification generation', () => {
   })
 })
 
+describe('Recurring due notification', () => {
+  it('creates a RECURRING_DUE notification even though catch-up runs during generation', async () => {
+    const prisma = await getPrisma()
+    const food = (await getCategories(state.base, state.testUserId)).find((c) => c.name === 'Food')
+    const now = new Date()
+    const start = isoDate(now.getUTCFullYear(), now.getUTCMonth() + 1, now.getUTCDate())
+    const created = await request(state.base, 'POST', '/recurring-transactions', {
+      description: 'Test rent due',
+      amount: '100000',
+      type: 'EXPENSE',
+      categoryId: food.id,
+      frequency: 'WEEKLY',
+      startDate: start,
+    }, { userId: state.testUserId })
+    assert.equal(created.status, 201)
+    const recurringId = created.data.data.id
+
+    const before = await prisma.recurringTransaction.findUnique({ where: { id: recurringId } })
+    assert.ok(
+      new Date(before.nextOccurrence).getTime() <= now.getTime(),
+      'fixture recurring should be due today',
+    )
+
+    const gen = await request(state.base, 'POST', '/notifications/generate', undefined, { userId: state.testUserId })
+    assert.equal(gen.status, 200)
+
+    const list = await request(state.base, 'GET', '/notifications', undefined, { userId: state.testUserId })
+    const note = list.data.data.items.find(
+      (n) => n.type === 'RECURRING_DUE' && n.message.includes('Test rent due'),
+    )
+    assert.ok(note, 'expected a RECURRING_DUE notification for the due recurring transaction')
+
+    const after = await prisma.recurringTransaction.findUnique({ where: { id: recurringId } })
+    assert.ok(
+      new Date(after.nextOccurrence).getTime() > now.getTime(),
+      'catch-up should still advance nextOccurrence',
+    )
+
+    await prisma.notification.deleteMany({
+      where: { userId: state.testUserId, message: { contains: 'Test rent due' } },
+    })
+    await prisma.transaction.deleteMany({ where: { recurringTransactionId: recurringId } })
+    await prisma.recurringTransaction.delete({ where: { id: recurringId } })
+  })
+})
+
+describe('Notification delete & concurrency', () => {
+  async function createDueRecurring(description, amount) {
+    const food = (await getCategories(state.base, state.testUserId)).find((c) => c.name === 'Food')
+    const now = new Date()
+    const start = isoDate(now.getUTCFullYear(), now.getUTCMonth() + 1, now.getUTCDate())
+    const created = await request(state.base, 'POST', '/recurring-transactions', {
+      description,
+      amount,
+      type: 'EXPENSE',
+      categoryId: food.id,
+      frequency: 'WEEKLY',
+      startDate: start,
+    }, { userId: state.testUserId })
+    assert.equal(created.status, 201)
+    return created.data.data.id
+  }
+
+  async function cleanupRecurring(recurringId, description) {
+    const prisma = await getPrisma()
+    await prisma.notification.deleteMany({
+      where: { userId: state.testUserId, message: { contains: description } },
+    })
+    await prisma.transaction.deleteMany({ where: { recurringTransactionId: recurringId } })
+    await prisma.recurringTransaction.delete({ where: { id: recurringId } })
+  }
+
+  it('deletes own notification and updates the unread count', async () => {
+    const recurringId = await createDueRecurring('Delete me rent', '100000')
+    await request(state.base, 'POST', '/notifications/generate', undefined, { userId: state.testUserId })
+    const list = await request(state.base, 'GET', '/notifications', undefined, { userId: state.testUserId })
+    const note = list.data.data.items.find((n) => n.message.includes('Delete me rent'))
+    assert.ok(note, 'expected a notification created for the due recurring')
+    const unreadBefore = list.data.data.unread
+
+    const res = await request(state.base, 'DELETE', `/notifications/${note.id}`, undefined, { userId: state.testUserId })
+    assert.equal(res.status, 200)
+    assert.equal(res.data.data.id, note.id)
+
+    const after = (await request(state.base, 'GET', '/notifications', undefined, { userId: state.testUserId })).data.data
+    assert.ok(!after.items.some((n) => n.id === note.id), 'deleted notification must not be listed')
+    assert.equal(after.unread, Math.max(0, unreadBefore - 1), 'unread count must drop after delete')
+
+    await cleanupRecurring(recurringId, 'Delete me rent')
+  })
+
+  it('rejects deleting another user notification and a nonexistent one', async () => {
+    const prisma = await getPrisma()
+    const userB = await prisma.user.create({
+      data: { authUserId: 'test-user-2', email: 'test2@fintrack.local', name: 'Test User 2' },
+    })
+    const other = await prisma.notification.create({
+      data: {
+        userId: userB.id,
+        type: 'GOAL_DEADLINE',
+        title: 'Goal deadline approaching',
+        message: 'Your financial goal "Plan B" is due in 5 day(s).',
+      },
+    })
+
+    const res = await request(state.base, 'DELETE', `/notifications/${other.id}`, undefined, { userId: state.testUserId })
+    assert.equal(res.status, 404)
+    assert.equal(res.data.message, 'Notification not found.')
+
+    const missing = await request(state.base, 'DELETE', '/notifications/999999', undefined, { userId: state.testUserId })
+    assert.equal(missing.status, 404)
+
+    const stillThere = await prisma.notification.findUnique({ where: { id: other.id } })
+    assert.ok(stillThere, 'other user notification must remain untouched')
+
+    await prisma.notification.delete({ where: { id: other.id } })
+    await prisma.user.delete({ where: { id: userB.id } })
+  })
+
+  it('does not duplicate notifications when generation is invoked concurrently', async () => {
+    const recurringId = await createDueRecurring('Concurrent rent', '111000')
+    const [a, b] = await Promise.all([
+      request(state.base, 'POST', '/notifications/generate', undefined, { userId: state.testUserId }),
+      request(state.base, 'POST', '/notifications/generate', undefined, { userId: state.testUserId }),
+    ])
+    assert.equal(a.status, 200)
+    assert.equal(b.status, 200)
+
+    const list = (await request(state.base, 'GET', '/notifications', undefined, { userId: state.testUserId })).data.data
+    const matches = list.items.filter((n) => n.message.includes('Concurrent rent'))
+    assert.equal(matches.length, 1, 'concurrent generation must not duplicate notifications')
+
+    await cleanupRecurring(recurringId, 'Concurrent rent')
+  })
+})
+
+describe('Recurring due notification (fixed time)', () => {
+  const D = (iso) => new Date(iso)
+  const MSG = { contains: '09:00 rent' }
+
+  before(async () => {
+    await clearDerived()
+  })
+
+  async function createRule(overrides = {}) {
+    const prisma = await getPrisma()
+    const food = (await getCategories(state.base, state.testUserId)).find((c) => c.name === 'Food')
+    return prisma.recurringTransaction.create({
+      data: {
+        userId: state.testUserId,
+        description: '09:00 rent',
+        amount: '150000',
+        type: 'EXPENSE',
+        categoryId: food.id,
+        accountId: null,
+        frequency: 'WEEKLY',
+        startDate: D('2026-09-18T09:00:00Z'),
+        nextOccurrence: D('2026-09-18T09:00:00Z'),
+        active: true,
+        ...overrides,
+      },
+    })
+  }
+
+  async function cleanupRule(ruleId) {
+    const prisma = await getPrisma()
+    await prisma.notification.deleteMany({ where: { userId: state.testUserId, type: 'RECURRING_DUE', message: MSG } })
+    await prisma.transaction.deleteMany({ where: { recurringTransactionId: ruleId } })
+    await prisma.recurringTransaction.deleteMany({ where: { id: ruleId } })
+  }
+
+  async function dueNotes() {
+    const prisma = await getPrisma()
+    return prisma.notification.findMany({
+      where: { userId: state.testUserId, type: 'RECURRING_DUE', message: MSG },
+    })
+  }
+
+  it('CASE 1: recurring due today 09:00 produces a RECURRING_DUE at 10:44', async () => {
+    const rule = await createRule()
+    const result = await generateNotifications(state.testUserId, { now: D('2026-09-18T10:44:00Z') })
+    assert.ok(result.created >= 1)
+    assert.ok((await dueNotes()).length === 1, 'expected exactly one RECURRING_DUE notification')
+    await cleanupRule(rule.id)
+  })
+
+  it('CASE 2: recurring not yet due produces no notification', async () => {
+    const rule = await createRule()
+    const result = await generateNotifications(state.testUserId, { now: D('2026-09-18T08:00:00Z') })
+    assert.equal(result.created, 0)
+    assert.equal((await dueNotes()).length, 0, 'no notification expected before 09:00')
+    await cleanupRule(rule.id)
+  })
+
+  it('CASE 3: after notifying, nextOccurrence advances to the next occurrence keeping 09:00', async () => {
+    const rule = await createRule()
+    await generateNotifications(state.testUserId, { now: D('2026-09-18T10:44:00Z') })
+    const prisma = await getPrisma()
+    const fresh = await prisma.recurringTransaction.findUnique({ where: { id: rule.id } })
+    assert.equal(fresh.nextOccurrence.toISOString(), '2026-09-25T09:00:00.000Z')
+    await cleanupRule(rule.id)
+  })
+
+  it('CASE 4: running generation twice keeps a single unread notification', async () => {
+    const rule = await createRule()
+    await generateNotifications(state.testUserId, { now: D('2026-09-18T10:44:00Z') })
+    const second = await generateNotifications(state.testUserId, { now: D('2026-09-18T10:44:00Z') })
+    assert.equal(second.created, 0)
+    assert.equal((await dueNotes()).length, 1, 'dedup must keep exactly one unread notification')
+    await cleanupRule(rule.id)
+  })
+
+  it('CASE 5: manual "Check reminders" concurrent with the scheduler yields a single notification', async () => {
+    const rule = await createRule()
+    await Promise.all([
+      generateNotifications(state.testUserId, { now: D('2026-09-18T10:44:00Z') }),
+      generateNotifications(state.testUserId, { now: D('2026-09-18T10:44:00Z') }),
+    ])
+    assert.equal((await dueNotes()).length, 1, 'concurrent scheduler + manual runs must not duplicate')
+    await cleanupRule(rule.id)
+  })
+
+  it('CASE 6: a 09:00 start date is stored on the same UTC day and never shifted by conversion', async () => {
+    const food = (await getCategories(state.base, state.testUserId)).find((c) => c.name === 'Food')
+    const created = await request(state.base, 'POST', '/recurring-transactions', {
+      description: '09:00 rent',
+      amount: '150000',
+      type: 'EXPENSE',
+      categoryId: food.id,
+      frequency: 'WEEKLY',
+      startDate: '2026-09-18T09:00:00',
+    }, { userId: state.testUserId })
+    assert.equal(created.status, 201)
+    const prisma = await getPrisma()
+    const rule = await prisma.recurringTransaction.findUnique({ where: { id: created.data.data.id } })
+    assert.equal(rule.nextOccurrence.toISOString(), '2026-09-18T09:00:00.000Z')
+    assert.equal(rule.startDate.toISOString(), '2026-09-18T09:00:00.000Z')
+    await prisma.transaction.deleteMany({ where: { recurringTransactionId: rule.id } })
+    await prisma.recurringTransaction.delete({ where: { id: rule.id } })
+  })
+
+  it('dashboard-style catch-up (runCatchUp alone) emits the reminder instead of advancing silently', async () => {
+    const rule = await createRule()
+    const result = await runCatchUp(state.testUserId, { now: D('2026-09-18T10:44:00Z') })
+    assert.equal(result.generated, 1)
+    assert.equal(result.notified, 1)
+    assert.equal((await dueNotes()).length, 1, 'catch-up outside generation must still notify')
+    const prisma = await getPrisma()
+    const fresh = await prisma.recurringTransaction.findUnique({ where: { id: rule.id } })
+    assert.equal(fresh.nextOccurrence.toISOString(), '2026-09-25T09:00:00.000Z')
+
+    const after = await generateNotifications(state.testUserId, { now: D('2026-09-18T10:44:00Z') })
+    assert.equal(after.created, 0, 'later generation must not re-create the already-notified reminder')
+    await cleanupRule(rule.id)
+  })
+})
+
 describe('PDF report', () => {
+  // Concatenate hex fragments inside each TJ array (PDFKit splits words with
+  // kerning adjustments) so UI labels can be asserted without new dependencies.
+  function pdfText(buf) {
+    const raw = buf.toString('latin1')
+    const out = []
+    const re = /\/Length (\d+)[^>]*?>>\s*stream\r?\n/g
+    let m
+    while ((m = re.exec(raw)) !== null) {
+      const slice = Buffer.from(raw.slice(m.index + m[0].length, m.index + m[0].length + Number(m[1])), 'latin1')
+      let ops
+      try {
+        ops = zlib.inflateSync(slice).toString('latin1')
+      } catch {
+        ops = slice.toString('latin1')
+      }
+      for (const tj of ops.matchAll(/\[(?:\s*<[0-9A-Fa-f]+>\s*|-?\d+(?:\.\d+)?\s*)+?\]/g)) {
+        out.push([...tj[0].matchAll(/<([0-9A-Fa-f]+)>/g)]
+          .map((h) => Buffer.from(h[1], 'hex').toString('latin1')).join(''))
+      }
+    }
+    return out.join(' ')
+  }
+
+  async function fetchPdf(lang) {
+    const res = await fetch(`${state.base}/reports/pdf?lang=${lang}`, {
+      headers: { 'x-test-user-id': String(state.testUserId) },
+    })
+    assert.equal(res.status, 200)
+    return Buffer.from(await res.arrayBuffer())
+  }
+
   it('serves a valid PDF for both en and id', async () => {
     for (const lang of ['en', 'id']) {
       const res = await fetch(`${state.base}/reports/pdf?lang=${lang}`, {
@@ -642,6 +933,32 @@ describe('PDF report', () => {
       assert.equal(res.headers.get('content-type'), 'application/pdf')
       assert.equal(buf.slice(0, 4).toString(), '%PDF')
       assert.ok(buf.length > 500)
+    }
+  })
+
+  it('renders every UI label in the requested language', async () => {
+    const id = pdfText(await fetchPdf('id'))
+    for (const label of ['Laporan Keuangan', 'Periode:', 'Ringkasan', 'Pendapatan', 'Pengeluaran', 'Saldo',
+      'Kategori Pengeluaran Teratas', 'Ringkasan Bulanan', 'Bulan', 'Bersih',
+      'Ringkasan Transaksi', 'Total transaksi', 'Transaksi pengeluaran', 'Dibuat']) {
+      assert.ok(id.includes(label), `id PDF missing "${label}"`)
+    }
+    for (const leak of ['Financial Report', 'Monthly Summary', 'Top Expense Categories',
+      'Transaction Summary', 'Total transactions', 'Expense transactions', 'Generated',
+      'No expense data available.']) {
+      assert.ok(!id.includes(leak), `id PDF leaks "${leak}"`)
+    }
+
+    const en = pdfText(await fetchPdf('en'))
+    for (const label of ['Financial Report', 'Period:', 'Summary', 'Total income', 'Total expense', 'Balance',
+      'Top Expense Categories', 'Monthly Summary', 'Month', 'Transaction Summary',
+      'Total transactions', 'Expense transactions', 'Generated']) {
+      assert.ok(en.includes(label), `en PDF missing "${label}"`)
+    }
+    for (const leak of ['Laporan Keuangan', 'Periode:', 'Ringkasan Bulanan', 'Kategori Pengeluaran Teratas',
+      'Ringkasan Transaksi', 'Total transaksi', 'Transaksi pengeluaran', 'Dibuat',
+      'Belum ada data pengeluaran.']) {
+      assert.ok(!en.includes(leak), `en PDF leaks "${leak}"`)
     }
   })
 })
